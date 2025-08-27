@@ -1,0 +1,357 @@
+package com.rules;
+
+import com.rules.actions.ActionRegistry;
+import com.rules.actions.application.*;
+import com.rules.context.RuleContext;
+import com.rules.engine.RulesEngine;
+import com.rules.engine.RuleResult;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Comprehensive tests for date/time expressions in the rules engine.
+ * Tests various date/time operations, comparisons, and functions.
+ */
+public class DateTimeExpressionTest {
+    
+    private RulesEngine rulesEngine;
+    private ActionRegistry actionRegistry;
+    
+    @BeforeEach
+    public void setUp() throws Exception {
+        actionRegistry = new ActionRegistry();
+        
+        // Register actions for testing
+        actionRegistry.registerAction(new ApproveApplicationAction());
+        actionRegistry.registerAction(new RejectApplicationAction());
+        actionRegistry.registerAction(new ManualReviewAction());
+        
+        rulesEngine = new RulesEngine(actionRegistry);
+    }
+    
+    @AfterEach
+    public void tearDown() {
+        if (rulesEngine != null) {
+            rulesEngine.shutdown();
+        }
+    }
+    
+    @Test
+    public void testBasicDateComparisons() throws Exception {
+        System.out.println("\n=== Testing Basic Date Comparisons ===");
+        
+        String rulesDSL = "rule dateComparison:\n" +
+            "    if applicant.birthDate before \"2000-01-01\" then approveApplication\n" +
+            "    if applicant.applicationDate after \"2025-01-01\" then rejectApplication";
+        
+        rulesEngine.loadRules(rulesDSL);
+        
+        // Test case: Birth date before 2000, application date after 2025
+        String jsonData = "{\n" +
+            "    \"applicant\": {\n" +
+            "        \"id\": \"APP_DATE_001\",\n" +
+            "        \"birthDate\": \"1995-06-15\",\n" +
+            "        \"applicationDate\": \"2025-08-25\"\n" +
+            "    }\n" +
+            "}";
+        
+        RuleContext context = new RuleContext(jsonData);
+        RulesEngine.ExecutionSummary summary = rulesEngine.executeRulesWithActions(context);
+        
+        System.out.println("Date comparison result: " + summary);
+        assertEquals(1, summary.getRulesExecuted());
+        assertTrue(summary.getActionsExecuted() > 0);
+        assertFalse(summary.hasErrors());
+    }
+    
+    @Test
+    public void testDateTimeFunctions() throws Exception {
+        System.out.println("\n=== Testing Date/Time Functions ===");
+        
+        String rulesDSL = """
+            rule dateFunctions:
+                if year_of(applicant.birthDate) < 2000 then approveApplication
+                if month_of(applicant.applicationDate) = 12 then manualReview
+            """;
+        
+        rulesEngine.loadRules(rulesDSL);
+        
+        // Test case: Birth year 1995, application month December
+        String jsonData = """
+            {
+                "applicant": {
+                    "id": "APP_FUNC_001",
+                    "birthDate": "1995-06-15T10:30:00",
+                    "applicationDate": "2025-12-25T14:30:00"
+                }
+            }
+            """;
+        
+        RuleContext context = new RuleContext(jsonData);
+        RulesEngine.ExecutionSummary summary = rulesEngine.executeRulesWithActions(context);
+        
+        System.out.println("Date functions result: " + summary);
+        assertEquals(1, summary.getRulesExecuted());
+        assertTrue(summary.getActionsExecuted() > 0);
+        assertFalse(summary.hasErrors());
+    }
+    
+    @Test
+    public void testAgeCalculations() throws Exception {
+        System.out.println("\n=== Testing Age Calculations ===");
+        
+        String rulesDSL = """
+            rule ageCheck:
+                if applicant.birthDate age_years >= 18 then approveApplication
+                if applicant.birthDate age_months < 216 then rejectApplication
+            """;
+        
+        rulesEngine.loadRules(rulesDSL);
+        
+        // Test case: Birth date 20 years ago
+        LocalDateTime twentyYearsAgo = LocalDateTime.now().minusYears(20);
+        String birthDate = twentyYearsAgo.format(DateTimeFormatter.ISO_LOCAL_DATE);
+        
+        String jsonData = String.format("""
+            {
+                "applicant": {
+                    "id": "APP_AGE_001",
+                    "birthDate": "%s"
+                }
+            }
+            """, birthDate);
+        
+        RuleContext context = new RuleContext(jsonData);
+        RulesEngine.ExecutionSummary summary = rulesEngine.executeRulesWithActions(context);
+        
+        System.out.println("Age calculation result: " + summary);
+        assertEquals(1, summary.getRulesExecuted());
+        assertTrue(summary.getActionsExecuted() > 0);
+        assertFalse(summary.hasErrors());
+    }
+    
+    @Test
+    public void testWeekendWeekdayChecks() throws Exception {
+        System.out.println("\n=== Testing Weekend/Weekday Checks ===");
+        
+        String rulesDSL = """
+            rule weekendCheck:
+                if transaction.timestamp is_weekend then manualReview
+                if transaction.timestamp is_weekday then approveApplication
+            """;
+        
+        rulesEngine.loadRules(rulesDSL);
+        
+        // Test case: Saturday transaction (weekend)
+        String jsonData = """
+            {
+                "transaction": {
+                    "id": "TXN_WEEKEND_001",
+                    "timestamp": "2025-08-30T15:30:00",
+                    "amount": 1000
+                }
+            }
+            """;
+        
+        RuleContext context = new RuleContext(jsonData);
+        RulesEngine.ExecutionSummary summary = rulesEngine.executeRulesWithActions(context);
+        
+        System.out.println("Weekend check result: " + summary);
+        assertEquals(1, summary.getRulesExecuted());
+        assertTrue(summary.getActionsExecuted() > 0);
+        assertFalse(summary.hasErrors());
+    }
+    
+    @Test
+    public void testNowAndTodayLiterals() throws Exception {
+        System.out.println("\n=== Testing NOW and TODAY Literals ===");
+        
+        String rulesDSL = """
+            rule currentTimeCheck:
+                if applicant.applicationDate before now then approveApplication
+                if transaction.date = today then manualReview
+            """;
+        
+        rulesEngine.loadRules(rulesDSL);
+        
+        // Test case: Application date in the past, transaction today
+        String todayDate = LocalDateTime.now().toLocalDate().toString();
+        String pastDate = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        
+        String jsonData = String.format("""
+            {
+                "applicant": {
+                    "id": "APP_NOW_001",
+                    "applicationDate": "%s"
+                },
+                "transaction": {
+                    "id": "TXN_TODAY_001",
+                    "date": "%s"
+                }
+            }
+            """, pastDate, todayDate);
+        
+        RuleContext context = new RuleContext(jsonData);
+        RulesEngine.ExecutionSummary summary = rulesEngine.executeRulesWithActions(context);
+        
+        System.out.println("NOW/TODAY literals result: " + summary);
+        assertEquals(1, summary.getRulesExecuted());
+        assertTrue(summary.getActionsExecuted() > 0);
+        assertFalse(summary.hasErrors());
+    }
+    
+    @Test
+    public void testDateTimeArithmetic() throws Exception {
+        System.out.println("\n=== Testing Date/Time Arithmetic ===");
+        
+        String rulesDSL = """
+            rule dateArithmetic:
+                if applicant.birthDate + 18 years before now then approveApplication
+                if transaction.timestamp - 1 day after applicant.applicationDate then manualReview
+            """;
+        
+        rulesEngine.loadRules(rulesDSL);
+        
+        // Test case: Birth date 25 years ago, transaction yesterday, application 2 days ago
+        LocalDateTime birthDate = LocalDateTime.now().minusYears(25);
+        LocalDateTime applicationDate = LocalDateTime.now().minusDays(2);
+        LocalDateTime transactionDate = LocalDateTime.now().minusDays(1);
+        
+        String jsonData = String.format("""
+            {
+                "applicant": {
+                    "id": "APP_ARITH_001",
+                    "birthDate": "%s",
+                    "applicationDate": "%s"
+                },
+                "transaction": {
+                    "id": "TXN_ARITH_001",
+                    "timestamp": "%s"
+                }
+            }
+            """, 
+            birthDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            applicationDate.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            transactionDate.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        
+        RuleContext context = new RuleContext(jsonData);
+        RulesEngine.ExecutionSummary summary = rulesEngine.executeRulesWithActions(context);
+        
+        System.out.println("Date arithmetic result: " + summary);
+        assertEquals(1, summary.getRulesExecuted());
+        assertTrue(summary.getActionsExecuted() > 0);
+        assertFalse(summary.hasErrors());
+    }
+    
+    @Test
+    public void testComplexDateTimeRule() throws Exception {
+        System.out.println("\n=== Testing Complex Date/Time Rule ===");
+        
+        String rulesDSL = """
+            rule complexDateTimeRule:
+                if applicant.birthDate age_years >= 21 and 
+                   applicant.applicationDate after "2025-01-01" and
+                   transaction.timestamp is_weekday and
+                   year_of(transaction.timestamp) = 2025 then approveApplication
+                if applicant.birthDate age_years < 18 then rejectApplication
+            """;
+        
+        rulesEngine.loadRules(rulesDSL);
+        
+        // Test case: 25-year-old applicant, recent application, weekday transaction in 2025
+        LocalDateTime birthDate = LocalDateTime.now().minusYears(25);
+        LocalDateTime applicationDate = LocalDateTime.of(2025, 8, 15, 10, 0);
+        LocalDateTime transactionDate = LocalDateTime.of(2025, 8, 25, 14, 30); // Monday
+        
+        String jsonData = String.format("""
+            {
+                "applicant": {
+                    "id": "APP_COMPLEX_001",
+                    "birthDate": "%s",
+                    "applicationDate": "%s"
+                },
+                "transaction": {
+                    "id": "TXN_COMPLEX_001",
+                    "timestamp": "%s"
+                }
+            }
+            """, 
+            birthDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            applicationDate.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            transactionDate.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        
+        RuleContext context = new RuleContext(jsonData);
+        RulesEngine.ExecutionSummary summary = rulesEngine.executeRulesWithActions(context);
+        
+        System.out.println("Complex date/time rule result: " + summary);
+        assertEquals(1, summary.getRulesExecuted());
+        assertTrue(summary.getActionsExecuted() > 0);
+        assertFalse(summary.hasErrors());
+    }
+    
+    @Test
+    public void testPerformanceWithDateTimeOperations() throws Exception {
+        System.out.println("\n=== Testing Performance with Date/Time Operations ===");
+        
+        String rulesDSL = """
+            rule performanceDateTimeRule:
+                if applicant.birthDate age_years >= 18 and
+                   transaction.timestamp is_weekday and
+                   year_of(applicant.applicationDate) = 2025 then approveApplication
+            """;
+        
+        rulesEngine.loadRules(rulesDSL);
+        
+        // Performance test data
+        LocalDateTime birthDate = LocalDateTime.now().minusYears(25);
+        LocalDateTime applicationDate = LocalDateTime.of(2025, 8, 15, 10, 0);
+        LocalDateTime transactionDate = LocalDateTime.of(2025, 8, 25, 14, 30);
+        
+        String jsonData = String.format("""
+            {
+                "applicant": {
+                    "id": "APP_PERF_001",
+                    "birthDate": "%s",
+                    "applicationDate": "%s"
+                },
+                "transaction": {
+                    "id": "TXN_PERF_001",
+                    "timestamp": "%s"
+                }
+            }
+            """, 
+            birthDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            applicationDate.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            transactionDate.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        
+        RuleContext context = new RuleContext(jsonData);
+        
+        // Performance test
+        long totalTime = 0;
+        int iterations = 1000;
+        
+        for (int i = 0; i < iterations; i++) {
+            long start = System.nanoTime();
+            RulesEngine.ExecutionSummary summary = rulesEngine.executeRulesWithActions(context);
+            long end = System.nanoTime();
+            
+            totalTime += (end - start);
+            
+            // Verify execution
+            assertEquals(1, summary.getRulesExecuted());
+            assertTrue(summary.getActionsExecuted() > 0);
+        }
+        
+        double avgTimeMs = (totalTime / iterations) / 1_000_000.0;
+        System.out.printf("Average execution time for date/time rule: %.3f ms%n", avgTimeMs);
+        
+        // Should still be fast even with date/time operations
+        assertTrue(avgTimeMs < 5.0, "Date/time rules should execute under 5ms on average");
+    }
+}

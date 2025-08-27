@@ -1,0 +1,218 @@
+/* App Layout */
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-header {
+  background: #001529;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+}
+
+.app-title h1 {
+  color: white;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.app-subtitle {
+  color: #8c8c8c;
+  font-size: 12px;
+  margin-left: 16px;
+}
+
+.app-content {
+  background: #f0f2f5;
+}
+
+.content-wrapper {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Rules List Styles */
+.rules-table .ant-table-tbody > tr:hover > td {
+  background: #f5f5f5;
+}
+
+.rule-name {
+  font-weight: 600;
+  color: #1890ff;
+  cursor: pointer;
+}
+
+.rule-name:hover {
+  text-decoration: underline;
+}
+
+.rule-description {
+  color: #666;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Rule Editor Styles */
+.rule-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.rule-editor-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rule-editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.editor-container {
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.syntax-help {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+}
+
+.syntax-help h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.syntax-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.syntax-examples .ant-tag {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+}
+
+/* Validation Status */
+.validation-status {
+  margin-top: 16px;
+}
+
+.validation-status h4 {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+/* Status Tags */
+.status-tag {
+  font-weight: 500;
+}
+
+/* Loading States */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .content-wrapper {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 16px;
+  }
+  
+  .app-title h1 {
+    font-size: 18px;
+  }
+  
+  .app-subtitle {
+    display: none;
+  }
+  
+  .content-wrapper {
+    padding: 12px;
+  }
+  
+  .rule-editor-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .rule-editor-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Monaco Editor Customizations */
+.monaco-editor {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+}
+
+.monaco-editor .suggest-widget {
+  z-index: 1000;
+}
+
+/* Ant Design Customizations */
+.ant-card-head-title {
+  font-weight: 600;
+}
+
+.ant-form-item-label > label {
+  font-weight: 500;
+}
+
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.ant-btn-primary {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+.ant-btn-primary:hover {
+  background: #40a9ff;
+  border-color: #40a9ff;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

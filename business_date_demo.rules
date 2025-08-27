@@ -1,0 +1,17 @@
+rule businessDateValidation:
+    if applicant.applicationDate before business_date then rejectApplication
+    if applicant.applicationDate = business_date then approveApplication
+    if applicant.applicationDate after business_date then conditionalApproval
+
+rule businessDateArithmetic:
+    if business_date + 30 days > applicant.applicationDate then instantApproval
+    if business_date - 5 days <= applicant.applicationDate then manualReview
+
+rule businessDateComparison:
+    if business_date = today then approveApplication
+    if business_date before today then manualReview
+    if business_date after today then rejectApplication
+
+rule complexBusinessDateRule:
+    if applicant.creditScore > 700 and applicant.applicationDate >= business_date and business_date + 7 days > today then instantApproval
+    if applicant.creditScore <= 600 and applicant.applicationDate < business_date then rejectApplication

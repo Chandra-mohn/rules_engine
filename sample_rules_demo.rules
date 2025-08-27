@@ -1,0 +1,20 @@
+# Sample Rules from SAMPLE_RULES.md - Demonstration
+
+# Simple Rules
+rule ageVerification:
+    if applicant.age < 18 then rejectApplication
+
+rule incomeExpenseCheck:
+    if applicant.annualIncome < applicant.monthlyExpenses * 12 then rejectApplication
+
+rule creditLimitCheck:
+    if transaction.amount > card.availableBalance then blockTransaction
+
+# Medium Complexity Rules
+rule debtToIncomeCheck:
+    if applicant.totalDebt > applicant.annualIncome * 0.4 then requireManualReview
+    if applicant.creditScore >= 700 and applicant.annualIncome > applicant.requestedCreditLimit * 3 then approveApplication
+
+rule behavioralPatterns:
+    if transaction.amount > customer.averageTransactionAmount * 5 then flagForReview
+    if transaction.location != customer.homeLocation and transaction.amount > customer.travelThreshold then sendAlert
