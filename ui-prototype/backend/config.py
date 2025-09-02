@@ -9,8 +9,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Java integration
-    JAVA_RULES_ENGINE_PATH = BASE_DIR.parent.parent / 'backend'
-    JAVA_CLASSPATH = JAVA_RULES_ENGINE_PATH / 'target' / 'classes'
+    JAVA_RULES_ENGINE_PATH = BASE_DIR.parent / 'java-bridge'
+    JAVA_CLASSPATH = JAVA_RULES_ENGINE_PATH / 'classes'
     
     # API configuration
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'

@@ -76,7 +76,7 @@ export const rulesLanguageDefinition = {
         { include: '@whitespace' },
 
         // delimiters and operators
-        [/[{}()\[\]]/, '@brackets'],
+        [/[{}()[\]]/, '@brackets'],
         [/[<>](?!@symbols)/, '@brackets'],
         [/@symbols/, {
           cases: {
@@ -86,7 +86,7 @@ export const rulesLanguageDefinition = {
         }],
 
         // numbers
-        [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+        [/\d*\.\d+([eE][-+]?\d+)?/, 'number.float'],
         [/\d+/, 'number'],
 
         // delimiter: after number because of .\d floats
@@ -104,10 +104,10 @@ export const rulesLanguageDefinition = {
       ],
 
       comment: [
-        [/[^\/*]+/, 'comment'],
+        [/[^/*]+/, 'comment'],
         [/\/\*/, 'comment', '@push'],    // nested comment
         ["\\*/", 'comment', '@pop'],
-        [/[\/*]/, 'comment']
+        [/[/*]/, 'comment']
       ],
 
       string: [
@@ -123,7 +123,7 @@ export const rulesLanguageDefinition = {
       ],
     },
 
-    symbols: /[=><!~?:&|+\-*\/\^%]+/,
+    symbols: /[=><!~?:&|+\-*/^%]+/,
   },
 
   // Theme definition
@@ -158,6 +158,7 @@ export const rulesLanguageDefinition = {
         {
           label: 'rule',
           kind: 14, // monaco.languages.CompletionItemKind.Keyword
+          // eslint-disable-next-line no-template-curly-in-string
           insertText: 'rule ${1:ruleName}:\n    if ${2:condition} then ${3:action}',
           insertTextRules: 4, // monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
           documentation: 'Define a new rule'
@@ -165,6 +166,7 @@ export const rulesLanguageDefinition = {
         {
           label: 'if',
           kind: 14,
+          // eslint-disable-next-line no-template-curly-in-string
           insertText: 'if ${1:condition} then ${2:action}',
           insertTextRules: 4,
           documentation: 'Conditional statement'
@@ -175,6 +177,7 @@ export const rulesLanguageDefinition = {
       return { suggestions };
     }
   }
+};
 
 // Helper function to convert server suggestion kind to Monaco kind
 export const getMonacoCompletionKind = (kind, monaco) => {
@@ -188,5 +191,4 @@ export const getMonacoCompletionKind = (kind, monaco) => {
     case 'operator': return monaco.languages.CompletionItemKind.Operator;
     default: return monaco.languages.CompletionItemKind.Text;
   }
-};
 };

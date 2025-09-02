@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, message } from 'antd';
+import { Layout } from 'antd';
 import RulesList from './components/RulesList';
 import RuleEditor from './components/RuleEditor';
 import './App.css';

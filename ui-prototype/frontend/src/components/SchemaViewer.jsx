@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Modal,
   Tabs,
-  Table,
   Tag,
   Typography,
   Space,
@@ -19,14 +18,13 @@ import {
 } from '@ant-design/icons';
 import { schemaApi } from '../services/api';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { Search } = Input;
 const { Panel } = Collapse;
 
 const SchemaViewer = ({ visible, onClose }) => {
   const [schema, setSchema] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -36,26 +34,15 @@ const SchemaViewer = ({ visible, onClose }) => {
   }, [visible]);
 
   const loadSchema = async () => {
-    setLoading(true);
     try {
       const response = await schemaApi.getFullSchema();
       setSchema(response.data);
     } catch (error) {
       console.error('Failed to load schema:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const filterItems = (items, searchTerm) => {
-    if (!searchTerm) return items;
-    const term = searchTerm.toLowerCase();
-    return items.filter(item => 
-      item.label?.toLowerCase().includes(term) ||
-      item.documentation?.toLowerCase().includes(term) ||
-      item.description?.toLowerCase().includes(term)
-    );
-  };
+
 
   const renderAttributesTab = () => {
     if (!schema) return null;

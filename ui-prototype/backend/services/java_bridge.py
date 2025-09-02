@@ -10,7 +10,7 @@ class JavaBridge:
     
     def __init__(self, java_rules_path: Path):
         self.java_rules_path = java_rules_path
-        self.classpath = java_rules_path / 'target' / 'classes'
+        self.classpath = java_rules_path / 'classes'
         
     def validate_rule(self, rule_content: str) -> Dict[str, Any]:
         """
