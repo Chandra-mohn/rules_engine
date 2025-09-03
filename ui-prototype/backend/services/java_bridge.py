@@ -11,6 +11,8 @@ class JavaBridge:
     def __init__(self, java_rules_path: Path):
         self.java_rules_path = java_rules_path
         self.classpath = java_rules_path / 'classes'
+        # Also check for the main backend with proper ANTLR support
+        self.main_backend_path = Path(__file__).parent.parent.parent.parent / 'backend'
         
     def validate_rule(self, rule_content: str) -> Dict[str, Any]:
         """
@@ -29,21 +31,74 @@ class JavaBridge:
                 temp_file_path = temp_file.name
             
             try:
-                # Run Java validation command
-                cmd = [
-                    'java',
-                    '-cp', str(self.classpath),
-                    'com.rules.cli.RuleValidator',
-                    temp_file_path
-                ]
-                
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    cwd=str(self.java_rules_path)
-                )
+                # Try to use the main ANTLR-based backend first
+                if self.main_backend_path.exists() and (self.main_backend_path / 'target' / 'classes').exists():
+                    main_classpath = str(self.main_backend_path / 'target' / 'classes')
+                    # Add ANTLR runtime to classpath - check common locations
+                    antlr_jar_paths = [
+                        self.main_backend_path / 'target' / 'dependency' / 'antlr4-runtime*.jar',
+                        self.main_backend_path / 'lib' / 'antlr4-runtime*.jar',
+                    ]
+                    
+                    for jar_pattern in antlr_jar_paths:
+                        import glob
+                        jar_files = glob.glob(str(jar_pattern))
+                        if jar_files:
+                            main_classpath += ':' + ':'.join(jar_files)
+                            break
+                    
+                    # Try ANTLR-based validator first
+                    cmd = [
+                        'java',
+                        '-cp', main_classpath,
+                        'com.rules.cli.RuleValidatorANTLR', 
+                        temp_file_path
+                    ]
+                    
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        cwd=str(self.main_backend_path)
+                    )
+                    
+                    # If ANTLR validator worked, use its result
+                    if result.returncode == 0 or "ANTLR" not in result.stderr:
+                        # Process ANTLR result and return
+                        pass  # Continue with existing result processing
+                    else:
+                        # Fall back to simple validator
+                        cmd = [
+                            'java',
+                            '-cp', str(self.classpath),
+                            'com.rules.cli.RuleValidator',
+                            temp_file_path
+                        ]
+                        
+                        result = subprocess.run(
+                            cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                            cwd=str(self.java_rules_path)
+                        )
+                else:
+                    # Fall back to simple validator
+                    cmd = [
+                        'java',
+                        '-cp', str(self.classpath),
+                        'com.rules.cli.RuleValidator',
+                        temp_file_path
+                    ]
+                    
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        cwd=str(self.java_rules_path)
+                    )
                 
                 if result.returncode == 0:
                     # Parse successful validation result

@@ -116,7 +116,7 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
       content: (
         <div>
           <p>Rule: <strong>{rule.name}</strong></p>
-          <p>Testing functionality will be implemented in the full version.</p>
+          <p>Not yet implemented.</p>
           <p>This would allow you to:</p>
           <ul>
             <li>Provide sample input data</li>

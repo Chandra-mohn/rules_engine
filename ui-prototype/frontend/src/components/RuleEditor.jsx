@@ -161,7 +161,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const handleTest = () => {
     // For now, show a simple test interface
     // In a full implementation, this would open a comprehensive test modal
-    message.info('Test functionality will be implemented in the full version');
+    message.info('Not yet implemented');
   };
 
   // Handle save

@@ -5,9 +5,16 @@
 
 .app-header {
   background: #001529;
-  padding: 0 24px;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
+  height: auto;
+}
+
+.app-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .app-title h1 {
@@ -15,12 +22,14 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .app-subtitle {
   color: #8c8c8c;
-  font-size: 12px;
-  margin-left: 16px;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.2;
 }
 
 .app-content {
