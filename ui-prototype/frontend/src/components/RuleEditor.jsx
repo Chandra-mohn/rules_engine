@@ -13,6 +13,7 @@ import {
   Row,
   Col,
   Tag,
+  Modal,
 } from 'antd';
 import {
   SaveOutlined,
@@ -21,11 +22,13 @@ import {
   CloseCircleOutlined,
   ArrowLeftOutlined,
   InfoCircleOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import { rulesApi } from '../services/api';
 import { rulesLanguageDefinition } from '../utils/rulesSyntax';
 import SchemaViewer from './SchemaViewer';
+import SampleDataEditor from './SampleDataEditor';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -37,6 +40,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const [validation, setValidation] = useState(null);
   const [editorContent, setEditorContent] = useState('');
   const [schemaViewerVisible, setSchemaViewerVisible] = useState(false);
+  const [sampleDataVisible, setSampleDataVisible] = useState(false);
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
 
@@ -158,10 +162,254 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   };
 
   // Handle test rule
-  const handleTest = () => {
-    // For now, show a simple test interface
-    // In a full implementation, this would open a comprehensive test modal
-    message.info('Not yet implemented');
+  const handleTest = async () => {
+    try {
+      if (!editorContent.trim()) {
+        message.error('Please enter rule content before testing');
+        return;
+      }
+
+      // Get saved sample data or use defaults
+      const savedSampleData = localStorage.getItem('sampleTestData');
+      let testData;
+
+      if (savedSampleData) {
+        const parsedSampleData = JSON.parse(savedSampleData);
+        testData = {
+          applicant: JSON.parse(parsedSampleData.applicant),
+          transaction: JSON.parse(parsedSampleData.transaction),
+          account: JSON.parse(parsedSampleData.account),
+          metadata: {
+            business_date: new Date().toISOString().split('T')[0],
+            test_timestamp: new Date().toISOString()
+          }
+        };
+      } else {
+        // Use default test data (aligned with sample rules)
+        testData = {
+          applicant: {
+            creditScore: 750,    // > 700 to trigger approve actions
+            age: 28,             // >= 18 to trigger approve actions
+            annualIncome: 75000,
+            monthlyIncome: 6250,
+            employmentStatus: "employed",
+            employmentYears: 3,
+            applicationDate: "2024-01-15",
+            birthDate: "1995-03-22",
+            requestedLimit: 5000,
+            existingDebt: 12000,
+            bankruptcyHistory: false,
+            ssn: "123-45-6789"
+          },
+          transaction: {
+            amount: 150.00,
+            timestamp: "2024-01-15T14:30:00Z",
+            merchantCategory: "5411",
+            location: "US-CA-San Francisco",
+            type: "purchase",
+            isOnline: false
+          },
+          account: {
+            currentBalance: 1250.00,
+            creditLimit: 5000,
+            availableCredit: 3750.00,
+            paymentHistory: "excellent",
+            accountAge: 24
+          },
+          metadata: {
+            business_date: new Date().toISOString().split('T')[0],
+            test_timestamp: new Date().toISOString()
+          }
+        };
+      }
+
+      setLoading(true);
+      
+      // Call test API
+      const response = await rulesApi.testRuleContent(editorContent, testData);
+      
+      // Show results - extract from nested result structure
+      const testResult = response.data.result || response.data;
+      showTestResults(testResult);
+      
+    } catch (error) {
+      message.error('Test failed: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle sample data
+  const handleSampleData = () => {
+    setSampleDataVisible(true);
+  };
+
+  // Handle test with sample data
+  const handleTestWithSampleData = async (testData) => {
+    try {
+      if (!editorContent.trim()) {
+        message.error('Please enter rule content before testing');
+        return;
+      }
+
+      // Call test API
+      const response = await rulesApi.testRuleContent(editorContent, testData);
+      
+      // Show results - extract from nested result structure
+      const testResult = response.data.result || response.data;
+      showTestResults(testResult);
+      
+      // Close the sample data modal
+      setSampleDataVisible(false);
+    } catch (error) {
+      message.error('Test failed: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  // Show test results in a modal
+  const showTestResults = (testResult) => {
+    const { 
+      success, 
+      message: resultMessage, 
+      ruleName, 
+      executedActions = [], 
+      executedActionsCount = 0,
+      totalAvailableActions = 0,
+      conditions = [], 
+      timestamp 
+    } = testResult;
+
+    Modal.info({
+      title: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span>🧪 Rule Test Results</span>
+          <Tag color={success ? 'green' : 'red'}>
+            {success ? 'SUCCESS' : 'FAILED'}
+          </Tag>
+        </div>
+      ),
+      width: 900,
+      content: (
+        <div>
+          {/* Executive Summary */}
+          <Card 
+            style={{ 
+              marginBottom: '20px',
+              background: executedActionsCount > 0 ? '#f6ffed' : '#fafafa',
+              border: `1px solid ${executedActionsCount > 0 ? '#b7eb8f' : '#d9d9d9'}`
+            }}
+          >
+            <div style={{ textAlign: 'center', padding: '8px 0' }}>
+              <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
+                {resultMessage}
+              </div>
+              <div style={{ fontSize: '14px', color: '#666' }}>
+                Rule: <strong>{ruleName || 'Unnamed Rule'}</strong> | 
+                Actions: {executedActionsCount} of {totalAvailableActions} will execute
+              </div>
+            </div>
+          </Card>
+
+          {/* Actions to Execute */}
+          {executedActions && executedActions.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '18px' }}>⚡</span>
+                Actions to Execute ({executedActions.length})
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {executedActions.map((actionItem, index) => (
+                  <Card key={index} size="small" style={{ border: '1px solid #1890ff', background: '#e6f7ff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <Tag color="blue" style={{ fontSize: '13px', fontWeight: 'bold' }}>
+                            {actionItem.action}
+                          </Tag>
+                          <span style={{ color: '#1890ff', fontWeight: '500' }}>
+                            {actionItem.description}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666', marginLeft: '4px' }}>
+                          <strong>Reason:</strong> {actionItem.reason}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No Actions Message */}
+          {(!executedActions || executedActions.length === 0) && (
+            <div style={{ marginBottom: '20px' }}>
+              <Card style={{ textAlign: 'center', background: '#fff7e6', border: '1px solid #ffd591' }}>
+                <div style={{ padding: '16px' }}>
+                  <div style={{ fontSize: '16px', color: '#d48806', marginBottom: '8px' }}>
+                    ⚠️ No Actions Will Be Executed
+                  </div>
+                  <div style={{ color: '#666' }}>
+                    None of the rule conditions were met with the provided test data.
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Detailed Condition Breakdown (Collapsible) */}
+          {conditions && conditions.length > 0 && (
+            <details style={{ marginBottom: '16px' }}>
+              <summary style={{ 
+                cursor: 'pointer', 
+                fontSize: '14px', 
+                color: '#666',
+                padding: '8px 0',
+                borderBottom: '1px solid #f0f0f0'
+              }}>
+                <strong>🔍 View Detailed Condition Evaluation ({conditions.length} conditions)</strong>
+              </summary>
+              <div style={{ marginTop: '12px', maxHeight: '200px', overflow: 'auto' }}>
+                {conditions.map((condition, index) => (
+                  <div key={index} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    background: condition.evaluated ? '#f6ffed' : '#fff2f0',
+                    border: `1px solid ${condition.evaluated ? '#d9f7be' : '#ffccc7'}`,
+                    borderRadius: '4px',
+                    marginBottom: '4px'
+                  }}>
+                    <code style={{ 
+                      fontSize: '12px', 
+                      background: 'rgba(0,0,0,0.06)', 
+                      padding: '2px 6px', 
+                      borderRadius: '3px',
+                      flex: 1
+                    }}>
+                      {condition.condition}
+                    </code>
+                    <div style={{ marginLeft: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Tag color={condition.evaluated ? 'green' : 'red'} size="small">
+                        {condition.evaluated ? '✓ TRUE' : '✗ FALSE'}
+                      </Tag>
+                      {condition.executed && (
+                        <Tag color="blue" size="small">→ {condition.action}</Tag>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f0f0f0' }}>
+            Test executed at: {new Date(timestamp).toLocaleString()}
+          </div>
+        </div>
+      ),
+    });
   };
 
   // Handle save
@@ -244,6 +492,12 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             onClick={handleTest}
           >
             Test
+          </Button>
+          <Button
+            icon={<DatabaseOutlined />}
+            onClick={handleSampleData}
+          >
+            Sample Data
           </Button>
           <Button
             type="primary"
@@ -401,6 +655,14 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       <SchemaViewer
         visible={schemaViewerVisible}
         onClose={() => setSchemaViewerVisible(false)}
+      />
+
+      {/* Sample Data Editor Modal */}
+      <SampleDataEditor
+        visible={sampleDataVisible}
+        onClose={() => setSampleDataVisible(false)}
+        onTest={handleTestWithSampleData}
+        currentRuleContent={editorContent}
       />
     </div>
   );

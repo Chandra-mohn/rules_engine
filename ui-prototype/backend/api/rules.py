@@ -135,6 +135,21 @@ def validate_rule():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@rules_bp.route('/rules/test', methods=['POST'])
+def test_rule_content():
+    """Test rule execution with sample data without requiring a saved rule."""
+    try:
+        data = request.get_json()
+        if not data or 'rule_content' not in data or 'test_data' not in data:
+            return jsonify({'error': 'Rule content and test data are required'}), 400
+        
+        # Test rule with provided content and data
+        test_result = rule_service.test_rule(data['rule_content'], data['test_data'])
+        return jsonify(test_result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @rules_bp.route('/rules/<int:rule_id>/test', methods=['POST'])
 def test_rule(rule_id):
     """Test rule execution with sample data."""

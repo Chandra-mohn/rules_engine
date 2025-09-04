@@ -70,6 +70,14 @@ export const rulesApi = {
     });
   },
 
+  // Test rule content without saving
+  testRuleContent: (ruleContent, testData) => {
+    return api.post('/rules/test', {
+      rule_content: ruleContent,
+      test_data: testData,
+    });
+  },
+
   // Get autocomplete suggestions
   getAutocompleteSuggestions: (context, position) => {
     return api.post('/rules/autocomplete', { context, position });
