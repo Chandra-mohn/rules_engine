@@ -10,8 +10,14 @@ class JavaBridge:
     
     def __init__(self, java_rules_path: Path):
         self.java_rules_path = java_rules_path
+        
+        # Check for Maven build first (preferred)
+        self.maven_jar = java_rules_path / 'target' / 'rules-engine-java-1.0.0.jar'
+        
+        # Fallback to legacy classpath approach
         self.classpath = java_rules_path / 'classes'
-        # Also check for the main backend with proper ANTLR support
+        
+        # Check for main backend with proper ANTLR support (legacy)
         self.main_backend_path = Path(__file__).parent.parent.parent.parent / 'backend'
         
     def validate_rule(self, rule_content: str) -> Dict[str, Any]:
@@ -31,27 +37,12 @@ class JavaBridge:
                 temp_file_path = temp_file.name
             
             try:
-                # Try to use the main ANTLR-based backend first
-                if self.main_backend_path.exists() and (self.main_backend_path / 'target' / 'classes').exists():
-                    main_classpath = str(self.main_backend_path / 'target' / 'classes')
-                    # Add ANTLR runtime to classpath - check common locations
-                    antlr_jar_paths = [
-                        self.main_backend_path / 'target' / 'dependency' / 'antlr4-runtime*.jar',
-                        self.main_backend_path / 'lib' / 'antlr4-runtime*.jar',
-                    ]
-                    
-                    for jar_pattern in antlr_jar_paths:
-                        import glob
-                        jar_files = glob.glob(str(jar_pattern))
-                        if jar_files:
-                            main_classpath += ':' + ':'.join(jar_files)
-                            break
-                    
-                    # Try ANTLR-based validator first
+                # Try Maven JAR first (preferred approach)
+                if self.maven_jar.exists():
                     cmd = [
                         'java',
-                        '-cp', main_classpath,
-                        'com.rules.cli.RuleValidatorANTLR', 
+                        '-jar', str(self.maven_jar),
+                        'validate',
                         temp_file_path
                     ]
                     
@@ -60,31 +51,11 @@ class JavaBridge:
                         capture_output=True,
                         text=True,
                         timeout=30,
-                        cwd=str(self.main_backend_path)
+                        cwd=str(self.java_rules_path)
                     )
                     
-                    # If ANTLR validator worked, use its result
-                    if result.returncode == 0 or "ANTLR" not in result.stderr:
-                        # Process ANTLR result and return
-                        pass  # Continue with existing result processing
-                    else:
-                        # Fall back to simple validator
-                        cmd = [
-                            'java',
-                            '-cp', str(self.classpath),
-                            'com.rules.cli.RuleValidator',
-                            temp_file_path
-                        ]
-                        
-                        result = subprocess.run(
-                            cmd,
-                            capture_output=True,
-                            text=True,
-                            timeout=30,
-                            cwd=str(self.java_rules_path)
-                        )
-                else:
-                    # Fall back to simple validator
+                # Fall back to legacy classpath approach
+                elif self.classpath.exists():
                     cmd = [
                         'java',
                         '-cp', str(self.classpath),
@@ -99,6 +70,13 @@ class JavaBridge:
                         timeout=30,
                         cwd=str(self.java_rules_path)
                     )
+                else:
+                    return {
+                        'valid': False,
+                        'message': 'Java validation engine not found. Run: mvn package',
+                        'errors': ['Maven JAR or compiled classes not found'],
+                        'warnings': []
+                    }
                 
                 if result.returncode == 0:
                     # Parse successful validation result
@@ -168,22 +146,47 @@ class JavaBridge:
                 data_file_path = data_file.name
             
             try:
-                # Run Java test command
-                cmd = [
-                    'java',
-                    '-cp', str(self.classpath),
-                    'com.rules.cli.RuleTester',
-                    rule_file_path,
-                    data_file_path
-                ]
+                # Try Maven JAR first (preferred approach)
+                if self.maven_jar.exists():
+                    cmd = [
+                        'java',
+                        '-jar', str(self.maven_jar),
+                        'test',
+                        rule_file_path,
+                        data_file_path
+                    ]
+                    
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        cwd=str(self.java_rules_path)
+                    )
                 
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    cwd=str(self.java_rules_path)
-                )
+                # Fall back to legacy classpath approach
+                elif self.classpath.exists():
+                    cmd = [
+                        'java',
+                        '-cp', str(self.classpath),
+                        'com.rules.cli.RuleTester',
+                        rule_file_path,
+                        data_file_path
+                    ]
+                    
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        cwd=str(self.java_rules_path)
+                    )
+                else:
+                    return {
+                        'success': False,
+                        'result': {},
+                        'errors': ['Java test engine not found. Run: mvn package']
+                    }
                 
                 if result.returncode == 0:
                     # Parse successful test result
