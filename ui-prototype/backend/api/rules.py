@@ -19,9 +19,10 @@ def get_rules():
         limit = min(request.args.get('limit', Config.DEFAULT_PAGE_SIZE, type=int), Config.MAX_PAGE_SIZE)
         status = request.args.get('status')
         search = request.args.get('search')
+        schema_version = request.args.get('schema_version')
         
         # Get rules from service
-        rules, total = rule_service.get_rules(page=page, limit=limit, status=status, search=search)
+        rules, total = rule_service.get_rules(page=page, limit=limit, status=status, search=search, schema_version=schema_version)
         
         # Calculate pagination info
         pages = math.ceil(total / limit) if total > 0 else 1

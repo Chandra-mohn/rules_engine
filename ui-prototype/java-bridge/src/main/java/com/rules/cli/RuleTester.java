@@ -8,15 +8,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.json.JSONObject;
+import org.json.JSONArray;
 
 /**
  * Command-line rule tester that executes rules against sample data.
  */
 public class RuleTester {
     
-    private static final ObjectMapper mapper = new ObjectMapper();
+    // Using minimal org.json library instead of Jackson
     
     // Action descriptions for better user feedback
     private static final Map<String, String> ACTION_DESCRIPTIONS = new HashMap<>();
@@ -50,14 +50,14 @@ public class RuleTester {
             String dataContent = Files.readString(Paths.get(dataFile));
             
             // Parse data JSON
-            JsonNode testData = mapper.readTree(dataContent);
+            JSONObject testData = new JSONObject(dataContent);
             
             // Execute rule
             TestResult result = executeRule(ruleContent, testData);
             
             // Output result as JSON
-            String jsonResult = mapper.writeValueAsString(result);
-            System.out.println(jsonResult);
+            JSONObject jsonResult = testResultToJson(result);
+            System.out.println(jsonResult.toString());
             
         } catch (IOException e) {
             System.err.println("Error reading files: " + e.getMessage());
@@ -68,7 +68,7 @@ public class RuleTester {
         }
     }
     
-    private static TestResult executeRule(String ruleContent, JsonNode testData) {
+    private static TestResult executeRule(String ruleContent, JSONObject testData) {
         TestResult result = new TestResult();
         
         try {
@@ -122,7 +122,7 @@ public class RuleTester {
             result.actionExecuted = finalAction != null;
             result.executedActionsCount = executedActions.size();
             result.totalAvailableActions = conditions.size();
-            result.timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("E MMM dd HH:mm:ss z yyyy"));
+            result.timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
             
             if (finalAction != null) {
                 result.success = true;
@@ -140,7 +140,7 @@ public class RuleTester {
         return result;
     }
     
-    private static boolean evaluateCondition(String condition, JsonNode testData) {
+    private static boolean evaluateCondition(String condition, JSONObject testData) {
         try {
             // Handle simple comparisons like "applicant.creditScore >= 750"
             Pattern comparisonPattern = Pattern.compile("(\\w+\\.\\w+)\\s*([<>=!]+)\\s*(.+)");
@@ -164,9 +164,31 @@ public class RuleTester {
                 return performComparison(actualValue, operator, expectedValue);
             }
             
-            // Handle function calls like "business_date()"
+            // Handle function calls like "business_date()" - evaluate properly
             if (condition.contains("business_date()")) {
-                return true; // For demo purposes, assume business date functions pass
+                // Replace business_date() with current date for comparison
+                String currentDate = java.time.LocalDate.now().toString();
+                String evaluableCondition = condition.replace("business_date()", "\"" + currentDate + "\"");
+                
+                // Re-parse and evaluate the condition with actual date
+                Pattern businessDatePattern = Pattern.compile("(\\w+\\.\\w+)\\s*([<>=!]+)\\s*(.+)");
+                Matcher businessDateMatcher = businessDatePattern.matcher(evaluableCondition);
+                
+                if (businessDateMatcher.find()) {
+                    String attributePath = businessDateMatcher.group(1);
+                    String operator = businessDateMatcher.group(2);
+                    String valueStr = businessDateMatcher.group(3).trim();
+                    
+                    Object actualValue = getValueFromPath(testData, attributePath);
+                    if (actualValue == null) {
+                        return false;
+                    }
+                    
+                    Object expectedValue = parseValue(valueStr);
+                    return performComparison(actualValue, operator, expectedValue);
+                }
+                
+                return false; // If we can't parse the condition properly
             }
             
             // Default to false for unhandled conditions
@@ -178,27 +200,61 @@ public class RuleTester {
         }
     }
     
-    private static Object getValueFromPath(JsonNode data, String path) {
+    private static Object getValueFromPath(JSONObject data, String path) {
         String[] parts = path.split("\\.");
-        JsonNode current = data;
+        Object current = data;
         
         for (String part : parts) {
-            if (current.has(part)) {
-                current = current.get(part);
+            if (current instanceof JSONObject) {
+                JSONObject obj = (JSONObject) current;
+                if (obj.has(part)) {
+                    current = obj.get(part);
+                } else {
+                    return null;
+                }
             } else {
                 return null;
             }
         }
         
-        if (current.isNumber()) {
-            return current.asDouble();
-        } else if (current.isTextual()) {
-            return current.asText();
-        } else if (current.isBoolean()) {
-            return current.asBoolean();
-        }
+        return current;
+    }
+    
+    private static JSONObject testResultToJson(TestResult result) {
+        JSONObject json = new JSONObject();
+        json.put("success", result.success);
+        json.put("message", result.message);
+        json.put("ruleName", result.ruleName);
+        json.put("finalAction", result.finalAction);
+        json.put("actionExecuted", result.actionExecuted);
+        json.put("executedActionsCount", result.executedActionsCount);
+        json.put("totalAvailableActions", result.totalAvailableActions);
+        json.put("timestamp", result.timestamp);
         
-        return current.asText();
+        // Convert conditions
+        JSONArray conditionsArray = new JSONArray();
+        for (ConditionResult cond : result.conditions) {
+            JSONObject condJson = new JSONObject();
+            condJson.put("condition", cond.condition);
+            condJson.put("action", cond.action);
+            condJson.put("evaluated", cond.evaluated);
+            condJson.put("executed", cond.executed);
+            conditionsArray.put(condJson);
+        }
+        json.put("conditions", conditionsArray);
+        
+        // Convert executed actions
+        JSONArray actionsArray = new JSONArray();
+        for (ActionResult action : result.executedActions) {
+            JSONObject actionJson = new JSONObject();
+            actionJson.put("action", action.action);
+            actionJson.put("reason", action.reason);
+            actionJson.put("description", action.description);
+            actionsArray.put(actionJson);
+        }
+        json.put("executedActions", actionsArray);
+        
+        return json;
     }
     
     private static Object parseValue(String valueStr) {
@@ -240,13 +296,38 @@ public class RuleTester {
                     default: return false;
                 }
             } else {
-                // String comparison
+                // String comparison - check if they look like dates
                 String actualStr = actual.toString();
                 String expectedStr = expected.toString();
                 
+                // If both look like dates (YYYY-MM-DD format), do date comparison
+                if (actualStr.matches("\\d{4}-\\d{2}-\\d{2}") && expectedStr.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    try {
+                        java.time.LocalDate actualDate = java.time.LocalDate.parse(actualStr);
+                        java.time.LocalDate expectedDate = java.time.LocalDate.parse(expectedStr);
+                        
+                        switch (operator) {
+                            case ">": return actualDate.isAfter(expectedDate);
+                            case ">=": return actualDate.isAfter(expectedDate) || actualDate.equals(expectedDate);
+                            case "<": return actualDate.isBefore(expectedDate);
+                            case "<=": return actualDate.isBefore(expectedDate) || actualDate.equals(expectedDate);
+                            case "=": case "==": return actualDate.equals(expectedDate);
+                            case "!=": return !actualDate.equals(expectedDate);
+                            default: return false;
+                        }
+                    } catch (Exception e) {
+                        // Fall back to string comparison if date parsing fails
+                    }
+                }
+                
+                // Regular string comparison
                 switch (operator) {
                     case "=": case "==": return actualStr.equals(expectedStr);
                     case "!=": return !actualStr.equals(expectedStr);
+                    case ">": return actualStr.compareTo(expectedStr) > 0;
+                    case ">=": return actualStr.compareTo(expectedStr) >= 0;
+                    case "<": return actualStr.compareTo(expectedStr) < 0;
+                    case "<=": return actualStr.compareTo(expectedStr) <= 0;
                     default: return false;
                 }
             }

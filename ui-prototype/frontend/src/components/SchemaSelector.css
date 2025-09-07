@@ -1,0 +1,65 @@
+.schema-selector {
+    margin-bottom: 16px;
+}
+
+.schema-selector.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.schema-selector.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+}
+
+.loading-spinner {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.schema-options {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.schema-option-radio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #495057;
+}
+
+.schema-option-radio.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.schema-option-radio input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.radio-label {
+    cursor: pointer;
+    user-select: none;
+}
+
+.example {
+    color: #6c757d;
+    font-weight: normal;
+    font-size: 13px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .schema-options {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+}

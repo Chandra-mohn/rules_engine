@@ -18,7 +18,13 @@ public class RulesEngineCLI {
         
         switch (command) {
             case "validate":
-                RuleValidator.main(commandArgs);
+                // Try ANTLR validator first, fallback to basic validator
+                try {
+                    RuleValidatorANTLR.main(commandArgs);
+                } catch (Exception e) {
+                    // Fallback to basic validator if ANTLR fails
+                    RuleValidator.main(commandArgs);
+                }
                 break;
             case "test":
                 RuleTester.main(commandArgs);

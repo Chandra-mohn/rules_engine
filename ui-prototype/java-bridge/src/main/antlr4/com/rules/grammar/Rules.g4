@@ -78,6 +78,11 @@ value
     | STRING
     | BOOLEAN
     | list
+    | listReference
+    ;
+
+listReference
+    : IDENTIFIER  // References a named list like VALID_STATUSES
     ;
 
 list

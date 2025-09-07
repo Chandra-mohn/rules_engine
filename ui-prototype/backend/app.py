@@ -3,6 +3,7 @@ from flask_cors import CORS
 from models import db
 from api.rules import rules_bp
 from api.schema import schema_bp
+from api.lists import lists_bp
 from config import Config
 import os
 
@@ -18,6 +19,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(rules_bp, url_prefix='/api')
     app.register_blueprint(schema_bp, url_prefix='/api')
+    app.register_blueprint(lists_bp, url_prefix='/api')
     
     # Create database tables
     with app.app_context():

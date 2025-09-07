@@ -23,7 +23,7 @@ const { TabPane } = Tabs;
 const { Search } = Input;
 const { Panel } = Collapse;
 
-const SchemaViewer = ({ visible, onClose }) => {
+const SchemaViewer = ({ visible, onClose, schemaVersion = 'modern' }) => {
   const [schema, setSchema] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -31,14 +31,22 @@ const SchemaViewer = ({ visible, onClose }) => {
     if (visible) {
       loadSchema();
     }
-  }, [visible]);
+  }, [visible, schemaVersion]);
 
   const loadSchema = async () => {
     try {
-      const response = await schemaApi.getFullSchema();
-      setSchema(response.data);
+      const response = await fetch(`/api/schema/${schemaVersion}`);
+      const data = await response.json();
+      setSchema(data);
     } catch (error) {
       console.error('Failed to load schema:', error);
+      // Fallback to old API
+      try {
+        const response = await schemaApi.getFullSchema();
+        setSchema(response.data);
+      } catch (fallbackError) {
+        console.error('Fallback schema load failed:', fallbackError);
+      }
     }
   };
 

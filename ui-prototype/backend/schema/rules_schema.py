@@ -1,7 +1,13 @@
 """
 Rules Schema Configuration
 Defines the available attributes, actions, and functions for the Rules DSL.
+Supports both modern (entity.property) and legacy (UPPERCASE) schemas.
 """
+
+import sqlite3
+import json
+import os
+from pathlib import Path
 
 # Available attributes in the rules engine
 ATTRIBUTES = {
@@ -389,3 +395,163 @@ def get_attributes_by_entity(entity_name):
             'examples': prop_data.get('examples', [])
         })
     return attributes
+
+def get_database_path():
+    """Get the path to the database file."""
+    # Look for database in the project root
+    current_dir = Path(__file__).parent.parent.parent  # Go up to project root
+    db_path = current_dir / 'backend' / 'database' / 'rules.db'
+    if db_path.exists():
+        return str(db_path)
+    
+    # Fallback to looking in current directory structure
+    fallback_path = current_dir / 'database' / 'rules.db'
+    if fallback_path.exists():
+        return str(fallback_path)
+    
+    return None
+
+def get_schema_versions():
+    """Get available schema versions from database."""
+    db_path = get_database_path()
+    if not db_path:
+        return [{'version_name': 'modern', 'display_name': 'Modern Rules', 'is_default': True}]
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT version_name, display_name, description, is_default 
+            FROM schema_versions 
+            ORDER BY is_default DESC, version_name
+        """)
+        
+        versions = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return versions
+    except Exception as e:
+        print(f"Error fetching schema versions: {e}")
+        return [{'version_name': 'modern', 'display_name': 'Modern Rules', 'is_default': True}]
+
+def get_schema_attributes(schema_version='modern'):
+    """Get attributes for a specific schema version from database."""
+    db_path = get_database_path()
+    if not db_path:
+        return get_all_attributes() if schema_version == 'modern' else []
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT entity_name, attribute_name, data_type, description, examples 
+            FROM schema_attributes 
+            WHERE schema_version = ?
+            ORDER BY entity_name, attribute_name
+        """, (schema_version,))
+        
+        attributes = []
+        for row in cursor.fetchall():
+            row_dict = dict(row)
+            examples = json.loads(row_dict['examples']) if row_dict['examples'] else []
+            
+            # For modern schema, use entity.property format
+            if schema_version == 'modern' and row_dict['entity_name']:
+                label = f"{row_dict['entity_name']}.{row_dict['attribute_name']}"
+            else:
+                # For legacy schema, use attribute name directly
+                label = row_dict['attribute_name']
+            
+            attributes.append({
+                'label': label,
+                'kind': 'property',
+                'detail': row_dict['data_type'],
+                'documentation': row_dict['description'],
+                'examples': examples,
+                'entity': row_dict['entity_name'],
+                'name': row_dict['attribute_name']
+            })
+        
+        conn.close()
+        return attributes
+    except Exception as e:
+        print(f"Error fetching schema attributes for {schema_version}: {e}")
+        return get_all_attributes() if schema_version == 'modern' else []
+
+def get_schema_actions(schema_version='modern'):
+    """Get actions for a specific schema version from database."""
+    db_path = get_database_path()
+    if not db_path:
+        return get_all_actions() if schema_version == 'modern' else []
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT action_name, description, category, examples 
+            FROM schema_actions 
+            WHERE schema_version = ?
+            ORDER BY category, action_name
+        """, (schema_version,))
+        
+        actions = []
+        for row in cursor.fetchall():
+            row_dict = dict(row)
+            examples = json.loads(row_dict['examples']) if row_dict['examples'] else []
+            
+            actions.append({
+                'label': row_dict['action_name'],
+                'kind': 'function',
+                'detail': 'action',
+                'documentation': row_dict['description'],
+                'category': row_dict['category'],
+                'examples': examples
+            })
+        
+        conn.close()
+        return actions
+    except Exception as e:
+        print(f"Error fetching schema actions for {schema_version}: {e}")
+        return get_all_actions() if schema_version == 'modern' else []
+
+def get_schema_for_version(schema_version='modern'):
+    """Get complete schema (attributes + actions) for a specific version."""
+    return {
+        'version': schema_version,
+        'attributes': get_schema_attributes(schema_version),
+        'actions': get_schema_actions(schema_version),
+        'functions': get_all_functions(),  # Functions are version-agnostic
+        'keywords': KEYWORDS,
+        'operators': OPERATORS,
+        'time_units': TIME_UNITS
+    }
+
+def detect_rule_schema_version(rule_content):
+    """Detect schema version from rule content based on attribute naming patterns."""
+    if not rule_content:
+        return 'modern'
+    
+    # Look for UPPERCASE attribute patterns (legacy schema indicators)
+    import re
+    uppercase_pattern = r'\b[A-Z][A-Z_]+[A-Z]\b'
+    uppercase_matches = re.findall(uppercase_pattern, rule_content)
+    
+    # Filter out common keywords that might be uppercase
+    keywords_upper = [kw.upper() for kw in KEYWORDS]
+    potential_attributes = [match for match in uppercase_matches if match not in keywords_upper]
+    
+    # Look for entity.property patterns (modern schema indicators)
+    modern_pattern = r'\b\w+\.\w+'
+    modern_matches = re.findall(modern_pattern, rule_content)
+    
+    # If we find UPPERCASE attributes and no modern patterns, likely legacy
+    if potential_attributes and not modern_matches:
+        return 'legacy'
+    
+    # Default to modern
+    return 'modern'

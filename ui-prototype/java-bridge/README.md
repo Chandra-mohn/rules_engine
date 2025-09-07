@@ -42,17 +42,17 @@ java-bridge/
 ### Development Workflow
 
 ```bash
-# Clean and compile
-mvn clean compile
+# Quick clean build (recommended)
+./build.sh
 
-# Run tests
-mvn test
+# Standard Maven commands
+mvn clean compile    # Compile only
+mvn test             # Run tests  
+mvn package          # Build JAR
+mvn clean            # Clean everything
 
-# Build executable JAR
-mvn package
-
-# Clean everything
-mvn clean
+# Clean build with minimal output
+mvn package -q
 ```
 
 ### Production Build

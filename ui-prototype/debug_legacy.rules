@@ -1,0 +1,3 @@
+rule testLegacy:
+    if CREDIT_SCORE >= 750 then APPROVE
+    if CREDIT_SCORE < 600 then REJECT

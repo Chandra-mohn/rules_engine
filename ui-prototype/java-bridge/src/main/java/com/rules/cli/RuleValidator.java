@@ -12,8 +12,13 @@ import java.util.regex.Matcher;
 /**
  * Command-line rule validator for the UI prototype.
  * This is a simplified version that provides basic validation feedback.
+ * Supports both modern (entity.property) and legacy (UPPERCASE) schemas.
  */
 public class RuleValidator {
+    
+    enum SchemaType {
+        MODERN, LEGACY, MIXED
+    }
     
     // Valid keywords
     private static final Set<String> VALID_KEYWORDS = new HashSet<>(Arrays.asList(
@@ -27,11 +32,16 @@ public class RuleValidator {
         "=", "!=", "<", "<=", ">", ">=", "+", "-", "*", "/", "%"
     ));
     
-    // Valid actions
-    private static final Set<String> VALID_ACTIONS = new HashSet<>(Arrays.asList(
+    // Valid actions (modern schema)
+    private static final Set<String> VALID_ACTIONS_MODERN = new HashSet<>(Arrays.asList(
         "approveApplication", "rejectApplication", "conditionalApproval", "instantApproval",
         "manualReview", "requireManualReview", "approveTransaction", "declineTransaction",
         "flagForReview", "sendAlert", "requestVerification", "setLimit"
+    ));
+    
+    // Valid actions (legacy schema - UPPERCASE)
+    private static final Set<String> VALID_ACTIONS_LEGACY = new HashSet<>(Arrays.asList(
+        "APPROVE", "REJECT", "REVIEW", "CONDITIONAL", "ALLOW", "DECLINE", "FLAG", "ALERT"
     ));
     
     // Valid functions
@@ -58,6 +68,16 @@ public class RuleValidator {
     private static final Set<String> VALID_ACCOUNT_PROPS = new HashSet<>(Arrays.asList(
         "currentBalance", "creditLimit", "availableCredit", "paymentHistory", "accountAge"
     ));
+    
+    // Valid attributes (legacy schema - UPPERCASE)
+    private static final Set<String> VALID_LEGACY_ATTRIBUTES = new HashSet<>(Arrays.asList(
+        "CREDIT_SCORE", "APPLICANT_AGE", "ANNUAL_INCOME", "EMPLOYMENT_STATUS", "APPLICATION_DATE",
+        "TRANSACTION_AMOUNT", "TRANSACTION_TIME", "ACCOUNT_BALANCE", "CREDIT_LIMIT"
+    ));
+    
+    // Schema detection patterns
+    private static final Pattern LEGACY_ATTRIBUTE_PATTERN = Pattern.compile("\\b[A-Z][A-Z_]+[A-Z]\\b");
+    private static final Pattern MODERN_ATTRIBUTE_PATTERN = Pattern.compile("\\b\\w+\\.\\w+\\b");
     
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -99,6 +119,9 @@ public class RuleValidator {
             return new ValidationResult(false, "Rule content cannot be empty");
         }
         
+        // Detect schema version
+        SchemaType schemaType = detectSchemaType(content);
+        
         // Check for basic rule structure
         if (!content.contains("rule ")) {
             return new ValidationResult(false, "Rule must start with 'rule' keyword");
@@ -131,13 +154,13 @@ public class RuleValidator {
         }
         
         // Enhanced validation: check for invalid keywords and actions
-        ValidationResult keywordCheck = validateKeywordsAndActions(content);
+        ValidationResult keywordCheck = validateKeywordsAndActions(content, schemaType);
         if (!keywordCheck.isValid()) {
             return keywordCheck;
         }
         
         // Enhanced validation: check for invalid attributes
-        ValidationResult attributeCheck = validateAttributes(content);
+        ValidationResult attributeCheck = validateAttributes(content, schemaType);
         if (!attributeCheck.isValid()) {
             return attributeCheck;
         }
@@ -146,7 +169,31 @@ public class RuleValidator {
         return new ValidationResult(true, "Rule syntax is valid");
     }
     
-    private static ValidationResult validateKeywordsAndActions(String content) {
+    private static SchemaType detectSchemaType(String content) {
+        boolean hasLegacyAttributes = LEGACY_ATTRIBUTE_PATTERN.matcher(content).find();
+        boolean hasModernAttributes = MODERN_ATTRIBUTE_PATTERN.matcher(content).find();
+        
+        // Filter out keywords from legacy attribute detection
+        Matcher legacyMatcher = LEGACY_ATTRIBUTE_PATTERN.matcher(content);
+        boolean actualLegacyFound = false;
+        while (legacyMatcher.find()) {
+            String match = legacyMatcher.group();
+            if (VALID_LEGACY_ATTRIBUTES.contains(match) && !VALID_KEYWORDS.contains(match.toLowerCase())) {
+                actualLegacyFound = true;
+                break;
+            }
+        }
+        
+        if (actualLegacyFound && hasModernAttributes) {
+            return SchemaType.MIXED;
+        } else if (actualLegacyFound) {
+            return SchemaType.LEGACY;
+        } else {
+            return SchemaType.MODERN;
+        }
+    }
+    
+    private static ValidationResult validateKeywordsAndActions(String content, SchemaType schemaType) {
         // First, validate structure with better tokenization
         ValidationResult structureResult = validateRuleStructure(content);
         if (!structureResult.isValid()) {
@@ -166,7 +213,7 @@ public class RuleValidator {
             if (cleanToken.isEmpty()) continue;
             
             // Skip known valid tokens
-            if (isValidToken(cleanToken, content)) {
+            if (isValidToken(cleanToken, content, schemaType)) {
                 continue;
             }
             
@@ -181,12 +228,13 @@ public class RuleValidator {
             
             // Check for action typos
             if (isInActionContext(context)) {
-                String actionSuggestion = findClosestAction(cleanToken);
+                String actionSuggestion = findClosestAction(cleanToken, schemaType);
                 if (actionSuggestion != null) {
                     return new ValidationResult(false, "Invalid action '" + cleanToken + "'. Did you mean '" + actionSuggestion + "'?");
-                } else if (!isAttributeReference(cleanToken)) {
+                } else if (!isAttributeReference(cleanToken, schemaType)) {
+                    Set<String> validActions = (schemaType == SchemaType.LEGACY) ? VALID_ACTIONS_LEGACY : VALID_ACTIONS_MODERN;
                     return new ValidationResult(false, "Invalid action '" + cleanToken + "'. Valid actions are: " + 
-                                              String.join(", ", VALID_ACTIONS));
+                                              String.join(", ", validActions));
                 }
             }
         }
@@ -319,20 +367,26 @@ public class RuleValidator {
                token.matches("'.*'"); // Single quoted strings
     }
     
-    private static boolean isValidToken(String token, String content) {
+    private static boolean isValidToken(String token, String content, SchemaType schemaType) {
+        Set<String> validActions = (schemaType == SchemaType.LEGACY) ? VALID_ACTIONS_LEGACY : VALID_ACTIONS_MODERN;
+        
         return VALID_KEYWORDS.contains(token) || 
-               VALID_ACTIONS.contains(token) || 
+               validActions.contains(token) || 
                VALID_FUNCTIONS.contains(token) ||
-               isAttributeReference(token) ||
+               isAttributeReference(token, schemaType) ||
                isRuleName(token, content);
     }
     
-    private static boolean isAttributeReference(String token) {
-        // Check if it's part of an entity.property pattern or a known property
-        return VALID_ENTITIES.contains(token) ||
-               VALID_APPLICANT_PROPS.contains(token) ||
-               VALID_TRANSACTION_PROPS.contains(token) ||
-               VALID_ACCOUNT_PROPS.contains(token);
+    private static boolean isAttributeReference(String token, SchemaType schemaType) {
+        if (schemaType == SchemaType.LEGACY) {
+            return VALID_LEGACY_ATTRIBUTES.contains(token);
+        } else {
+            // Check if it's part of an entity.property pattern or a known property
+            return VALID_ENTITIES.contains(token) ||
+                   VALID_APPLICANT_PROPS.contains(token) ||
+                   VALID_TRANSACTION_PROPS.contains(token) ||
+                   VALID_ACCOUNT_PROPS.contains(token);
+        }
     }
     
     private static boolean isRuleName(String token, String content) {
@@ -387,22 +441,47 @@ public class RuleValidator {
         return bestMatch;
     }
     
-    private static ValidationResult validateAttributes(String content) {
-        // Check for entity.property patterns
-        Pattern attributePattern = Pattern.compile("(\\w+)\\.(\\w+)");
-        Matcher matcher = attributePattern.matcher(content);
-        while (matcher.find()) {
-            String entity = matcher.group(1);
-            String property = matcher.group(2);
-            
-            if (!VALID_ENTITIES.contains(entity)) {
-                return new ValidationResult(false, "Invalid entity '" + entity + "'. Valid entities are: applicant, transaction, account");
+    private static ValidationResult validateAttributes(String content, SchemaType schemaType) {
+        if (schemaType == SchemaType.LEGACY) {
+            // Check for UPPERCASE legacy attributes
+            Matcher legacyMatcher = LEGACY_ATTRIBUTE_PATTERN.matcher(content);
+            while (legacyMatcher.find()) {
+                String attribute = legacyMatcher.group();
+                
+                // Skip keywords and actions
+                if (VALID_KEYWORDS.contains(attribute.toLowerCase()) || 
+                    VALID_ACTIONS_LEGACY.contains(attribute) ||
+                    VALID_FUNCTIONS.contains(attribute.toLowerCase())) {
+                    continue;
+                }
+                
+                // Check if it's a valid legacy attribute
+                if (!VALID_LEGACY_ATTRIBUTES.contains(attribute)) {
+                    return new ValidationResult(false, "Invalid legacy attribute '" + attribute + "'. Valid legacy attributes include: CREDIT_SCORE, APPLICANT_AGE, ANNUAL_INCOME, etc.");
+                }
             }
-            
-            Set<String> validProps = getValidPropertiesForEntity(entity);
-            if (!validProps.contains(property)) {
-                return new ValidationResult(false, "Invalid property '" + property + "' for entity '" + entity + "'");
+        } else {
+            // Check for entity.property patterns (modern schema)
+            Pattern attributePattern = Pattern.compile("(\\w+)\\.(\\w+)");
+            Matcher matcher = attributePattern.matcher(content);
+            while (matcher.find()) {
+                String entity = matcher.group(1);
+                String property = matcher.group(2);
+                
+                if (!VALID_ENTITIES.contains(entity)) {
+                    return new ValidationResult(false, "Invalid entity '" + entity + "'. Valid entities are: applicant, transaction, account");
+                }
+                
+                Set<String> validProps = getValidPropertiesForEntity(entity);
+                if (!validProps.contains(property)) {
+                    return new ValidationResult(false, "Invalid property '" + property + "' for entity '" + entity + "'");
+                }
             }
+        }
+        
+        // Check for mixed schema usage (warn but don't fail)
+        if (schemaType == SchemaType.MIXED) {
+            return new ValidationResult(false, "Mixed schema usage detected. Please use either modern (entity.property) or legacy (UPPERCASE) format consistently throughout the rule.");
         }
         
         return new ValidationResult(true, "Attributes are valid");
@@ -418,11 +497,12 @@ public class RuleValidator {
     }
 
     
-    private static String findClosestAction(String input) {
+    private static String findClosestAction(String input, SchemaType schemaType) {
         String bestMatch = null;
         int bestScore = Integer.MAX_VALUE;
+        Set<String> validActions = (schemaType == SchemaType.LEGACY) ? VALID_ACTIONS_LEGACY : VALID_ACTIONS_MODERN;
         
-        for (String action : VALID_ACTIONS) {
+        for (String action : validActions) {
             int score = calculateLevenshteinDistance(input.toLowerCase(), action.toLowerCase());
             if (score <= 2 && score < bestScore) { // Allow up to 2 character differences
                 bestScore = score;

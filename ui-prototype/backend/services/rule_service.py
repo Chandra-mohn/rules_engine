@@ -2,6 +2,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy import or_
 from models import db, Rule, RuleHistory
 from services.java_bridge import JavaBridge
+from services.list_cache import ListService
 from config import Config
 
 class RuleService:
@@ -9,9 +10,10 @@ class RuleService:
     
     def __init__(self):
         self.java_bridge = JavaBridge(Config.JAVA_RULES_ENGINE_PATH)
+        self.list_service = ListService()
     
     def get_rules(self, page: int = 1, limit: int = 10, status: Optional[str] = None, 
-                  search: Optional[str] = None) -> Tuple[List[Rule], int]:
+                  search: Optional[str] = None, schema_version: Optional[str] = None) -> Tuple[List[Rule], int]:
         """
         Get paginated list of rules with optional filtering.
         
@@ -20,6 +22,7 @@ class RuleService:
             limit: Number of rules per page
             status: Filter by status (optional)
             search: Search term for name/description (optional)
+            schema_version: Filter by schema version (optional)
             
         Returns:
             Tuple of (rules_list, total_count)
@@ -29,6 +32,10 @@ class RuleService:
         # Apply status filter
         if status:
             query = query.filter(Rule.status == status)
+        
+        # Apply schema version filter
+        if schema_version:
+            query = query.filter(Rule.schema_version == schema_version)
         
         # Apply search filter
         if search:
@@ -112,7 +119,7 @@ class RuleService:
         # Validate new content if provided
         validation_result = {'valid': True, 'message': 'No content changes', 'errors': []}
         if 'content' in data and data['content'] != rule.content:
-            validation_result = self.java_bridge.validate_rule(data['content'])
+            validation_result = self.validate_rule_with_lists(data['content'], data.get('schema_version', 'modern'))
         
         # Update rule fields
         if 'name' in data:
@@ -233,3 +240,28 @@ class RuleService:
         
         db.session.add(history)
         db.session.commit()
+    
+    def validate_rule_with_lists(self, content: str, schema_version: str = 'modern') -> Dict[str, Any]:
+        """
+        Validate rule content by first resolving named lists.
+        
+        Args:
+            content: Rule content potentially containing named list references
+            schema_version: Schema version for list compatibility
+            
+        Returns:
+            Validation result dictionary
+        """
+        try:
+            # Resolve named lists in the rule content
+            resolved_content = self.list_service.resolve_rule_lists(content, schema_version)
+            
+            # Validate the resolved content
+            return self.java_bridge.validate_rule(resolved_content)
+            
+        except Exception as e:
+            return {
+                'valid': False,
+                'message': f'List resolution failed: {str(e)}',
+                'errors': [str(e)]
+            }

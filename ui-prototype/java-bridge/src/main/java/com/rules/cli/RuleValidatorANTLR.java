@@ -31,6 +31,16 @@ public class RuleValidatorANTLR {
         VALID_ACTIONS.add("sendAlert");
         VALID_ACTIONS.add("requestVerification");
         VALID_ACTIONS.add("setLimit");
+        
+        // Legacy actions (UPPERCASE)
+        VALID_ACTIONS.add("APPROVE");
+        VALID_ACTIONS.add("REJECT");
+        VALID_ACTIONS.add("REVIEW");
+        VALID_ACTIONS.add("CONDITIONAL");
+        VALID_ACTIONS.add("ALLOW");
+        VALID_ACTIONS.add("DECLINE");
+        VALID_ACTIONS.add("FLAG");
+        VALID_ACTIONS.add("ALERT");
     }
     
     // Valid entities and their properties
@@ -77,15 +87,23 @@ public class RuleValidatorANTLR {
     }
     
     public static void main(String[] args) {
-        if (args.length != 1) {
-            System.err.println("Usage: java RuleValidatorANTLR <rule-file>");
+        if (args.length < 1 || args.length > 2) {
+            System.err.println("Usage: java RuleValidatorANTLR <rule-file> [resolve-lists]");
+            System.err.println("  resolve-lists: 'true' to resolve named lists, 'false' or omit to skip");
             System.exit(1);
         }
         
         String ruleFile = args[0];
+        boolean resolveLists = args.length > 1 && "true".equalsIgnoreCase(args[1]);
         
         try {
             String content = Files.readString(Paths.get(ruleFile));
+            
+            // Resolve named lists if requested (this would normally call Python service)
+            if (resolveLists) {
+                content = resolveNamedLists(content);
+            }
+            
             ValidationResult result = validateRule(content);
             
             if (result.isValid()) {
@@ -103,6 +121,19 @@ public class RuleValidatorANTLR {
             System.err.println("Validation error: " + e.getMessage());
             System.exit(1);
         }
+    }
+    
+    private static String resolveNamedLists(String content) {
+        // This is a placeholder - in real implementation, this would call
+        // the Python ListService to resolve named lists
+        // For now, we'll just do basic resolution for testing
+        
+        // Example: replace VALID_STATUSES with actual values for testing
+        content = content.replaceAll("\\bVALID_STATUSES\\b", "[\"ACTIVE\", \"PENDING\", \"REVIEW\"]");
+        content = content.replaceAll("\\bPREMIUM_TIERS\\b", "[\"GOLD\", \"PLATINUM\", \"DIAMOND\"]");
+        content = content.replaceAll("\\bAPPROVED_SCORES\\b", "[750, 800, 850]");
+        
+        return content;
     }
     
     private static ValidationResult validateRule(String content) {

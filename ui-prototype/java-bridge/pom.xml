@@ -30,11 +30,11 @@
             <version>${antlr.version}</version>
         </dependency>
 
-        <!-- JSON Processing -->
+        <!-- JSON Processing - Minimal alternative -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20231013</version>
         </dependency>
 
         <!-- JUnit 5 for Testing -->
@@ -60,9 +60,12 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <source>17</source>
-                    <target>17</target>
+                    <release>17</release>
                     <encoding>UTF-8</encoding>
+                    <compilerArgs>
+                        <arg>-Xlint:deprecation</arg>
+                        <arg>-Xlint:unchecked</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
 
@@ -78,7 +81,10 @@
                         </goals>
                         <configuration>
                             <outputDirectory>${project.build.directory}/generated-sources/antlr4</outputDirectory>
-                            <package>com.rules.grammar</package>
+                            <arguments>
+                                <argument>-package</argument>
+                                <argument>com.rules.grammar</argument>
+                            </arguments>
                         </configuration>
                     </execution>
                 </executions>
@@ -109,10 +115,13 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <minimizeJar>false</minimizeJar>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.rules.cli.RulesEngineCLI</mainClass>
                                 </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <filters>
                                 <filter>
@@ -121,6 +130,11 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/DEPENDENCIES</exclude>
+                                        <exclude>META-INF/LICENSE*</exclude>
+                                        <exclude>META-INF/NOTICE*</exclude>
+                                        <exclude>module-info.class</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
@@ -164,6 +178,25 @@
             <properties>
                 <skipTests>true</skipTests>
             </properties>
+        </profile>
+
+        <!-- Quiet profile for clean builds -->
+        <profile>
+            <id>quiet</id>
+            <properties>
+                <maven.shade.quiet>true</maven.shade.quiet>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <configuration>
+                            <quiet>true</quiet>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

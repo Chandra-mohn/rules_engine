@@ -41,6 +41,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const [editorContent, setEditorContent] = useState('');
   const [schemaViewerVisible, setSchemaViewerVisible] = useState(false);
   const [sampleDataVisible, setSampleDataVisible] = useState(false);
+  const [selectedSchema, setSelectedSchema] = useState('modern');
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
 
@@ -57,6 +58,8 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         valid: rule.validation_status === 'valid',
         message: rule.validation_message,
       });
+      // Set schema version from rule data or detect from content
+      setSelectedSchema(rule.schema_version || detectSchemaFromContent(rule.content) || 'modern');
     } else {
       // New rule defaults
       form.setFieldsValue({
@@ -89,12 +92,46 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             endColumn: position.column,
           });
 
-          const response = await rulesApi.getAutocompleteSuggestions(
-            textUntilPosition,
-            textUntilPosition.length
+          // Get schema-specific suggestions
+          let allSuggestions = [];
+          
+          try {
+            const [attributesResponse, actionsResponse] = await Promise.all([
+              fetch(`/api/schema/${selectedSchema}/attributes`),
+              fetch(`/api/schema/${selectedSchema}/actions`)
+            ]);
+            
+            if (attributesResponse.ok && actionsResponse.ok) {
+              const attributesData = await attributesResponse.json();
+              const actionsData = await actionsResponse.json();
+              
+              // Combine suggestions from schema
+              allSuggestions = [
+                ...attributesData.attributes,
+                ...actionsData.actions
+              ];
+            }
+          } catch (schemaError) {
+            console.warn('Schema-specific autocomplete failed, falling back to API:', schemaError);
+            
+            // Fallback to original API
+            const response = await rulesApi.getAutocompleteSuggestions(
+              textUntilPosition,
+              textUntilPosition.length
+            );
+            allSuggestions = response.data.suggestions;
+          }
+          
+          // Filter based on current context
+          const currentLine = model.getLineContent(position.lineNumber);
+          const wordAtPosition = model.getWordAtPosition(position);
+          const currentWord = wordAtPosition ? currentLine.substring(wordAtPosition.startColumn - 1, wordAtPosition.endColumn - 1) : '';
+          
+          const filteredSuggestions = allSuggestions.filter(suggestion =>
+            currentWord === '' || suggestion.label.toLowerCase().includes(currentWord.toLowerCase())
           );
 
-          const suggestions = response.data.suggestions.map(suggestion => ({
+          const suggestions = filteredSuggestions.map(suggestion => ({
             label: suggestion.label,
             kind: getMonacoCompletionKind(suggestion.kind),
             insertText: suggestion.label,
@@ -243,6 +280,39 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const handleSampleData = () => {
     setSampleDataVisible(true);
   };
+
+  // Detect schema from rule content
+  const detectSchemaFromContent = (content) => {
+    if (!content) return 'modern';
+    
+    // Look for UPPERCASE attributes (legacy indicators)
+    const legacyPattern = /\b[A-Z][A-Z_]+[A-Z]\b/g;
+    const modernPattern = /\b\w+\.\w+\b/g;
+    
+    const legacyMatches = content.match(legacyPattern) || [];
+    const modernMatches = content.match(modernPattern) || [];
+    
+    // Filter out common keywords from legacy matches
+    const keywords = ['RULE', 'IF', 'THEN', 'ELSE', 'AND', 'OR', 'NOT', 'TRUE', 'FALSE'];
+    const actualLegacyMatches = legacyMatches.filter(match => !keywords.includes(match));
+    
+    if (actualLegacyMatches.length > 0 && modernMatches.length === 0) {
+      return 'legacy';
+    }
+    
+    return 'modern';
+  };
+
+  // Auto-detect schema when content changes
+  useEffect(() => {
+    if (editorContent && !rule) {
+      // Only auto-detect for new rules
+      const detectedSchema = detectSchemaFromContent(editorContent);
+      if (detectedSchema !== selectedSchema) {
+        setSelectedSchema(detectedSchema);
+      }
+    }
+  }, [editorContent, selectedSchema, rule]);
 
   // Handle test with sample data
   const handleTestWithSampleData = async (testData) => {
@@ -427,6 +497,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       const ruleData = {
         ...values,
         content: editorContent,
+        schema_version: selectedSchema,
       };
 
       let savedRule;
@@ -655,6 +726,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       <SchemaViewer
         visible={schemaViewerVisible}
         onClose={() => setSchemaViewerVisible(false)}
+        schemaVersion={selectedSchema}
       />
 
       {/* Sample Data Editor Modal */}

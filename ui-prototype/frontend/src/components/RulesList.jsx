@@ -20,6 +20,7 @@ import {
   HistoryOutlined,
 } from '@ant-design/icons';
 import { rulesApi } from '../services/api';
+import SchemaSelector from './SchemaSelector';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -35,6 +36,7 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
   const [filters, setFilters] = useState({
     status: null,
     search: '',
+    schema_version: 'modern', // Default to modern
   });
 
   // Load rules data
@@ -83,6 +85,13 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
   // Handle status filter change
   const handleStatusFilter = (value) => {
     const newFilters = { ...filters, status: value };
+    setFilters(newFilters);
+    loadRules(1, pagination.pageSize, newFilters);
+  };
+
+  // Handle schema version filter change
+  const handleSchemaFilter = (value) => {
+    const newFilters = { ...filters, schema_version: value };
     setFilters(newFilters);
     loadRules(1, pagination.pageSize, newFilters);
   };
@@ -213,6 +222,17 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
       ),
     },
     {
+      title: 'Schema',
+      dataIndex: 'schema_version',
+      key: 'schema_version',
+      width: 90,
+      render: (schema_version) => (
+        <Tag color={schema_version === 'legacy' ? 'orange' : 'blue'}>
+          {schema_version === 'legacy' ? 'LEGACY' : 'MODERN'}
+        </Tag>
+      ),
+    },
+    {
       title: 'Validation',
       dataIndex: 'validation_status',
       key: 'validation_status',
@@ -291,6 +311,14 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
         >
           Create Rule
         </Button>
+      </div>
+
+      {/* Schema Filter */}
+      <div style={{ marginBottom: 16 }}>
+        <SchemaSelector 
+          selectedSchema={filters.schema_version}
+          onSchemaChange={handleSchemaFilter}
+        />
       </div>
 
       {/* Filters */}
