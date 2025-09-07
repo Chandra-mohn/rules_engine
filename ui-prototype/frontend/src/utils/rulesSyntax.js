@@ -62,8 +62,8 @@ export const rulesLanguageDefinition = {
     // The main tokenizer for our simple language
     tokenizer: {
       root: [
-        // identifiers and keywords
-        [/[a-z_$][\w$]*/, {
+        // identifiers and keywords (support both lowercase and uppercase)
+        [/[a-zA-Z_$][\w$]*/, {
           cases: {
             '@keywords': 'keyword',
             '@dateTimeFunctions': 'function',

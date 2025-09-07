@@ -2,6 +2,7 @@ import subprocess
 import json
 import tempfile
 import os
+import platform
 from pathlib import Path
 from typing import Dict, Any, Tuple
 
@@ -10,6 +11,7 @@ class JavaBridge:
     
     def __init__(self, java_rules_path: Path):
         self.java_rules_path = java_rules_path
+        self.is_windows = platform.system().lower() == 'windows'
         
         # Check for Maven build first (preferred)
         self.maven_jar = java_rules_path / 'target' / 'rules-engine-java-1.0.0.jar'
@@ -35,6 +37,10 @@ class JavaBridge:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.rules', delete=False) as temp_file:
                 temp_file.write(rule_content)
                 temp_file_path = temp_file.name
+            
+            # Convert path to Windows format if needed
+            if self.is_windows:
+                temp_file_path = temp_file_path.replace('\\', '/')
             
             try:
                 # Try Maven JAR first (preferred approach)
