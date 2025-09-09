@@ -23,6 +23,7 @@ import {
   ArrowLeftOutlined,
   InfoCircleOutlined,
   DatabaseOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import { rulesApi } from '../services/api';
@@ -43,14 +44,34 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const [schemaViewerVisible, setSchemaViewerVisible] = useState(false);
   const [sampleDataVisible, setSampleDataVisible] = useState(false);
   const [selectedSchema, setSelectedSchema] = useState('modern');
+  const [parsedRuleName, setParsedRuleName] = useState('');
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
+
+  // Parse rule name from content
+  const parseRuleNameFromContent = (content) => {
+    if (!content) return '';
+    
+    // Match both quoted and unquoted rule names
+    // rule "PROMOTION $5%3 @SEARS":
+    // rule regularRuleName:
+    const ruleMatch = content.match(/^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:/m);
+    if (ruleMatch) {
+      return ruleMatch[1] || ruleMatch[2] || ''; // quoted name or unquoted name
+    }
+    return '';
+  };
+
+  // Update parsed rule name whenever content changes
+  useEffect(() => {
+    const name = parseRuleNameFromContent(editorContent);
+    setParsedRuleName(name);
+  }, [editorContent]);
 
   // Initialize form and editor
   useEffect(() => {
     if (rule) {
       form.setFieldsValue({
-        name: rule.name,
         description: rule.description,
         status: rule.status,
       });
@@ -203,6 +224,11 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   // Handle manual validation
   const handleValidate = () => {
     validateContent(editorContent);
+  };
+
+  // Handle execute rule
+  const handleExecute = () => {
+    message.info('Not yet implemented');
   };
 
   // Handle test rule
@@ -501,8 +527,15 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
       setLoading(true);
 
+      // Validate that rule name can be parsed
+      if (!parsedRuleName) {
+        message.error('Could not parse rule name from content. Make sure your rule starts with "rule name:"');
+        return;
+      }
+
       const ruleData = {
         ...values,
+        name: parsedRuleName, // Use parsed name instead of form field
         content: editorContent,
         schema_version: selectedSchema,
       };
@@ -549,7 +582,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
           <Button icon={<ArrowLeftOutlined />} onClick={onBack}>
             Back to Rules
           </Button>
-          <h2>{rule ? `Edit Rule: ${rule.name}` : 'Create New Rule'}</h2>
+          <h2>{rule ? `Edit Rule: ${parsedRuleName || rule.name}` : 'Create New Rule'}</h2>
         </div>
         <Space>
           <Button
@@ -570,6 +603,12 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             onClick={handleTest}
           >
             Test
+          </Button>
+          <Button
+            icon={<ThunderboltOutlined />}
+            onClick={handleExecute}
+          >
+            Execute
           </Button>
           <Button
             icon={<DatabaseOutlined />}
@@ -594,14 +633,18 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
           <Card title="Rule Information" size="small">
             <Form form={form} layout="vertical">
               <Form.Item
-                name="name"
                 label="Rule Name"
-                rules={[
-                  { required: true, message: 'Rule name is required' },
-                  { pattern: /^[a-zA-Z][a-zA-Z0-9_]*$/, message: 'Invalid rule name format' },
-                ]}
+                help="Extracted from rule definition"
               >
-                <Input placeholder="Enter rule name" />
+                <Input 
+                  value={parsedRuleName || '(not parsed)'} 
+                  disabled 
+                  placeholder="Will be extracted from rule content"
+                  style={{ 
+                    backgroundColor: parsedRuleName ? '#f6ffed' : '#fff2f0',
+                    borderColor: parsedRuleName ? '#b7eb8f' : '#ffccc7'
+                  }}
+                />
               </Form.Item>
 
               <Form.Item name="description" label="Description">

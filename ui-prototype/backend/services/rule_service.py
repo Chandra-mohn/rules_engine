@@ -5,6 +5,7 @@ from models import db, Rule, RuleHistory
 from services.java_bridge import JavaBridge
 from services.list_cache import ListService
 from config import Config
+import re
 
 class RuleService:
     """Service class for rule management operations."""
@@ -12,6 +13,33 @@ class RuleService:
     def __init__(self):
         self.java_bridge = JavaBridge(Config.JAVA_RULES_ENGINE_PATH)
         self.list_service = ListService()
+    
+    def parse_rule_name_from_content(self, content: str) -> str:
+        """
+        Parse rule name from rule content.
+        Supports both quoted and unquoted identifiers:
+        - rule "PROMOTION $5%3 @SEARS":
+        - rule regularRuleName:
+        
+        Args:
+            content: Rule content string
+            
+        Returns:
+            Parsed rule name or empty string if not found
+        """
+        if not content:
+            return ''
+        
+        # Match both quoted and unquoted rule names
+        # rule "PROMOTION $5%3 @SEARS":
+        # rule regularRuleName:
+        pattern = r'^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:'
+        match = re.search(pattern, content, re.MULTILINE)
+        
+        if match:
+            return match.group(1) or match.group(2) or ''
+        
+        return ''
     
     def get_rules(self, page: int = 1, limit: int = 10, status: Optional[str] = None, 
                   search: Optional[str] = None, schema_version: Optional[str] = None) -> Tuple[List[Rule], int]:
@@ -69,20 +97,32 @@ class RuleService:
         Create a new rule with validation.
         
         Args:
-            data: Rule data (name, description, content)
+            data: Rule data (description, content, status, schema_version)
+                 Note: 'name' is now parsed from content, not provided separately
             created_by: User who created the rule
             
         Returns:
             Tuple of (created_rule, validation_result)
         """
+        # Parse rule name from content
+        parsed_name = self.parse_rule_name_from_content(data['content'])
+        if not parsed_name:
+            return None, {
+                'valid': False, 
+                'message': 'Could not parse rule name from content. Rule must start with "rule name:"',
+                'errors': ['Rule name not found in content']
+            }
+        
         # Validate rule content
         validation_result = self.java_bridge.validate_rule(data['content'])
         
-        # Create rule
+        # Create rule with parsed name
         rule = Rule(
-            name=data['name'],
+            name=parsed_name,
             description=data.get('description', ''),
             content=data['content'],
+            status=data.get('status', 'draft'),
+            schema_version=data.get('schema_version', 'modern'),
             created_by=created_by,
             updated_by=created_by,
             validation_status='valid' if validation_result['valid'] else 'invalid',
@@ -122,15 +162,25 @@ class RuleService:
         if 'content' in data and data['content'] != rule.content:
             validation_result = self.validate_rule_with_lists(data['content'], data.get('schema_version', 'modern'))
         
-        # Update rule fields
-        if 'name' in data:
-            rule.name = data['name']
+        # Parse name from content if content changed
+        if 'content' in data:
+            parsed_name = self.parse_rule_name_from_content(data['content'])
+            if not parsed_name:
+                return None, {
+                    'valid': False,
+                    'message': 'Could not parse rule name from content. Rule must start with "rule name:"',
+                    'errors': ['Rule name not found in content']
+                }
+            rule.name = parsed_name
+            rule.content = data['content']
+            
+        # Update other rule fields
         if 'description' in data:
             rule.description = data['description']
-        if 'content' in data:
-            rule.content = data['content']
         if 'status' in data:
             rule.status = data['status']
+        if 'schema_version' in data:
+            rule.schema_version = data['schema_version']
         
         rule.updated_by = updated_by
         rule.validation_status = 'valid' if validation_result['valid'] else 'invalid'

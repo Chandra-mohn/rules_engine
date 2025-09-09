@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
-from models import Rule, RuleSchema
+from models import Rule, RuleSchema, db
 from services.rule_service import RuleService
 from config import Config
 import math
@@ -58,17 +58,23 @@ def create_rule():
         data = request.get_json()
         
         # Validate required fields
-        if not data or 'name' not in data or 'content' not in data:
-            return jsonify({'error': 'Name and content are required'}), 400
+        if not data or 'content' not in data:
+            return jsonify({'error': 'Content is required'}), 400
         
-        # Check if rule name already exists
-        existing_rule = rule_service.get_rule_by_name(data['name'])
-        if existing_rule:
-            return jsonify({'error': 'Rule name already exists'}), 409
-        
-        # Create rule
+        # Create rule (name will be parsed from content)
         created_by = request.headers.get('X-User-ID', 'system')
         rule, validation_result = rule_service.create_rule(data, created_by)
+        
+        if not rule:
+            return jsonify({'error': validation_result.get('message', 'Failed to create rule')}), 400
+        
+        # Check if parsed rule name already exists
+        existing_rule = rule_service.get_rule_by_name(rule.name)
+        if existing_rule and existing_rule.id != rule.id:
+            # Rollback the created rule
+            db.session.delete(rule)
+            db.session.commit()
+            return jsonify({'error': f'Rule name "{rule.name}" already exists'}), 409
         
         response_data = rule.to_dict()
         response_data['validation'] = validation_result
@@ -86,18 +92,20 @@ def update_rule(rule_id):
         if not data:
             return jsonify({'error': 'Request body is required'}), 400
         
-        # Check if new name conflicts with existing rule
-        if 'name' in data:
-            existing_rule = rule_service.get_rule_by_name(data['name'])
-            if existing_rule and existing_rule.id != rule_id:
-                return jsonify({'error': 'Rule name already exists'}), 409
-        
-        # Update rule
+        # Update rule (name will be parsed from content if content changed)
         updated_by = request.headers.get('X-User-ID', 'system')
         rule, validation_result = rule_service.update_rule(rule_id, data, updated_by)
         
         if not rule:
+            if validation_result and not validation_result.get('valid'):
+                return jsonify({'error': validation_result.get('message', 'Update failed')}), 400
             return jsonify({'error': 'Rule not found'}), 404
+        
+        # Check if parsed rule name conflicts with existing rule
+        if 'content' in data:  # Only check if content (and thus potentially name) changed
+            existing_rule = rule_service.get_rule_by_name(rule.name)
+            if existing_rule and existing_rule.id != rule_id:
+                return jsonify({'error': f'Rule name "{rule.name}" already exists'}), 409
         
         response_data = rule.to_dict()
         response_data['validation'] = validation_result
