@@ -237,10 +237,15 @@ class RuleService:
             get_attributes_by_entity, KEYWORDS, OPERATORS, TIME_UNITS
         )
         
+        # Get data once to avoid duplicates
+        all_attributes = get_all_attributes()
+        all_actions = get_all_actions()
+        all_functions = get_all_functions()
+        
         # Build comprehensive suggestions cache
         suggestions_cache = {
             'attributes': {
-                'all': get_all_attributes(),
+                'all': all_attributes,
                 'by_entity': {
                     'applicant': get_attributes_by_entity('applicant'),
                     'transaction': get_attributes_by_entity('transaction'),
@@ -248,12 +253,12 @@ class RuleService:
                 }
             },
             'actions': {
-                'all': get_all_actions(),
-                'modern': [action for action in get_all_actions() if not action['label'].isupper()],
-                'legacy': [action for action in get_all_actions() if action['label'].isupper()]
+                'all': all_actions,
+                'modern': [action for action in all_actions if not action['label'].isupper()],
+                'legacy': [action for action in all_actions if action['label'].isupper()]
             },
             'functions': {
-                'all': get_all_functions(),
+                'all': all_functions,
                 'by_category': {}
             },
             'keywords': [
@@ -276,9 +281,8 @@ class RuleService:
         }
         
         # Group functions by category
-        functions = get_all_functions()
         function_categories = {}
-        for func in functions:
+        for func in all_functions:
             category = func.get('category', 'general')
             if category not in function_categories:
                 function_categories[category] = []

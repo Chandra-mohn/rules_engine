@@ -42,7 +42,7 @@ const CacheDebugger = () => {
 
   return (
     <Card 
-      title="Suggestions Cache Debug" 
+      title="Suggestions Cache Debug (Ctrl+D to hide)" 
       size="small"
       extra={
         <Space>

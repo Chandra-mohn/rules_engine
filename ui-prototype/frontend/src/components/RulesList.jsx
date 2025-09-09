@@ -40,6 +40,7 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
     search: '',
     schema_version: 'modern', // Default to modern
   });
+  const [showCacheDebugger, setShowCacheDebugger] = useState(false);
 
   // Load rules data
   const loadRules = async (page = 1, pageSize = 10, filterParams = {}) => {
@@ -77,6 +78,20 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
       // Don't show error to user - this is a performance enhancement
     });
   }, []);
+
+  // Keyboard listener for Ctrl+D to toggle cache debugger
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      if (event.ctrlKey && event.key === 'd') {
+        event.preventDefault();
+        setShowCacheDebugger(prev => !prev);
+        console.log(showCacheDebugger ? 'Cache debugger hidden' : 'Cache debugger shown');
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [showCacheDebugger]);
 
   // Handle pagination change
   const handleTableChange = (paginationInfo) => {
@@ -329,8 +344,8 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
         />
       </div>
 
-      {/* Cache Debugger - Development Only */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* Cache Debugger - Hidden developer feature (Ctrl+D to toggle) */}
+      {showCacheDebugger && (
         <div style={{ marginBottom: 16 }}>
           <CacheDebugger />
         </div>

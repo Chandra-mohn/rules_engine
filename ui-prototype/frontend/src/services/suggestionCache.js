@@ -58,6 +58,13 @@ class SuggestionCache {
       const totalCount = data.metadata?.total_count || 0;
       
       console.log(`✅ Suggestions cache loaded: ${totalCount} items in ${loadTime}ms`);
+      console.log('📊 Cache breakdown:', {
+        attributes: data.attributes?.all?.length || 0,
+        actions: data.actions?.all?.length || 0,
+        functions: data.functions?.all?.length || 0,
+        keywords: data.keywords?.length || 0,
+        operators: data.operators?.length || 0
+      });
       
       return data;
     } catch (error) {
@@ -83,33 +90,39 @@ class SuggestionCache {
     const currentLine = this.extractCurrentLine(context, position);
 
     try {
-      // Context-based suggestion filtering
+      // Context-based suggestion filtering (all with deduplication)
       if (this.isEntityContext(currentLine, 'applicant')) {
-        return data.attributes.by_entity.applicant || [];
+        console.log('🎯 Applicant context detected:', currentLine);
+        return this.removeDuplicates(data.attributes.by_entity.applicant || []);
       }
       
       if (this.isEntityContext(currentLine, 'transaction')) {
-        return data.attributes.by_entity.transaction || [];
+        console.log('🎯 Transaction context detected:', currentLine);
+        return this.removeDuplicates(data.attributes.by_entity.transaction || []);
       }
       
       if (this.isEntityContext(currentLine, 'account')) {
-        return data.attributes.by_entity.account || [];
+        console.log('🎯 Account context detected:', currentLine);
+        return this.removeDuplicates(data.attributes.by_entity.account || []);
       }
       
       if (this.isActionContext(currentLine)) {
-        return data.actions.all || [];
+        console.log('🎯 Action context detected:', currentLine);
+        return this.removeDuplicates(data.actions.all || []);
       }
       
       if (this.isDateTimeContext(currentLine)) {
-        return data.functions.by_category.datetime || data.functions.all || [];
+        const datetimeFunctions = data.functions.by_category?.datetime || data.functions.all || [];
+        return this.removeDuplicates(datetimeFunctions);
       }
 
       // General context - return comprehensive suggestions
+      console.log('🎯 General context (no specific match):', currentLine);
       return this.buildGeneralSuggestions(data);
       
     } catch (error) {
       console.error('❌ Error filtering suggestions:', error);
-      return data.attributes?.all || [];
+      return this.removeDuplicates(data.attributes?.all || []);
     }
   }
 
@@ -156,7 +169,23 @@ class SuggestionCache {
   }
 
   isActionContext(currentLine) {
-    return /\bthen\s*$/.test(currentLine.trim());
+    // Check if we're in an action context after "then"
+    const line = currentLine.trim();
+    
+    // Case 1: Line ends with "then" (exact match)
+    if (/\bthen\s*$/.test(line)) {
+      return true;
+    }
+    
+    // Case 2: Line contains "then" followed by spaces and partial/complete action
+    // Examples: "then approve", "then \"SPECIAL", "then conditionalApproval"
+    if (/\bthen\s+/.test(line)) {
+      // Make sure it's not just "then" followed by another condition
+      // Avoid matching: "then if", "then and", "then or"
+      return !/\bthen\s+(if|and|or|not)\b/.test(line);
+    }
+    
+    return false;
   }
 
   isDateTimeContext(currentLine) {
