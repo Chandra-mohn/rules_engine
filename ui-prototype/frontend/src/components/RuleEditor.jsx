@@ -26,7 +26,8 @@ import {
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import { rulesApi } from '../services/api';
-import { rulesLanguageDefinition } from '../utils/rulesSyntax';
+import { rulesLanguageDefinition, getMonacoCompletionKind } from '../utils/rulesSyntax';
+import suggestionCache from '../services/suggestionCache';
 import SchemaViewer from './SchemaViewer';
 import SampleDataEditor from './SampleDataEditor';
 
@@ -92,34 +93,40 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             endColumn: position.column,
           });
 
-          // Get schema-specific suggestions
+          // Get suggestions from cache (fast) or fallback to API (slow)
           let allSuggestions = [];
           
           try {
-            const [attributesResponse, actionsResponse] = await Promise.all([
-              fetch(`/api/schema/${selectedSchema}/attributes`),
-              fetch(`/api/schema/${selectedSchema}/actions`)
-            ]);
+            // Try to get suggestions from cache first
+            allSuggestions = suggestionCache.getSuggestions(textUntilPosition, textUntilPosition.length);
             
-            if (attributesResponse.ok && actionsResponse.ok) {
-              const attributesData = await attributesResponse.json();
-              const actionsData = await actionsResponse.json();
+            // If cache is empty or not loaded, fall back to API
+            if (!allSuggestions || allSuggestions.length === 0) {
+              console.warn('Cache not available, falling back to API...');
               
-              // Combine suggestions from schema
-              allSuggestions = [
-                ...attributesData.attributes,
-                ...actionsData.actions
-              ];
+              try {
+                const [attributesResponse, actionsResponse] = await Promise.all([
+                  fetch(`/api/schema/${selectedSchema}/attributes`),
+                  fetch(`/api/schema/${selectedSchema}/actions`)
+                ]);
+                
+                if (attributesResponse.ok && actionsResponse.ok) {
+                  const attributesData = await attributesResponse.json();
+                  const actionsData = await actionsResponse.json();
+                  
+                  allSuggestions = [
+                    ...attributesData.attributes,
+                    ...actionsData.actions
+                  ];
+                }
+              } catch (apiError) {
+                console.warn('API fallback failed, using empty suggestions:', apiError);
+                allSuggestions = [];
+              }
             }
-          } catch (schemaError) {
-            console.warn('Schema-specific autocomplete failed, falling back to API:', schemaError);
-            
-            // Fallback to original API
-            const response = await rulesApi.getAutocompleteSuggestions(
-              textUntilPosition,
-              textUntilPosition.length
-            );
-            allSuggestions = response.data.suggestions;
+          } catch (cacheError) {
+            console.error('Error getting cached suggestions:', cacheError);
+            allSuggestions = [];
           }
           
           // Filter based on current context

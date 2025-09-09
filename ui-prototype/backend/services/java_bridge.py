@@ -280,9 +280,6 @@ class JavaBridge:
         actions = get_all_actions()
         functions = get_all_functions()
         
-        # Combine all suggestions
-        all_suggestions = keywords + operators + attributes + actions + functions + time_units
-        
         # Filter based on current context
         if 'applicant.' in current_line:
             suggestions = get_attributes_by_entity('applicant')
@@ -295,6 +292,15 @@ class JavaBridge:
         elif any(word in current_line.lower() for word in ['year_of', 'month_of', 'day_of']):
             suggestions = [s for s in functions if s['detail'] in ['datetime', 'date', 'number']]
         else:
-            suggestions = all_suggestions
+            # Combine all suggestions for general context
+            suggestions = keywords + operators + attributes + actions + functions + time_units
         
-        return {'suggestions': suggestions}
+        # Remove duplicates by converting to dict (keeping last occurrence) then back to list
+        seen_labels = set()
+        unique_suggestions = []
+        for suggestion in suggestions:
+            if suggestion['label'] not in seen_labels:
+                seen_labels.add(suggestion['label'])
+                unique_suggestions.append(suggestion)
+        
+        return {'suggestions': unique_suggestions}

@@ -1,5 +1,6 @@
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy import or_
+from datetime import datetime
 from models import db, Rule, RuleHistory
 from services.java_bridge import JavaBridge
 from services.list_cache import ListService
@@ -223,8 +224,91 @@ class RuleService:
         
         return rule, validation_result
     
+    def get_all_suggestions(self) -> Dict[str, Any]:
+        """
+        Get all autocomplete suggestions for caching on the frontend.
+        
+        Returns:
+            Dict with all suggestion categories and metadata
+        """
+        # Import centralized schema configuration
+        from schema.rules_schema import (
+            get_all_attributes, get_all_actions, get_all_functions,
+            get_attributes_by_entity, KEYWORDS, OPERATORS, TIME_UNITS
+        )
+        
+        # Build comprehensive suggestions cache
+        suggestions_cache = {
+            'attributes': {
+                'all': get_all_attributes(),
+                'by_entity': {
+                    'applicant': get_attributes_by_entity('applicant'),
+                    'transaction': get_attributes_by_entity('transaction'),
+                    'account': get_attributes_by_entity('account')
+                }
+            },
+            'actions': {
+                'all': get_all_actions(),
+                'modern': [action for action in get_all_actions() if not action['label'].isupper()],
+                'legacy': [action for action in get_all_actions() if action['label'].isupper()]
+            },
+            'functions': {
+                'all': get_all_functions(),
+                'by_category': {}
+            },
+            'keywords': [
+                {'label': keyword, 'kind': 'keyword', 'detail': 'Keyword'}
+                for keyword in KEYWORDS
+            ],
+            'operators': [
+                {'label': op, 'kind': 'operator', 'detail': 'Operator'}
+                for op in OPERATORS
+            ],
+            'time_units': [
+                {'label': unit, 'kind': 'keyword', 'detail': 'Time unit'}
+                for unit in TIME_UNITS
+            ],
+            'metadata': {
+                'version': '1.0',
+                'timestamp': datetime.utcnow().isoformat(),
+                'total_count': 0
+            }
+        }
+        
+        # Group functions by category
+        functions = get_all_functions()
+        function_categories = {}
+        for func in functions:
+            category = func.get('category', 'general')
+            if category not in function_categories:
+                function_categories[category] = []
+            function_categories[category].append(func)
+        suggestions_cache['functions']['by_category'] = function_categories
+        
+        # Calculate total count for metadata
+        total_count = (
+            len(suggestions_cache['attributes']['all']) +
+            len(suggestions_cache['actions']['all']) +
+            len(suggestions_cache['functions']['all']) +
+            len(suggestions_cache['keywords']) +
+            len(suggestions_cache['operators']) +
+            len(suggestions_cache['time_units'])
+        )
+        suggestions_cache['metadata']['total_count'] = total_count
+        
+        return suggestions_cache
+    
     def get_autocomplete_suggestions(self, context: str, position: int) -> Dict[str, Any]:
-        """Get autocomplete suggestions for rule editing."""
+        """
+        Get autocomplete suggestions for rule editing.
+        
+        Args:
+            context: The current rule content context
+            position: Cursor position in the context
+            
+        Returns:
+            Dict with suggestions: {'suggestions': list}
+        """
         return self.java_bridge.get_autocomplete_suggestions(context, position)
     
     def _create_history_entry(self, rule: Rule, created_by: str, change_reason: str):

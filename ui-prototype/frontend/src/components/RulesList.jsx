@@ -21,6 +21,8 @@ import {
 } from '@ant-design/icons';
 import { rulesApi } from '../services/api';
 import SchemaSelector from './SchemaSelector';
+import CacheDebugger from './CacheDebugger';
+import suggestionCache from '../services/suggestionCache';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -65,9 +67,15 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
     }
   };
 
-  // Initial load
+  // Initial load and preload suggestions cache
   useEffect(() => {
     loadRules();
+    
+    // Preload suggestions cache in background
+    suggestionCache.preload().catch(error => {
+      console.warn('Failed to preload suggestions cache:', error);
+      // Don't show error to user - this is a performance enhancement
+    });
   }, []);
 
   // Handle pagination change
@@ -320,6 +328,13 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
           onSchemaChange={handleSchemaFilter}
         />
       </div>
+
+      {/* Cache Debugger - Development Only */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{ marginBottom: 16 }}>
+          <CacheDebugger />
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>

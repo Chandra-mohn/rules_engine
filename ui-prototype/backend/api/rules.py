@@ -174,18 +174,28 @@ def test_rule(rule_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@rules_bp.route('/rules/suggestions/complete', methods=['GET'])
+def get_complete_suggestions():
+    """Get all autocomplete suggestions for client-side caching."""
+    try:
+        suggestions = rule_service.get_all_suggestions()
+        return jsonify(suggestions)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @rules_bp.route('/rules/autocomplete', methods=['POST'])
 def get_autocomplete():
     """Get autocomplete suggestions."""
     try:
         data = request.get_json()
-        if not data or 'context' not in data:
-            return jsonify({'error': 'Context is required'}), 400
+        if not data or 'context' not in data or 'position' not in data:
+            return jsonify({'error': 'Context and position are required'}), 400
         
-        context = data['context']
-        position = data.get('position', len(context))
-        
-        suggestions = rule_service.get_autocomplete_suggestions(context, position)
+        suggestions = rule_service.get_autocomplete_suggestions(
+            data['context'], 
+            data['position']
+        )
         return jsonify(suggestions)
         
     except Exception as e:
