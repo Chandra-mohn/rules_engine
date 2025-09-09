@@ -1,0 +1,17 @@
+{
+  "applicant": {
+    "creditScore": 780,
+    "age": 25,
+    "annualIncome": 85000
+  },
+  "transaction": {
+    "amount": 1500,
+    "timestamp": "2024-09-07T10:30:00",
+    "merchantCategory": "retail"
+  },
+  "account": {
+    "currentBalance": 2500,
+    "creditLimit": 10000,
+    "availableCredit": 8500
+  }
+}

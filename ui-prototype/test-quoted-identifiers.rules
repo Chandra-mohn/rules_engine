@@ -1,0 +1,7 @@
+rule "PROMOTION $5%3 @SEARS":
+    if applicant.creditScore >= 750 then "TIERED DD+1"
+    if applicant.age >= 21 then "INSTANT APPROVAL!"
+
+rule "Multi Word Rule":
+    if transaction.amount > 1000 then "MANUAL REVIEW REQUIRED"
+    if account.currentBalance < 100 then "LOW BALANCE ALERT"

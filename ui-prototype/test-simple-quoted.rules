@@ -1,0 +1,2 @@
+rule simpleRule:
+    if applicant.creditScore >= 750 then "TIERED DD+1"

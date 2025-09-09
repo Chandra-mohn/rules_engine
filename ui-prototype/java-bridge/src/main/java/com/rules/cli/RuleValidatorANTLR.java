@@ -223,9 +223,18 @@ public class RuleValidatorANTLR {
         
         @Override
         public void enterAction(RulesParser.ActionContext ctx) {
-            String actionName = ctx.IDENTIFIER().getText();
+            String actionName = null;
             
-            if (!VALID_ACTIONS.contains(actionName)) {
+            // Handle both quoted and unquoted identifiers
+            if (ctx.IDENTIFIER() != null) {
+                actionName = ctx.IDENTIFIER().getText();
+            } else if (ctx.QUOTED_IDENTIFIER() != null) {
+                actionName = ctx.QUOTED_IDENTIFIER().getText();
+                // Accept any quoted action without validation
+                return;
+            }
+            
+            if (actionName != null && !VALID_ACTIONS.contains(actionName)) {
                 String suggestion = findClosestAction(actionName);
                 if (suggestion != null) {
                     errors.add("Invalid action '" + actionName + "'. Did you mean '" + suggestion + "'?");
@@ -239,6 +248,12 @@ public class RuleValidatorANTLR {
         @Override
         public void enterAttribute(RulesParser.AttributeContext ctx) {
             List<TerminalNode> identifiers = ctx.IDENTIFIER();
+            List<TerminalNode> quotedIdentifiers = ctx.QUOTED_IDENTIFIER();
+            
+            // Skip validation for quoted identifiers - accept anything
+            if (quotedIdentifiers != null && !quotedIdentifiers.isEmpty()) {
+                return;
+            }
             
             if (identifiers.size() >= 2) {
                 String entity = identifiers.get(0).getText();

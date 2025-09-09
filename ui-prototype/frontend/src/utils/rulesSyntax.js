@@ -62,6 +62,9 @@ export const rulesLanguageDefinition = {
     // The main tokenizer for our simple language
     tokenizer: {
       root: [
+        // quoted identifiers (support any characters within quotes)
+        [/"[^"]*"/, 'identifier.quoted'],
+        
         // identifiers and keywords (support both lowercase and uppercase)
         [/[a-zA-Z_$][\w$]*/, {
           cases: {
@@ -134,6 +137,7 @@ export const rulesLanguageDefinition = {
       { token: 'keyword', foreground: '0000ff', fontStyle: 'bold' },
       { token: 'function', foreground: '795e26' },
       { token: 'function.action', foreground: '008000', fontStyle: 'bold' },
+      { token: 'identifier.quoted', foreground: '000000' },
       { token: 'string', foreground: 'a31515' },
       { token: 'string.date', foreground: '098658' },
       { token: 'number', foreground: '098658' },

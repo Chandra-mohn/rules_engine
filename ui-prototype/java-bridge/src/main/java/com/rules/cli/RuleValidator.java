@@ -367,7 +367,15 @@ public class RuleValidator {
                token.matches("'.*'"); // Single quoted strings
     }
     
+    private static boolean isQuotedIdentifier(String token) {
+        return token.startsWith("\"") && token.endsWith("\"") && token.length() >= 2;
+    }
+    
     private static boolean isValidToken(String token, String content, SchemaType schemaType) {
+        if (isQuotedIdentifier(token)) {
+            return true; // Accept any quoted content
+        }
+        
         Set<String> validActions = (schemaType == SchemaType.LEGACY) ? VALID_ACTIONS_LEGACY : VALID_ACTIONS_MODERN;
         
         return VALID_KEYWORDS.contains(token) || 
@@ -391,6 +399,7 @@ public class RuleValidator {
     
     private static boolean isRuleName(String token, String content) {
         // Check if this token appears as a rule name after "rule"
+        // Handle both quoted and unquoted rule names
         Pattern rulePattern = Pattern.compile("\\brule\\s+" + Pattern.quote(token) + "\\s*:");
         return rulePattern.matcher(content).find();
     }

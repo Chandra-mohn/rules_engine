@@ -10,7 +10,7 @@ namedRule
     ;
 
 ruleName
-    : IDENTIFIER
+    : IDENTIFIER | QUOTED_IDENTIFIER
     ;
 
 step
@@ -57,11 +57,11 @@ primaryExpression
     ;
 
 functionCall
-    : IDENTIFIER '(' (expression (',' expression)*)? ')'
+    : (IDENTIFIER | QUOTED_IDENTIFIER) '(' (expression (',' expression)*)? ')'
     ;
 
 attribute
-    : IDENTIFIER ('.' IDENTIFIER)*
+    : (IDENTIFIER | QUOTED_IDENTIFIER) ('.' (IDENTIFIER | QUOTED_IDENTIFIER))*
     ;
 
 operator
@@ -70,7 +70,7 @@ operator
     ;
 
 action
-    : IDENTIFIER ('(' (value (',' value)*)? ')')?
+    : (IDENTIFIER | QUOTED_IDENTIFIER) ('(' (value (',' value)*)? ')')?
     ;
 
 value
@@ -82,7 +82,7 @@ value
     ;
 
 listReference
-    : IDENTIFIER  // References a named list like VALID_STATUSES
+    : IDENTIFIER | QUOTED_IDENTIFIER  // References a named list like VALID_STATUSES or "SPECIAL LIST"
     ;
 
 list
@@ -90,6 +90,10 @@ list
     ;
 
 // Lexer Rules
+QUOTED_IDENTIFIER
+    : '"' ~["\r\n]* '"'
+    ;
+
 IDENTIFIER
     : [a-zA-Z_] [a-zA-Z0-9_]*
     ;
