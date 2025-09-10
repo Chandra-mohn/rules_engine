@@ -42,7 +42,9 @@ class RuleService:
         return ''
     
     def get_rules(self, page: int = 1, limit: int = 10, status: Optional[str] = None, 
-                  search: Optional[str] = None, schema_version: Optional[str] = None) -> Tuple[List[Rule], int]:
+                  search: Optional[str] = None, schema_version: Optional[str] = None,
+                  client_id: Optional[int] = None, process_group_id: Optional[int] = None,
+                  process_area_id: Optional[int] = None) -> Tuple[List[Rule], int]:
         """
         Get paginated list of rules with optional filtering.
         
@@ -52,11 +54,25 @@ class RuleService:
             status: Filter by status (optional)
             search: Search term for name/description (optional)
             schema_version: Filter by schema version (optional)
+            client_id: Filter by client (optional)
+            process_group_id: Filter by process group (optional)
+            process_area_id: Filter by process area (optional)
             
         Returns:
             Tuple of (rules_list, total_count)
         """
-        query = Rule.query
+        from models import ProcessArea, ProcessGroup, Client
+        
+        # Start with Rule query and join hierarchy for filtering
+        query = Rule.query.join(ProcessArea).join(ProcessGroup).join(Client)
+        
+        # Apply hierarchy filters
+        if client_id:
+            query = query.filter(Client.id == client_id)
+        if process_group_id:
+            query = query.filter(ProcessGroup.id == process_group_id)
+        if process_area_id:
+            query = query.filter(ProcessArea.id == process_area_id)
         
         # Apply status filter
         if status:
@@ -116,12 +132,30 @@ class RuleService:
         # Validate rule content
         validation_result = self.java_bridge.validate_rule(data['content'])
         
+        # Handle dates
+        effective_date = None
+        expiry_date = None
+        if 'effective_date' in data:
+            from datetime import datetime
+            effective_date = datetime.fromisoformat(data['effective_date']).date()
+        if 'expiry_date' in data and data['expiry_date']:
+            from datetime import datetime
+            expiry_date = datetime.fromisoformat(data['expiry_date']).date()
+        
+        # Determine initial status (auto-promote to VALID if validation passes)
+        initial_status = 'DRAFT'
+        if validation_result.get('valid', False):
+            initial_status = 'VALID'
+        
         # Create rule with parsed name
         rule = Rule(
+            process_area_id=data['process_area_id'],
             name=parsed_name,
             description=data.get('description', ''),
             content=data['content'],
-            status=data.get('status', 'draft'),
+            status=initial_status,
+            effective_date=effective_date,
+            expiry_date=expiry_date,
             schema_version=data.get('schema_version', 'modern'),
             created_by=created_by,
             updated_by=created_by,
@@ -136,6 +170,71 @@ class RuleService:
         self._create_history_entry(rule, created_by, 'Initial creation')
         
         return rule, validation_result
+    
+    def promote_rule_status(self, rule_id: int, target_status: str, reason: str = '', updated_by: str = 'system') -> bool:
+        """
+        Promote rule to a new status.
+        
+        Args:
+            rule_id: ID of the rule to promote
+            target_status: Target status (DRAFT, VALID, PEND, SCHD, PROD)
+            reason: Reason for status change
+            updated_by: User who updated the status
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            rule = self.get_rule_by_id(rule_id)
+            if not rule:
+                return False
+            
+            old_status = rule.status
+            rule.status = target_status
+            rule.updated_by = updated_by
+            rule.version += 1
+            
+            db.session.commit()
+            
+            # Create history entry for status change
+            self._create_history_entry(
+                rule, 
+                updated_by, 
+                f'Status changed from {old_status} to {target_status}. {reason}'.strip()
+            )
+            
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            return False
+    
+    def check_rule_uniqueness(self, process_area_id: int, name: str, effective_date: str, exclude_id: Optional[int] = None) -> bool:
+        """
+        Check if a rule with the same process_area_id, name, and effective_date already exists.
+        
+        Args:
+            process_area_id: Process area ID
+            name: Rule name
+            effective_date: Effective date
+            exclude_id: Rule ID to exclude from check (for updates)
+            
+        Returns:
+            True if unique, False if duplicate exists
+        """
+        from datetime import datetime
+        
+        query = Rule.query.filter(
+            Rule.process_area_id == process_area_id,
+            Rule.name == name,
+            Rule.effective_date == datetime.fromisoformat(effective_date).date()
+        )
+        
+        if exclude_id:
+            query = query.filter(Rule.id != exclude_id)
+            
+        existing = query.first()
+        return existing is None
     
     def update_rule(self, rule_id: int, data: Dict[str, Any], updated_by: str = 'system') -> Tuple[Optional[Rule], Dict[str, Any]]:
         """
@@ -177,10 +276,22 @@ class RuleService:
         # Update other rule fields
         if 'description' in data:
             rule.description = data['description']
-        if 'status' in data:
-            rule.status = data['status']
+        if 'effective_date' in data:
+            from datetime import datetime
+            rule.effective_date = datetime.fromisoformat(data['effective_date']).date()
+        if 'expiry_date' in data:
+            from datetime import datetime
+            rule.expiry_date = datetime.fromisoformat(data['expiry_date']).date() if data['expiry_date'] else None
+        if 'process_area_id' in data:
+            rule.process_area_id = data['process_area_id']
         if 'schema_version' in data:
             rule.schema_version = data['schema_version']
+        
+        # Handle status changes with auto-promotion logic
+        if 'content' in data and rule.status == 'DRAFT':
+            # Auto-promote to VALID if validation passes
+            if validation_result.get('valid', False):
+                rule.status = 'VALID'
         
         rule.updated_by = updated_by
         rule.validation_status = 'valid' if validation_result['valid'] else 'invalid'

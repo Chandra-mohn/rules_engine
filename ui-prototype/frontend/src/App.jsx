@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Layout } from 'antd';
-import RulesList from './components/RulesList';
+import RulesListEnhanced from './components/RulesListEnhanced';
 import RuleEditor from './components/RuleEditor';
 import './App.css';
 
@@ -50,7 +50,7 @@ function App() {
       <Content className="app-content">
         <div className="content-wrapper">
           {currentView === 'list' ? (
-            <RulesList
+            <RulesListEnhanced
               onCreateRule={handleCreateRule}
               onEditRule={handleEditRule}
             />

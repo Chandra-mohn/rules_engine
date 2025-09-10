@@ -228,6 +228,10 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
   // Handle execute rule
   const handleExecute = () => {
+    if (!rule || rule.status !== 'PROD') {
+      message.error('Rule execution is only allowed for PROD status rules');
+      return;
+    }
     message.info('Not yet implemented');
   };
 
@@ -607,8 +611,13 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
           <Button
             icon={<ThunderboltOutlined />}
             onClick={handleExecute}
+            disabled={!rule || rule.status !== 'PROD'}
+            type={rule && rule.status === 'PROD' ? 'primary' : 'default'}
+            style={{
+              opacity: rule && rule.status === 'PROD' ? 1 : 0.6
+            }}
           >
-            Execute
+            Execute {(!rule || rule.status !== 'PROD') && '(PROD Only)'}
           </Button>
           <Button
             icon={<DatabaseOutlined />}

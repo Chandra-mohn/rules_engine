@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
-from models import Rule, RuleSchema, db
+from models import Rule, RuleSchema, db, ProcessArea
 from services.rule_service import RuleService
 from config import Config
 import math
@@ -20,9 +20,16 @@ def get_rules():
         status = request.args.get('status')
         search = request.args.get('search')
         schema_version = request.args.get('schema_version')
+        client_id = request.args.get('client_id', type=int)
+        process_group_id = request.args.get('process_group_id', type=int)
+        process_area_id = request.args.get('process_area_id', type=int)
         
-        # Get rules from service
-        rules, total = rule_service.get_rules(page=page, limit=limit, status=status, search=search, schema_version=schema_version)
+        # Get rules from service with new filters
+        rules, total = rule_service.get_rules(
+            page=page, limit=limit, status=status, search=search, 
+            schema_version=schema_version, client_id=client_id,
+            process_group_id=process_group_id, process_area_id=process_area_id
+        )
         
         # Calculate pagination info
         pages = math.ceil(total / limit) if total > 0 else 1
@@ -60,6 +67,14 @@ def create_rule():
         # Validate required fields
         if not data or 'content' not in data:
             return jsonify({'error': 'Content is required'}), 400
+        
+        if 'process_area_id' not in data:
+            return jsonify({'error': 'Process area is required'}), 400
+            
+        # Validate process area exists
+        process_area = ProcessArea.query.get(data['process_area_id'])
+        if not process_area:
+            return jsonify({'error': 'Process area not found'}), 404
         
         # Create rule (name will be parsed from content)
         created_by = request.headers.get('X-User-ID', 'system')
@@ -233,6 +248,60 @@ def revert_rule(rule_id, version):
         response_data['validation'] = validation_result
         
         return jsonify(response_data)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+@rules_bp.route('/rules/<int:rule_id>/promote', methods=['POST'])
+def promote_rule_status(rule_id):
+    """Promote rule to next status or specific status."""
+    try:
+        data = request.get_json() or {}
+        target_status = data.get('target_status')
+        reason = data.get('reason', '')
+        
+        if not target_status:
+            return jsonify({'error': 'target_status is required'}), 400
+            
+        # Validate target status
+        valid_statuses = ['DRAFT', 'VALID', 'PEND', 'SCHD', 'PROD']
+        if target_status not in valid_statuses:
+            return jsonify({'error': f'Invalid status. Must be one of: {valid_statuses}'}), 400
+        
+        # Get rule
+        rule = rule_service.get_rule_by_id(rule_id)
+        if not rule:
+            return jsonify({'error': 'Rule not found'}), 404
+            
+        # Validate status transition
+        current_status = rule.status
+        valid_transitions = {
+            'DRAFT': ['VALID'],
+            'VALID': ['PEND', 'DRAFT'],
+            'PEND': ['SCHD', 'VALID'],
+            'SCHD': ['PROD', 'VALID'],
+            'PROD': []
+        }
+        
+        if target_status not in valid_transitions.get(current_status, []):
+            return jsonify({
+                'error': f'Invalid status transition from {current_status} to {target_status}'
+            }), 400
+        
+        # Update rule status
+        updated_by = request.headers.get('X-User-ID', 'system')
+        success = rule_service.promote_rule_status(rule_id, target_status, reason, updated_by)
+        
+        if not success:
+            return jsonify({'error': 'Failed to update rule status'}), 500
+            
+        # Get updated rule
+        updated_rule = rule_service.get_rule_by_id(rule_id)
+        response_data = updated_rule.to_dict()
+        
+        return jsonify({
+            'message': f'Rule status updated from {current_status} to {target_status}',
+            'rule': response_data
+        })
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

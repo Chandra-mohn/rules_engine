@@ -5,14 +5,109 @@ from marshmallow import fields
 
 db = SQLAlchemy()
 
+class Client(db.Model):
+    __tablename__ = 'clients'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(10), nullable=False, unique=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    process_groups = db.relationship('ProcessGroup', backref='client', lazy=True, cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'code': self.code,
+            'name': self.name,
+            'description': self.description,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+class ProcessGroup(db.Model):
+    __tablename__ = 'process_groups'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
+    code = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    process_areas = db.relationship('ProcessArea', backref='process_group', lazy=True, cascade='all, delete-orphan')
+    
+    # Unique constraint
+    __table_args__ = (db.UniqueConstraint('client_id', 'code', name='uq_client_process_group'),)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'code': self.code,
+            'name': self.name,
+            'description': self.description,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'client_code': self.client.code if self.client else None,
+            'client_name': self.client.name if self.client else None
+        }
+
+class ProcessArea(db.Model):
+    __tablename__ = 'process_areas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    process_group_id = db.Column(db.Integer, db.ForeignKey('process_groups.id'), nullable=False)
+    code = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    rules = db.relationship('Rule', backref='process_area', lazy=True, cascade='all, delete-orphan')
+    
+    # Unique constraint
+    __table_args__ = (db.UniqueConstraint('process_group_id', 'code', name='uq_process_group_area'),)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'process_group_id': self.process_group_id,
+            'code': self.code,
+            'name': self.name,
+            'description': self.description,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'process_group_code': self.process_group.code if self.process_group else None,
+            'process_group_name': self.process_group.name if self.process_group else None,
+            'client_id': self.process_group.client_id if self.process_group else None,
+            'client_code': self.process_group.client.code if self.process_group and self.process_group.client else None,
+            'client_name': self.process_group.client.name if self.process_group and self.process_group.client else None
+        }
+
 class Rule(db.Model):
     __tablename__ = 'rules'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False, unique=True)
+    process_area_id = db.Column(db.Integer, db.ForeignKey('process_areas.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     content = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(20), default='draft')  # draft, active, inactive, error
+    status = db.Column(db.String(10), default='DRAFT')  # DRAFT, VALID, PEND, SCHD, PROD
+    effective_date = db.Column(db.Date)
+    expiry_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.String(50), default='system')
@@ -22,16 +117,22 @@ class Rule(db.Model):
     version = db.Column(db.Integer, default=1)
     schema_version = db.Column(db.String(20), default='modern')  # modern, legacy
     
-    # Relationship to history
+    # Relationships
     history = db.relationship('RuleHistory', backref='rule', lazy=True, cascade='all, delete-orphan')
+    
+    # Unique constraint: combination of process_area_id, name, and effective_date must be unique
+    __table_args__ = (db.UniqueConstraint('process_area_id', 'name', 'effective_date', name='uq_rule_composite'),)
     
     def to_dict(self):
         return {
             'id': self.id,
+            'process_area_id': self.process_area_id,
             'name': self.name,
             'description': self.description,
             'content': self.content,
             'status': self.status,
+            'effective_date': self.effective_date.isoformat() if self.effective_date else None,
+            'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': self.created_by,
@@ -39,7 +140,16 @@ class Rule(db.Model):
             'validation_status': self.validation_status,
             'validation_message': self.validation_message,
             'version': self.version,
-            'schema_version': self.schema_version
+            'schema_version': self.schema_version,
+            # Include hierarchy information
+            'process_area_code': self.process_area.code if self.process_area else None,
+            'process_area_name': self.process_area.name if self.process_area else None,
+            'process_group_id': self.process_area.process_group_id if self.process_area else None,
+            'process_group_code': self.process_area.process_group.code if self.process_area and self.process_area.process_group else None,
+            'process_group_name': self.process_area.process_group.name if self.process_area and self.process_area.process_group else None,
+            'client_id': self.process_area.process_group.client_id if self.process_area and self.process_area.process_group else None,
+            'client_code': self.process_area.process_group.client.code if self.process_area and self.process_area.process_group and self.process_area.process_group.client else None,
+            'client_name': self.process_area.process_group.client.name if self.process_area and self.process_area.process_group and self.process_area.process_group.client else None
         }
 
 class RuleHistory(db.Model):
@@ -47,6 +157,7 @@ class RuleHistory(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     rule_id = db.Column(db.Integer, db.ForeignKey('rules.id'), nullable=False)
+    process_area_id = db.Column(db.Integer, db.ForeignKey('process_areas.id'))
     name = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
     version = db.Column(db.Integer, nullable=False)
@@ -101,6 +212,30 @@ class RuleList(db.Model):
         }
 
 # Marshmallow schemas for serialization
+class ClientSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = Client
+        load_instance = True
+        
+    created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+    updated_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+
+class ProcessGroupSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ProcessGroup
+        load_instance = True
+        
+    created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+    updated_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+
+class ProcessAreaSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ProcessArea
+        load_instance = True
+        
+    created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+    updated_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+
 class RuleSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Rule

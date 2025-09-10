@@ -92,6 +92,21 @@ export const rulesApi = {
   revertRule: (id, version) => {
     return api.post(`/rules/${id}/revert/${version}`);
   },
+
+  // Rule status promotion
+  promoteRuleStatus: (ruleId, targetStatus, reason = '') =>
+    api.post(`/rules/${ruleId}/promote`, { target_status: targetStatus, reason }),
+
+  // Hierarchy endpoints
+  getHierarchyTree: () => api.get('/hierarchy/tree'),
+  getClients: () => api.get('/hierarchy/clients'),
+  getProcessGroupsByClient: (clientId) => api.get(`/hierarchy/clients/${clientId}/process-groups`),
+  getProcessAreasByProcessGroup: (processGroupId) => api.get(`/hierarchy/process-groups/${processGroupId}/process-areas`),
+  getAllProcessAreas: () => api.get('/hierarchy/process-areas'),
+  getBreadcrumb: (nodeType, nodeId) => api.get(`/hierarchy/breadcrumb/${nodeType}/${nodeId}`),
+
+  // Rule uniqueness check
+  checkRuleUniqueness: (data) => api.post('/rules/check-uniqueness', data),
 };
 
 // Schema API
