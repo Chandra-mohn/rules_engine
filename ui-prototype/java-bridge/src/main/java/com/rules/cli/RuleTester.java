@@ -292,7 +292,7 @@ public class RuleTester {
                     case "<": return actualNum < expectedNum;
                     case "<=": return actualNum <= expectedNum;
                     case "=": case "==": return Math.abs(actualNum - expectedNum) < 0.0001;
-                    case "!=": return Math.abs(actualNum - expectedNum) >= 0.0001;
+                    case "!=": case "<>": return Math.abs(actualNum - expectedNum) >= 0.0001;
                     default: return false;
                 }
             } else {
@@ -312,7 +312,7 @@ public class RuleTester {
                             case "<": return actualDate.isBefore(expectedDate);
                             case "<=": return actualDate.isBefore(expectedDate) || actualDate.equals(expectedDate);
                             case "=": case "==": return actualDate.equals(expectedDate);
-                            case "!=": return !actualDate.equals(expectedDate);
+                            case "!=": case "<>": return !actualDate.equals(expectedDate);
                             default: return false;
                         }
                     } catch (Exception e) {
@@ -323,7 +323,7 @@ public class RuleTester {
                 // Regular string comparison
                 switch (operator) {
                     case "=": case "==": return actualStr.equals(expectedStr);
-                    case "!=": return !actualStr.equals(expectedStr);
+                    case "!=": case "<>": return !actualStr.equals(expectedStr);
                     case ">": return actualStr.compareTo(expectedStr) > 0;
                     case ">=": return actualStr.compareTo(expectedStr) >= 0;
                     case "<": return actualStr.compareTo(expectedStr) < 0;

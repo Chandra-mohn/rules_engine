@@ -337,18 +337,6 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
       render: (date) => date ? new Date(date).toLocaleDateString() : '—',
     },
     {
-      title: 'Hierarchy',
-      key: 'hierarchy',
-      width: 200,
-      render: (_, record) => (
-        <div style={{ fontSize: '12px' }}>
-          <div style={{ fontWeight: 'bold' }}>{record.client_name || record.client_code}</div>
-          <div style={{ color: '#666' }}>{record.process_group_name || record.process_group_code}</div>
-          <div style={{ color: '#999' }}>{record.process_area_name || record.process_area_code}</div>
-        </div>
-      ),
-    },
-    {
       title: 'Validation',
       dataIndex: 'validation_status',
       key: 'validation_status',

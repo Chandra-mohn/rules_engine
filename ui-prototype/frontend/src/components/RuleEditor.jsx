@@ -45,6 +45,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const [sampleDataVisible, setSampleDataVisible] = useState(false);
   const [selectedSchema, setSelectedSchema] = useState('modern');
   const [parsedRuleName, setParsedRuleName] = useState('');
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
 
@@ -95,6 +96,14 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
+    // Track cursor position changes
+    editor.onDidChangeCursorPosition((e) => {
+      setCursorPosition({
+        line: e.position.lineNumber,
+        column: e.position.column
+      });
+    });
 
     // Register custom language
     monaco.languages.register({ id: 'rules' });
@@ -742,7 +751,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
           <Card title="Rule Content" size="small">
             <div style={{ height: 600, border: '1px solid #d9d9d9', borderRadius: 6 }}>
               <Editor
-                height="100%"
+                height="calc(100% - 24px)"
                 language="rules"
                 value={editorContent}
                 onChange={setEditorContent}
@@ -763,6 +772,21 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                   },
                 }}
               />
+              {/* Status Bar */}
+              <div style={{
+                height: 24,
+                backgroundColor: '#f5f5f5',
+                borderTop: '1px solid #d9d9d9',
+                display: 'flex',
+                alignItems: 'center',
+                paddingLeft: 12,
+                fontSize: 12,
+                color: '#666',
+                borderBottomLeftRadius: 6,
+                borderBottomRightRadius: 6,
+              }}>
+                Line {cursorPosition.line}, Column {cursorPosition.column}
+              </div>
             </div>
 
             {/* Syntax Help */}

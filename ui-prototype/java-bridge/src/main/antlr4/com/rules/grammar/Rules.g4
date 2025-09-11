@@ -65,7 +65,7 @@ attribute
     ;
 
 operator
-    : '=' | '!=' | '<' | '<=' | '>' | '>='
+    : '=' | '!=' | '<>' | '<' | '<=' | '>' | '>='
     | 'in' | 'between' | 'before' | 'after' | 'within'
     ;
 
