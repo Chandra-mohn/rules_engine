@@ -51,12 +51,7 @@ const SchemaSelector = ({ selectedSchema, onSchemaChange, disabled = false }) =>
                             disabled={disabled}
                         />
                         <span className="radio-label">
-                            {version.version_name === 'modern' ? 'Java' : 'COBOL'} 
-                            <span className="example">
-                                ({version.version_name === 'modern' ? 
-                                    'applicant.creditScore >= 750' : 
-                                    'CREDIT_SCORE >= 750'})
-                            </span>
+                            {version.version_name === 'modern' ? 'Java' : 'COBOL'}
                         </span>
                     </label>
                 ))}
