@@ -423,7 +423,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
   return (
     <Row gutter={16} style={{ height: '100vh', padding: 16 }}>
       {/* Tree Navigation */}
-      <Col span={6}>
+      <Col span={8}>
         <RulesTreeNavigation 
           onNodeSelect={handleTreeNodeSelect}
           selectedKeys={selectedTreeKeys}
@@ -432,7 +432,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
       </Col>
       
       {/* Rules Table */}
-      <Col span={18}>
+      <Col span={16}>
         <div>
           {/* Header */}
           <div style={{
