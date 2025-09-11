@@ -33,6 +33,13 @@ public class RuleTester {
         ACTION_DESCRIPTIONS.put("sendAlert", "Send security alert");
         ACTION_DESCRIPTIONS.put("requestVerification", "Request additional verification");
         ACTION_DESCRIPTIONS.put("setLimit", "Set credit limit");
+        
+        // Legacy action descriptions
+        ACTION_DESCRIPTIONS.put("MIN PAY", "Trigger minimum payment calculation");
+        ACTION_DESCRIPTIONS.put("MIN PAY DUE", "Set minimum payment due amount");
+        ACTION_DESCRIPTIONS.put("LATE FEE WAIVER", "Waive late fee charges");
+        ACTION_DESCRIPTIONS.put("ACCOUNT CLOSURE", "Close customer account");
+        ACTION_DESCRIPTIONS.put("CREDIT ADJUSTMENT", "Apply credit adjustment to account");
     }
     
     public static void main(String[] args) {
@@ -78,8 +85,8 @@ public class RuleTester {
             String ruleName = ruleNameMatcher.find() ? ruleNameMatcher.group(1) : "unknownRule";
             result.ruleName = ruleName;
             
-            // Extract conditions and actions
-            Pattern conditionPattern = Pattern.compile("if\\s+(.+?)\\s+then\\s+(\\w+)");
+            // Extract conditions and actions (supports both identifiers and quoted strings)
+            Pattern conditionPattern = Pattern.compile("if\\s+(.+?)\\s+then\\s+(\\w+|\"[^\"]+\")");
             Matcher conditionMatcher = conditionPattern.matcher(ruleContent);
             
             List<ConditionResult> conditions = new ArrayList<>();
@@ -89,6 +96,11 @@ public class RuleTester {
             while (conditionMatcher.find()) {
                 String conditionExpr = conditionMatcher.group(1).trim();
                 String actionName = conditionMatcher.group(2).trim();
+                
+                // Remove quotes from action name if present
+                if (actionName.startsWith("\"") && actionName.endsWith("\"")) {
+                    actionName = actionName.substring(1, actionName.length() - 1);
+                }
                 
                 // Evaluate condition
                 boolean conditionMet = evaluateCondition(conditionExpr, testData);
@@ -142,8 +154,8 @@ public class RuleTester {
     
     private static boolean evaluateCondition(String condition, JSONObject testData) {
         try {
-            // Handle simple comparisons like "applicant.creditScore >= 750"
-            Pattern comparisonPattern = Pattern.compile("(\\w+\\.\\w+)\\s*([<>=!]+)\\s*(.+)");
+            // Handle simple comparisons like "applicant.creditScore >= 750" or quoted attributes like "CH CO CALL" = "Y"
+            Pattern comparisonPattern = Pattern.compile("(\\w+\\.\\w+|\"[^\"]+\")\\s*([<>=!]+)\\s*(.+)");
             Matcher matcher = comparisonPattern.matcher(condition);
             
             if (matcher.find()) {
@@ -201,6 +213,13 @@ public class RuleTester {
     }
     
     private static Object getValueFromPath(JSONObject data, String path) {
+        // Handle quoted attribute names (legacy style)
+        if (path.startsWith("\"") && path.endsWith("\"")) {
+            String key = path.substring(1, path.length() - 1);
+            return data.has(key) ? data.get(key) : null;
+        }
+        
+        // Handle dotted paths like "applicant.creditScore"
         String[] parts = path.split("\\.");
         Object current = data;
         

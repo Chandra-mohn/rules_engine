@@ -70,7 +70,7 @@ operator
     ;
 
 action
-    : (IDENTIFIER | QUOTED_IDENTIFIER) ('(' (value (',' value)*)? ')')?
+    : (IDENTIFIER | QUOTED_IDENTIFIER | STRING) ('(' (value (',' value)*)? ')')?
     ;
 
 value

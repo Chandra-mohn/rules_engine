@@ -73,6 +73,7 @@ list
 
 action
     : IDENTIFIER
+    | STRING
     ;
 
 // Lexer Rules
