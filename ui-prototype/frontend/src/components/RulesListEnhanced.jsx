@@ -493,8 +493,8 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
             </Select>
 
             <SchemaSelector
-              value={filters.schema_version}
-              onChange={(value) => {
+              selectedSchema={filters.schema_version}
+              onSchemaChange={(value) => {
                 const newFilters = { ...filters, schema_version: value };
                 setFilters(newFilters);
                 loadRules(1, pagination.pageSize, newFilters);
