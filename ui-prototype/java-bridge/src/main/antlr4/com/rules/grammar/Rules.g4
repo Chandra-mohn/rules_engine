@@ -22,15 +22,15 @@ condition
     ;
 
 orExpression
-    : andExpression ('or' andExpression)*
+    : andExpression (('or' | 'OR') andExpression)*
     ;
 
 andExpression
-    : notExpression ('and' notExpression)*
+    : notExpression (('and' | 'AND') notExpression)*
     ;
 
 notExpression
-    : 'not'? atomicExpression
+    : ('not' | 'NOT')? atomicExpression
     ;
 
 atomicExpression

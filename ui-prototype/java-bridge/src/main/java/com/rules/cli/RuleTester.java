@@ -154,8 +154,29 @@ public class RuleTester {
     
     private static boolean evaluateCondition(String condition, JSONObject testData) {
         try {
-            // Handle simple comparisons like "applicant.creditScore >= 750" or quoted attributes like "CH CO CALL" = "Y"
-            Pattern comparisonPattern = Pattern.compile("(\\w+\\.\\w+|\"[^\"]+\")\\s*([<>=!]+)\\s*(.+)");
+            // Handle compound conditions with AND/OR (case insensitive)
+            if (condition.toUpperCase().contains(" AND ")) {
+                String[] parts = condition.split("(?i)\\s+and\\s+");
+                for (String part : parts) {
+                    if (!evaluateCondition(part.trim(), testData)) {
+                        return false; // All parts must be true for AND
+                    }
+                }
+                return true;
+            }
+            
+            if (condition.toUpperCase().contains(" OR ")) {
+                String[] parts = condition.split("(?i)\\s+or\\s+");
+                for (String part : parts) {
+                    if (evaluateCondition(part.trim(), testData)) {
+                        return true; // Any part can be true for OR
+                    }
+                }
+                return false;
+            }
+            
+            // Handle simple comparisons - support both dotted paths and simple attributes
+            Pattern comparisonPattern = Pattern.compile("(\\w+(?:\\.\\w+)*|\"[^\"]+\")\\s*([<>=!]+|<>)\\s*(.+)");
             Matcher matcher = comparisonPattern.matcher(condition);
             
             if (matcher.find()) {
@@ -183,7 +204,7 @@ public class RuleTester {
                 String evaluableCondition = condition.replace("business_date()", "\"" + currentDate + "\"");
                 
                 // Re-parse and evaluate the condition with actual date
-                Pattern businessDatePattern = Pattern.compile("(\\w+\\.\\w+)\\s*([<>=!]+)\\s*(.+)");
+                Pattern businessDatePattern = Pattern.compile("(\\w+(?:\\.\\w+)*)\\s*([<>=!]+|<>)\\s*(.+)");
                 Matcher businessDateMatcher = businessDatePattern.matcher(evaluableCondition);
                 
                 if (businessDateMatcher.find()) {
