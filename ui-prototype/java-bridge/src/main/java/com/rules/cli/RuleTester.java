@@ -75,7 +75,7 @@ public class RuleTester {
         }
     }
     
-    private static TestResult executeRule(String ruleContent, JSONObject testData) {
+    public static TestResult executeRule(String ruleContent, JSONObject testData) {
         TestResult result = new TestResult();
         
         try {
@@ -260,7 +260,7 @@ public class RuleTester {
         return current;
     }
     
-    private static JSONObject testResultToJson(TestResult result) {
+    public static JSONObject testResultToJson(TestResult result) {
         JSONObject json = new JSONObject();
         json.put("success", result.success);
         json.put("message", result.message);

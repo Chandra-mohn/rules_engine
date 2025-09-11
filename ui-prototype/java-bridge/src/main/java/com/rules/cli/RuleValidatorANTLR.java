@@ -228,8 +228,8 @@ public class RuleValidatorANTLR {
             // Handle both quoted and unquoted identifiers
             if (ctx.IDENTIFIER() != null) {
                 actionName = ctx.IDENTIFIER().getText();
-            } else if (ctx.QUOTED_IDENTIFIER() != null) {
-                actionName = ctx.QUOTED_IDENTIFIER().getText();
+            } else if (ctx.STRING() != null) {
+                actionName = ctx.STRING().getText();
                 // Accept any quoted action without validation
                 return;
             }
@@ -248,12 +248,8 @@ public class RuleValidatorANTLR {
         @Override
         public void enterAttribute(RulesParser.AttributeContext ctx) {
             List<TerminalNode> identifiers = ctx.IDENTIFIER();
-            List<TerminalNode> quotedIdentifiers = ctx.QUOTED_IDENTIFIER();
             
-            // Skip validation for quoted identifiers - accept anything
-            if (quotedIdentifiers != null && !quotedIdentifiers.isEmpty()) {
-                return;
-            }
+            // Note: Main grammar handles quoted attributes differently than simplified grammar
             
             if (identifiers.size() >= 2) {
                 String entity = identifiers.get(0).getText();

@@ -1,7 +1,5 @@
-import subprocess
+import requests
 import json
-import tempfile
-import os
 import platform
 from pathlib import Path
 from typing import Dict, Any, Tuple
@@ -9,22 +7,14 @@ from typing import Dict, Any, Tuple
 class JavaBridge:
     """Bridge to communicate with Java rules engine for validation and testing."""
     
-    def __init__(self, java_rules_path: Path):
-        self.java_rules_path = java_rules_path
+    def __init__(self, java_rules_path: Path = None, server_url: str = "http://localhost:8081"):
+        self.java_rules_path = java_rules_path  # Kept for backward compatibility
+        self.server_url = server_url.rstrip('/')
         self.is_windows = platform.system().lower() == 'windows'
-        
-        # Check for Maven build first (preferred)
-        self.maven_jar = java_rules_path / 'target' / 'rules-engine-java-1.0.0.jar'
-        
-        # Fallback to legacy classpath approach
-        self.classpath = java_rules_path / 'classes'
-        
-        # Check for main backend with proper ANTLR support (legacy)
-        self.main_backend_path = Path(__file__).parent.parent.parent.parent / 'backend'
         
     def validate_rule(self, rule_content: str) -> Dict[str, Any]:
         """
-        Validate rule syntax using Java rules engine.
+        Validate rule syntax using Java rules engine via HTTP.
         
         Args:
             rule_content: The rule content to validate
@@ -33,93 +23,41 @@ class JavaBridge:
             Dict with validation result: {'valid': bool, 'message': str, 'errors': list}
         """
         try:
-            # Create temporary file with rule content
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.rules', delete=False) as temp_file:
-                temp_file.write(rule_content)
-                temp_file_path = temp_file.name
+            response = requests.post(
+                f"{self.server_url}/api/rules/validate",
+                json={"ruleContent": rule_content},
+                timeout=30
+            )
             
-            # Convert path to Windows format if needed
-            if self.is_windows:
-                temp_file_path = temp_file_path.replace('\\', '/')
-            
-            try:
-                # Try Maven JAR first (preferred approach)
-                if self.maven_jar.exists():
-                    cmd = [
-                        'java',
-                        '-jar', str(self.maven_jar),
-                        'validate',
-                        temp_file_path
-                    ]
-                    
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=str(self.java_rules_path)
-                    )
-                    
-                # Fall back to legacy classpath approach
-                elif self.classpath.exists():
-                    cmd = [
-                        'java',
-                        '-cp', str(self.classpath),
-                        'com.rules.cli.RuleValidator',
-                        temp_file_path
-                    ]
-                    
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=str(self.java_rules_path)
-                    )
-                else:
-                    return {
-                        'valid': False,
-                        'message': 'Java validation engine not found. Run: mvn package',
-                        'errors': ['Maven JAR or compiled classes not found'],
-                        'warnings': []
-                    }
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    'valid': result.get('valid', False),
+                    'message': result.get('message', 'Rule syntax validated'),
+                    'errors': result.get('errors', []),
+                    'warnings': result.get('warnings', [])
+                }
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+                return {
+                    'valid': False,
+                    'message': error_data.get('message', f'HTTP {response.status_code}'),
+                    'errors': [error_data.get('error', f'Server returned {response.status_code}')],
+                    'warnings': []
+                }
                 
-                if result.returncode == 0:
-                    # Parse successful validation result
-                    try:
-                        output = json.loads(result.stdout)
-                        return {
-                            'valid': True,
-                            'message': output.get('message', 'Rule syntax is valid'),
-                            'errors': [],
-                            'warnings': output.get('warnings', [])
-                        }
-                    except json.JSONDecodeError:
-                        return {
-                            'valid': True,
-                            'message': 'Rule syntax is valid',
-                            'errors': [],
-                            'warnings': []
-                        }
-                else:
-                    # Parse validation errors
-                    error_message = result.stderr.strip() or result.stdout.strip()
-                    return {
-                        'valid': False,
-                        'message': 'Rule validation failed',
-                        'errors': [error_message],
-                        'warnings': []
-                    }
-                    
-            finally:
-                # Clean up temporary file
-                os.unlink(temp_file_path)
-                
-        except subprocess.TimeoutExpired:
+        except requests.exceptions.ConnectionError:
+            return {
+                'valid': False,
+                'message': 'Java rules server not available',
+                'errors': ['Cannot connect to Java rules server at ' + self.server_url],
+                'warnings': []
+            }
+        except requests.exceptions.Timeout:
             return {
                 'valid': False,
                 'message': 'Rule validation timed out',
-                'errors': ['Validation process timed out after 30 seconds'],
+                'errors': ['Validation request timed out after 30 seconds'],
                 'warnings': []
             }
         except Exception as e:
@@ -132,7 +70,7 @@ class JavaBridge:
     
     def test_rule(self, rule_content: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Test rule execution with sample data.
+        Test rule execution with sample data via HTTP.
         
         Args:
             rule_content: The rule content to test
@@ -142,92 +80,41 @@ class JavaBridge:
             Dict with test result: {'success': bool, 'result': dict, 'errors': list}
         """
         try:
-            # Create temporary files for rule and test data
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.rules', delete=False) as rule_file:
-                rule_file.write(rule_content)
-                rule_file_path = rule_file.name
-                
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as data_file:
-                json.dump(test_data, data_file)
-                data_file_path = data_file.name
+            response = requests.post(
+                f"{self.server_url}/api/rules/test",
+                json={
+                    "ruleContent": rule_content,
+                    "testData": test_data
+                },
+                timeout=30
+            )
             
-            try:
-                # Try Maven JAR first (preferred approach)
-                if self.maven_jar.exists():
-                    cmd = [
-                        'java',
-                        '-jar', str(self.maven_jar),
-                        'test',
-                        rule_file_path,
-                        data_file_path
-                    ]
-                    
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=str(self.java_rules_path)
-                    )
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    'success': True,
+                    'result': result,
+                    'errors': []
+                }
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+                return {
+                    'success': False,
+                    'result': {},
+                    'errors': [error_data.get('error', f'Server returned {response.status_code}')]
+                }
                 
-                # Fall back to legacy classpath approach
-                elif self.classpath.exists():
-                    cmd = [
-                        'java',
-                        '-cp', str(self.classpath),
-                        'com.rules.cli.RuleTester',
-                        rule_file_path,
-                        data_file_path
-                    ]
-                    
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=str(self.java_rules_path)
-                    )
-                else:
-                    return {
-                        'success': False,
-                        'result': {},
-                        'errors': ['Java test engine not found. Run: mvn package']
-                    }
-                
-                if result.returncode == 0:
-                    # Parse successful test result
-                    try:
-                        output = json.loads(result.stdout)
-                        return {
-                            'success': True,
-                            'result': output,
-                            'errors': []
-                        }
-                    except json.JSONDecodeError:
-                        return {
-                            'success': True,
-                            'result': {'message': 'Rule executed successfully'},
-                            'errors': []
-                        }
-                else:
-                    # Parse test errors
-                    error_message = result.stderr.strip() or result.stdout.strip()
-                    return {
-                        'success': False,
-                        'result': {},
-                        'errors': [error_message]
-                    }
-                    
-            finally:
-                # Clean up temporary files
-                os.unlink(rule_file_path)
-                os.unlink(data_file_path)
-                
-        except subprocess.TimeoutExpired:
+        except requests.exceptions.ConnectionError:
             return {
                 'success': False,
                 'result': {},
-                'errors': ['Rule test timed out after 30 seconds']
+                'errors': ['Cannot connect to Java rules server at ' + self.server_url]
+            }
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'result': {},
+                'errors': ['Rule test request timed out after 30 seconds']
             }
         except Exception as e:
             return {

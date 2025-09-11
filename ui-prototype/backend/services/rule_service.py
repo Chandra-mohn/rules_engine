@@ -11,7 +11,8 @@ class RuleService:
     """Service class for rule management operations."""
     
     def __init__(self):
-        self.java_bridge = JavaBridge(Config.JAVA_RULES_ENGINE_PATH)
+        # Use HTTP-based Java bridge instead of subprocess
+        self.java_bridge = JavaBridge(server_url="http://localhost:8081")
         self.list_service = ListService()
     
     def parse_rule_name_from_content(self, content: str) -> str:

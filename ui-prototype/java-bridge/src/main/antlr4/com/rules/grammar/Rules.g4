@@ -6,15 +6,15 @@ ruleSet
     ;
 
 namedRule
-    : 'rule' ruleName ':' step+
+    : RULE ruleName COLON step+
     ;
 
 ruleName
-    : IDENTIFIER | QUOTED_IDENTIFIER
+    : IDENTIFIER
     ;
 
 step
-    : 'if' condition 'then' action
+    : IF condition THEN action (ELSE action)?
     ;
 
 condition
@@ -22,109 +22,113 @@ condition
     ;
 
 orExpression
-    : andExpression (('or' | 'OR') andExpression)*
+    : andExpression (OR andExpression)*
     ;
 
 andExpression
-    : notExpression (('and' | 'AND') notExpression)*
+    : notExpression (AND notExpression)*
     ;
 
 notExpression
-    : ('not' | 'NOT')? atomicExpression
-    ;
-
-atomicExpression
-    : comparison
-    | '(' orExpression ')'
-    ;
-
-comparison
-    : expression operator expression
-    ;
-
-expression
-    : multiplicativeExpression (('+' | '-') multiplicativeExpression)*
-    ;
-
-multiplicativeExpression
-    : primaryExpression (('*' | '/' | '%') primaryExpression)*
+    : NOT? primaryExpression
     ;
 
 primaryExpression
-    : attribute
-    | value
-    | functionCall
+    : comparison
+    | LPAREN orExpression RPAREN
     ;
 
-functionCall
-    : (IDENTIFIER | QUOTED_IDENTIFIER) '(' (expression (',' expression)*)? ')'
+comparison
+    : attribute operator operand
+    ;
+
+operand
+    : attribute
+    | value
     ;
 
 attribute
-    : (IDENTIFIER | QUOTED_IDENTIFIER) ('.' (IDENTIFIER | QUOTED_IDENTIFIER))*
+    : IDENTIFIER (DOT IDENTIFIER)*
     ;
 
 operator
-    : '=' | '!=' | '<>' | '<' | '<=' | '>' | '>='
-    | 'in' | 'between' | 'before' | 'after' | 'within'
-    ;
-
-action
-    : (IDENTIFIER | QUOTED_IDENTIFIER | STRING) ('(' (value (',' value)*)? ')')?
+    : EQ | NE | LT | LE | GT | GE 
+    | CONTAINS | STARTS_WITH | ENDS_WITH
+    | IN | NOT_IN
+    | IS_NULL | IS_NOT_NULL
+    | MATCHES
     ;
 
 value
-    : NUMBER
-    | STRING
+    : STRING
+    | NUMBER
     | BOOLEAN
+    | NULL
     | list
-    | listReference
-    ;
-
-listReference
-    : IDENTIFIER | QUOTED_IDENTIFIER  // References a named list like VALID_STATUSES or "SPECIAL LIST"
     ;
 
 list
-    : '[' (value (',' value)*)? ']'
+    : LBRACKET (value (COMMA value)*)? RBRACKET
+    ;
+
+action
+    : IDENTIFIER
+    | STRING
     ;
 
 // Lexer Rules
-QUOTED_IDENTIFIER
-    : '"' ~["\r\n]* '"'
-    ;
 
-IDENTIFIER
-    : [a-zA-Z_] [a-zA-Z0-9_]*
-    ;
+// Keywords
+RULE        : 'rule' | 'RULE';
+IF          : 'if' | 'IF';
+THEN        : 'then' | 'THEN';
+ELSE        : 'else' | 'ELSE';
+AND         : 'and' | 'AND' | '&&';
+OR          : 'or' | 'OR' | '||';
+NOT         : 'not' | 'NOT' | '!';
+IN          : 'in' | 'IN';
+NOT_IN      : 'not_in' | 'NOT_IN';
+IS_NULL     : 'is_null' | 'IS_NULL';
+IS_NOT_NULL : 'is_not_null' | 'IS_NOT_NULL';
+CONTAINS    : 'contains' | 'CONTAINS';
+STARTS_WITH : 'starts_with' | 'STARTS_WITH';
+ENDS_WITH   : 'ends_with' | 'ENDS_WITH';
+MATCHES     : 'matches' | 'MATCHES';
+NULL        : 'null' | 'NULL';
 
-NUMBER
-    : [0-9]+ ('.' [0-9]+)?
-    ;
+// Operators
+EQ          : '=' | '==';
+NE          : '!=' | '<>';
+LT          : '<';
+LE          : '<=';
+GT          : '>';
+GE          : '>=';
 
-STRING
-    : '"' (~["\r\n])* '"'
-    | '\'' (~['\r\n])* '\''
-    ;
+// Punctuation
+LPAREN      : '(';
+RPAREN      : ')';
+LBRACKET    : '[';
+RBRACKET    : ']';
+DOT         : '.';
+COMMA       : ',';
+COLON       : ':';
 
-BOOLEAN
-    : 'true' | 'false'
-    ;
+// Literals
+BOOLEAN     : 'true' | 'false' | 'TRUE' | 'FALSE';
+
+NUMBER      : '-'? DIGIT+ ('.' DIGIT+)? ([eE] [+-]? DIGIT+)?;
+
+STRING      : '"' (~["\r\n] | '""')* '"'
+            | '\'' (~['\r\n] | '\'\'')* '\''
+            ;
+
+IDENTIFIER  : [a-zA-Z_] [a-zA-Z0-9_]*;
 
 // Whitespace and Comments
-WS
-    : [ \t\r\n]+ -> skip
-    ;
+WS          : [ \t\r\n]+ -> skip;
+LINE_COMMENT: '//' ~[\r\n]* -> skip;
+BLOCK_COMMENT: '/*' .*? '*/' -> skip;
+HASH_COMMENT: '#' ~[\r\n]* -> skip;
 
-LINE_COMMENT
-    : '//' ~[\r\n]* -> skip
-    ;
-
-BLOCK_COMMENT
-    : '/*' .*? '*/' -> skip
-    ;
-
-// Error handling for unrecognized characters
-ERROR_CHAR
-    : .
-    ;
+// Fragments
+fragment DIGIT : [0-9];
