@@ -302,6 +302,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
       title: 'Rule Name',
       dataIndex: 'name',
       key: 'name',
+      width: 300,
       sorter: true,
       render: (text, record) => (
         <div>
