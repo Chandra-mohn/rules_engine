@@ -107,6 +107,9 @@ export const rulesApi = {
 
   // Rule uniqueness check
   checkRuleUniqueness: (data) => api.post('/rules/check-uniqueness', data),
+
+  // Generate production code
+  generateProductionCode: (data) => api.post('/rules/generate-production', data),
 };
 
 // Schema API

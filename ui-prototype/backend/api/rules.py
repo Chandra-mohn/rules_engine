@@ -305,3 +305,31 @@ def promote_rule_status(rule_id):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@rules_bp.route('/rules/generate-production', methods=['POST'])
+def generate_production_code():
+    """Generate production code artifacts for a rule."""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['ruleId', 'ruleName', 'ruleContent', 'packageName']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Generate production artifacts
+        result = rule_service.generate_production_artifacts(
+            rule_id=data['ruleId'],
+            rule_name=data['ruleName'], 
+            rule_content=data['ruleContent'],
+            package_name=data['packageName']
+        )
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e), 'success': False}), 500

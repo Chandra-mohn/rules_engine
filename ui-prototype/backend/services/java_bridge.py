@@ -191,3 +191,248 @@ class JavaBridge:
                 unique_suggestions.append(suggestion)
         
         return {'suggestions': unique_suggestions}
+    
+    def compile_rule(self, rule_content: str, rule_id: str = None) -> Dict[str, Any]:
+        """
+        Compile rule to bytecode using hot compilation.
+        
+        Args:
+            rule_content: The rule content to compile
+            rule_id: Optional rule identifier (auto-generated if not provided)
+            
+        Returns:
+            Dict with compilation result: {'success': bool, 'ruleId': str, 'className': str, 'compilationTimeMs': int, 'message': str}
+        """
+        try:
+            import time
+            if not rule_id:
+                rule_id = f"rule_{int(time.time() * 1000)}"
+                
+            response = requests.post(
+                f"{self.server_url}/api/rules/compile",
+                json={
+                    "ruleContent": rule_content,
+                    "ruleId": rule_id
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    'success': result.get('success', False),
+                    'ruleId': result.get('ruleId', rule_id),
+                    'className': result.get('className', ''),
+                    'compilationTimeMs': result.get('compilationTimeMs', 0),
+                    'message': result.get('message', 'Rule compiled successfully'),
+                    'ready': result.get('ready', False),
+                    'errors': []
+                }
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+                return {
+                    'success': False,
+                    'ruleId': rule_id,
+                    'className': '',
+                    'compilationTimeMs': 0,
+                    'message': error_data.get('message', f'HTTP {response.status_code}'),
+                    'ready': False,
+                    'errors': [error_data.get('error', f'Server returned {response.status_code}')]
+                }
+                
+        except requests.exceptions.ConnectionError:
+            return {
+                'success': False,
+                'ruleId': rule_id or 'unknown',
+                'className': '',
+                'compilationTimeMs': 0,
+                'message': 'Java rules server not available',
+                'ready': False,
+                'errors': ['Cannot connect to Java rules server at ' + self.server_url]
+            }
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'ruleId': rule_id or 'unknown', 
+                'className': '',
+                'compilationTimeMs': 0,
+                'message': 'Rule compilation timed out',
+                'ready': False,
+                'errors': ['Compilation request timed out after 30 seconds']
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'ruleId': rule_id or 'unknown',
+                'className': '',
+                'compilationTimeMs': 0,
+                'message': f'Compilation error: {str(e)}',
+                'ready': False,
+                'errors': [str(e)]
+            }
+    
+    def execute_compiled_rule(self, rule_id: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a compiled rule with test data using hot execution.
+        
+        Args:
+            rule_id: The rule identifier from compilation
+            test_data: Sample data to test the rule against
+            
+        Returns:
+            Dict with execution result: {'success': bool, 'result': dict, 'errors': list}
+        """
+        try:
+            response = requests.post(
+                f"{self.server_url}/api/rules/execute",
+                json={
+                    "ruleId": rule_id,
+                    "contextData": test_data
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    'success': result.get('success', False),
+                    'result': {
+                        'ruleId': result.get('ruleId', rule_id),
+                        'matched': result.get('matched', False),
+                        'hasActions': result.get('hasActions', False),
+                        'actions': result.get('actions', []),
+                        'finalAction': result.get('finalAction', None),
+                        'executionTimeMs': result.get('executionTimeMs', 0)
+                    },
+                    'errors': []
+                }
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+                return {
+                    'success': False,
+                    'result': {},
+                    'errors': [error_data.get('message', f'Server returned {response.status_code}')]
+                }
+                
+        except requests.exceptions.ConnectionError:
+            return {
+                'success': False,
+                'result': {},
+                'errors': ['Cannot connect to Java rules server at ' + self.server_url]
+            }
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'result': {},
+                'errors': ['Rule execution request timed out after 30 seconds']
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'result': {},
+                'errors': [str(e)]
+            }
+    
+    def test_rule_hot(self, rule_content: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Test rule using hot compilation and execution (compile + execute in one call).
+        This provides better performance than the legacy test_rule method.
+        
+        Args:
+            rule_content: The rule content to test
+            test_data: Sample data to test the rule against
+            
+        Returns:
+            Dict with test result: {'success': bool, 'result': dict, 'errors': list, 'performance': dict}
+        """
+        # Step 1: Compile the rule
+        compile_result = self.compile_rule(rule_content)
+        
+        if not compile_result['success']:
+            return {
+                'success': False,
+                'result': {},
+                'errors': compile_result['errors'],
+                'performance': {
+                    'compilationTimeMs': compile_result['compilationTimeMs'],
+                    'executionTimeMs': 0,
+                    'totalTimeMs': compile_result['compilationTimeMs']
+                }
+            }
+        
+        # Step 2: Execute the compiled rule
+        execution_result = self.execute_compiled_rule(compile_result['ruleId'], test_data)
+        
+        if not execution_result['success']:
+            return {
+                'success': False,
+                'result': {},
+                'errors': execution_result['errors'],
+                'performance': {
+                    'compilationTimeMs': compile_result['compilationTimeMs'],
+                    'executionTimeMs': 0,
+                    'totalTimeMs': compile_result['compilationTimeMs']
+                }
+            }
+        
+        # Success: return combined results
+        execution_time = execution_result['result'].get('executionTimeMs', 0)
+        return {
+            'success': True,
+            'result': {
+                **execution_result['result'],
+                'ruleCompiled': True,
+                'className': compile_result['className']
+            },
+            'errors': [],
+            'performance': {
+                'compilationTimeMs': compile_result['compilationTimeMs'],
+                'executionTimeMs': execution_time,
+                'totalTimeMs': compile_result['compilationTimeMs'] + execution_time
+            }
+        }
+    
+    def generate_java_code(self, rule_content: str) -> Dict[str, Any]:
+        """
+        Generate Java source code from rule DSL.
+        
+        Args:
+            rule_content: The rule DSL content
+            
+        Returns:
+            Dict with generation result: {'success': bool, 'javaCode': str, 'message': str}
+        """
+        try:
+            response = requests.post(
+                f"{self.server_url}/api/rules/generate",
+                json={"ruleContent": rule_content},
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    'success': result.get('success', False),
+                    'javaCode': result.get('javaCode', ''),
+                    'message': result.get('message', 'Java code generated successfully')
+                }
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+                return {
+                    'success': False,
+                    'javaCode': '',
+                    'message': error_data.get('message', f'Code generation failed with HTTP {response.status_code}')
+                }
+                
+        except requests.exceptions.ConnectionError:
+            return {
+                'success': False,
+                'javaCode': '',
+                'message': 'Java rules server is not available. Please ensure it is running on port 8081.'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'javaCode': '',
+                'message': f'Code generation failed: {str(e)}'
+            }

@@ -105,15 +105,16 @@ class Rule(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     content = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(10), default='DRAFT')  # DRAFT, VALID, PEND, SCHD, PROD
+    status = db.Column(db.String(10), default='DRAFT')  # DRAFT, VALID, PEND, SCHD, PROD (consolidated validation + lifecycle)
     effective_date = db.Column(db.Date)
     expiry_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.String(50), default='system')
     updated_by = db.Column(db.String(50), default='system')
-    validation_status = db.Column(db.String(20), default='pending')  # pending, valid, invalid
-    validation_message = db.Column(db.Text)
+    # Note: validation_status column exists in DB but is not exposed in model
+    # It has been consolidated into the status field for the application
+    validation_message = db.Column(db.Text)  # Keep for validation error messages
     version = db.Column(db.Integer, default=1)
     schema_version = db.Column(db.String(20), default='modern')  # modern, legacy
     
@@ -137,7 +138,7 @@ class Rule(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': self.created_by,
             'updated_by': self.updated_by,
-            'validation_status': self.validation_status,
+            # 'validation_status': removed - consolidated into status field,
             'validation_message': self.validation_message,
             'version': self.version,
             'schema_version': self.schema_version,
@@ -247,6 +248,122 @@ class RuleSchema(SQLAlchemyAutoSchema):
 class RuleHistorySchema(SQLAlchemyAutoSchema):
     class Meta:
         model = RuleHistory
+        load_instance = True
+        
+    created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+
+# Schema Management Tables
+class SchemaEntity(db.Model):
+    __tablename__ = 'schema_entities'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))
+    is_active = db.Column(db.Boolean, default=True)
+    version = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    attributes = db.relationship('SchemaAttribute', backref='entity', lazy=True, cascade='all, delete-orphan')
+    client = db.relationship('Client', backref='schema_entities')
+    
+    # Unique constraint
+    __table_args__ = (db.UniqueConstraint('client_id', 'name', name='uq_client_schema_entity'),)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'client_id': self.client_id,
+            'is_active': self.is_active,
+            'version': self.version,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'attributes': [attr.to_dict() for attr in self.attributes] if self.attributes else []
+        }
+
+class SchemaAttribute(db.Model):
+    __tablename__ = 'schema_attributes'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('schema_entities.id'), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    data_type = db.Column(db.String(20), nullable=False)  # 'number', 'string', 'boolean', 'date', 'datetime'
+    java_type = db.Column(db.String(50))  # 'int', 'String', 'boolean', 'LocalDate', 'LocalDateTime'
+    min_value = db.Column(db.Numeric(precision=20, scale=6))
+    max_value = db.Column(db.Numeric(precision=20, scale=6))
+    allowed_values = db.Column(db.Text)  # JSON array for enums
+    is_required = db.Column(db.Boolean, default=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Unique constraint
+    __table_args__ = (db.UniqueConstraint('entity_id', 'name', name='uq_entity_attribute'),)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'entity_id': self.entity_id,
+            'name': self.name,
+            'data_type': self.data_type,
+            'java_type': self.java_type,
+            'min_value': float(self.min_value) if self.min_value is not None else None,
+            'max_value': float(self.max_value) if self.max_value is not None else None,
+            'allowed_values': self.allowed_values,
+            'is_required': self.is_required,
+            'description': self.description,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+class SchemaVersion(db.Model):
+    __tablename__ = 'schema_versions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))
+    version = db.Column(db.Integer, nullable=False)
+    changes = db.Column(db.Text)  # JSON of changes made
+    created_by = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    client = db.relationship('Client', backref='schema_versions')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'version': self.version,
+            'changes': self.changes,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+# Schema Marshmallow Classes
+class SchemaEntitySchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = SchemaEntity
+        load_instance = True
+        
+    created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+    updated_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+    attributes = fields.Nested('SchemaAttributeSchema', many=True, exclude=('entity',))
+
+class SchemaAttributeSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = SchemaAttribute
+        load_instance = True
+        
+    created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+    updated_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+
+class SchemaVersionSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = SchemaVersion
         load_instance = True
         
     created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')

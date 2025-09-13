@@ -1,0 +1,9 @@
+{
+  "ruleId": 13,
+  "ruleName": "testRule",
+  "ruleContent": "rule testRule: if applicant.creditScore >= 700 then approveApplication",
+  "generatedAt": "2025-09-13T19:09:28.134496Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: testRule"
+}

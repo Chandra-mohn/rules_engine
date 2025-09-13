@@ -170,15 +170,6 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
     }
   };
 
-  // Get validation status tag color
-  const getValidationColor = (status) => {
-    switch (status) {
-      case 'valid': return 'green';
-      case 'invalid': return 'red';
-      case 'pending': return 'orange';
-      default: return 'default';
-    }
-  };
 
   // Handle test
   const handleTest = (rule) => {
@@ -335,17 +326,6 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
       key: 'effective_date',
       width: 120,
       render: (date) => date ? new Date(date).toLocaleDateString() : '—',
-    },
-    {
-      title: 'Validation',
-      dataIndex: 'validation_status',
-      key: 'validation_status',
-      width: 100,
-      render: (status) => (
-        <Tag color={getValidationColor(status)} size="small">
-          {status?.toUpperCase()}
-        </Tag>
-      ),
     },
     {
       title: 'Actions',

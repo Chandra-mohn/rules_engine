@@ -205,15 +205,7 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
     }
   };
 
-  // Get validation status tag color
-  const getValidationColor = (status) => {
-    switch (status) {
-      case 'valid': return 'green';
-      case 'invalid': return 'red';
-      case 'pending': return 'orange';
-      default: return 'default';
-    }
-  };
+  // getValidationColor function removed - validation_status field consolidated into status
 
   // Table columns
   const columns = [
@@ -253,19 +245,6 @@ const RulesList = ({ onEditRule, onCreateRule }) => {
         <Tag color={schema_version === 'legacy' ? 'orange' : 'blue'}>
           {schema_version === 'legacy' ? 'LEGACY' : 'MODERN'}
         </Tag>
-      ),
-    },
-    {
-      title: 'Validation',
-      dataIndex: 'validation_status',
-      key: 'validation_status',
-      width: 120,
-      render: (status, record) => (
-        <Tooltip title={record.validation_message}>
-          <Tag color={getValidationColor(status)}>
-            {status.toUpperCase()}
-          </Tag>
-        </Tooltip>
       ),
     },
     {

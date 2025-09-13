@@ -1,8 +1,11 @@
 package com.rules.server;
 
 import com.rules.cli.RuleTester;
+import com.rules.codegen.DirectJavaCodeGenerator;
+import com.rules.context.RuleContext;
 import com.rules.grammar.RulesLexer;
 import com.rules.grammar.RulesParser;
+import com.rules.runtime.RuleExecutionEngine;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -25,6 +28,7 @@ import java.util.List;
 public class RulesApiServer {
     
     private static final int PORT = 8081; // Different from Python backend (5001)
+    private static final RuleExecutionEngine ruleEngine = new RuleExecutionEngine();
     
     public static void main(String[] args) throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
@@ -34,6 +38,14 @@ public class RulesApiServer {
         
         // Rule validation endpoint  
         server.createContext("/api/rules/validate", new RuleValidationHandler());
+        
+        // Code generation endpoints
+        server.createContext("/api/rules/generate", new CodeGenerationHandler());
+        server.createContext("/api/rules/compile", new RuleCompilationHandler());
+        
+        // Hot compilation and execution endpoints
+        server.createContext("/api/rules/execute", new RuleExecutionHandler());
+        server.createContext("/api/engine/stats", new EngineStatsHandler());
         
         // Health check
         server.createContext("/api/health", new HealthCheckHandler());
@@ -46,6 +58,10 @@ public class RulesApiServer {
         System.out.println("Endpoints:");
         System.out.println("  POST /api/rules/test - Test rule execution");
         System.out.println("  POST /api/rules/validate - Validate rule syntax");
+        System.out.println("  POST /api/rules/generate - Generate Java code from rule DSL");
+        System.out.println("  POST /api/rules/compile - Compile rule to bytecode and load");
+        System.out.println("  POST /api/rules/execute - Execute compiled rule with data");
+        System.out.println("  GET  /api/engine/stats - Engine performance statistics");
         System.out.println("  GET  /api/health - Health check");
     }
     
@@ -223,6 +239,218 @@ public class RulesApiServer {
         }
     }
     
+    /**
+     * Handler for code generation - converts rule DSL to Java source
+     */
+    static class CodeGenerationHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                sendResponse(exchange, 405, "{\"error\": \"Method not allowed\"}");
+                return;
+            }
+            
+            try {
+                setCorsHeaders(exchange);
+                
+                String requestBody = readRequestBody(exchange);
+                JSONObject request = new JSONObject(requestBody);
+                String ruleContent = request.getString("ruleContent");
+                
+                // Parse rule with ANTLR
+                CharStream input = CharStreams.fromString(ruleContent);
+                RulesLexer lexer = new RulesLexer(input);
+                CommonTokenStream tokens = new CommonTokenStream(lexer);
+                RulesParser parser = new RulesParser(tokens);
+                RulesParser.RuleSetContext parseTree = parser.ruleSet();
+                
+                // Generate Java code
+                DirectJavaCodeGenerator generator = new DirectJavaCodeGenerator();
+                String javaCode = generator.generateCode(parseTree);
+                
+                JSONObject response = new JSONObject();
+                response.put("success", true);
+                response.put("javaCode", javaCode);
+                response.put("message", "Code generated successfully");
+                
+                sendResponse(exchange, 200, response.toString());
+                
+            } catch (Exception e) {
+                JSONObject error = new JSONObject();
+                error.put("success", false);
+                error.put("error", "Code generation failed");
+                error.put("message", e.getMessage());
+                sendResponse(exchange, 500, error.toString());
+            }
+        }
+    }
+    
+    /**
+     * Handler for rule compilation - compiles rule DSL to bytecode and loads for execution
+     */
+    static class RuleCompilationHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                sendResponse(exchange, 405, "{\"error\": \"Method not allowed\"}");
+                return;
+            }
+            
+            try {
+                setCorsHeaders(exchange);
+                System.out.println("DEBUG: Starting compilation request");
+                
+                String requestBody = readRequestBody(exchange);
+                System.out.println("DEBUG: Request body: " + requestBody);
+                JSONObject request = new JSONObject(requestBody);
+                String ruleContent = request.getString("ruleContent");
+                String ruleId = request.optString("ruleId", "rule_" + System.currentTimeMillis());
+                System.out.println("DEBUG: Parsed ruleId=" + ruleId + ", ruleContent=" + ruleContent);
+                
+                // Compile the rule using the execution engine
+                System.out.println("DEBUG: About to call ruleEngine.compileRule");
+                RuleExecutionEngine.CompilationResult result = ruleEngine.compileRule(ruleId, ruleContent);
+                System.out.println("DEBUG: CompileRule returned: " + result);
+                
+                JSONObject response = new JSONObject();
+                if (result.success) {
+                    response.put("success", true);
+                    response.put("ruleId", result.ruleId);
+                    response.put("className", result.className);
+                    response.put("compilationTimeMs", result.compilationTimeMs);
+                    response.put("message", "Rule compiled and loaded successfully");
+                    response.put("ready", true);
+                    sendResponse(exchange, 200, response.toString());
+                } else {
+                    response.put("success", false);
+                    response.put("error", "Compilation failed");
+                    response.put("message", result.message);
+                    sendResponse(exchange, 500, response.toString());
+                }
+                
+            } catch (Exception e) {
+                e.printStackTrace(); // Log the full stack trace
+                System.err.println("Compilation error: " + e.getMessage());
+                
+                JSONObject error = new JSONObject();
+                error.put("success", false);
+                error.put("error", "Rule compilation failed");
+                error.put("message", e.getMessage());
+                sendResponse(exchange, 500, error.toString());
+            }
+        }
+    }
+
+    /**
+     * Handler for rule execution - executes compiled rules with data
+     */
+    static class RuleExecutionHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                sendResponse(exchange, 405, "{\"error\": \"Method not allowed\"}");
+                return;
+            }
+            
+            try {
+                setCorsHeaders(exchange);
+                
+                String requestBody = readRequestBody(exchange);
+                JSONObject request = new JSONObject(requestBody);
+                String ruleId = request.getString("ruleId");
+                JSONObject contextData = request.getJSONObject("contextData");
+                
+                // Create execution context
+                RuleContext context = new RuleContext(contextData.toString());
+                
+                // Execute the rule
+                RuleExecutionEngine.ExecutionResult result = ruleEngine.executeRule(ruleId, context);
+                
+                JSONObject response = new JSONObject();
+                if (result.success) {
+                    response.put("success", true);
+                    response.put("ruleId", result.ruleId);
+                    response.put("executionTimeMs", result.executionTimeMs);
+                    
+                    // Add rule result details
+                    if (result.ruleResult != null) {
+                        response.put("matched", result.ruleResult.wasExecuted());
+                        response.put("hasActions", result.ruleResult.hasActions());
+                        if (result.ruleResult.hasActions()) {
+                            response.put("actions", result.ruleResult.getActions());
+                            // Get first action as the final action for backward compatibility
+                            if (!result.ruleResult.getActions().isEmpty()) {
+                                response.put("finalAction", result.ruleResult.getActions().get(0));
+                            }
+                        }
+                        if (result.ruleResult.hasError()) {
+                            response.put("error", result.ruleResult.getError().getMessage());
+                        }
+                    }
+                    
+                    sendResponse(exchange, 200, response.toString());
+                } else {
+                    response.put("success", false);
+                    response.put("error", "Execution failed");
+                    response.put("message", result.message);
+                    if (result.executionTimeMs > 0) {
+                        response.put("executionTimeMs", result.executionTimeMs);
+                    }
+                    sendResponse(exchange, 500, response.toString());
+                }
+                
+            } catch (Exception e) {
+                JSONObject error = new JSONObject();
+                error.put("success", false);
+                error.put("error", "Rule execution failed");
+                error.put("message", e.getMessage());
+                sendResponse(exchange, 500, error.toString());
+            }
+        }
+    }
+    
+    /**
+     * Handler for engine statistics
+     */
+    static class EngineStatsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            setCorsHeaders(exchange);
+            
+            try {
+                RuleExecutionEngine.EngineStats stats = ruleEngine.getStats();
+                
+                JSONObject response = new JSONObject();
+                response.put("compiledRulesCount", stats.compiledRulesCount);
+                response.put("totalExecutions", stats.totalExecutions);
+                response.put("totalExecutionTimeMs", stats.totalExecutionTimeMs);
+                response.put("averageExecutionTimeMs", stats.getAverageExecutionTimeMs());
+                
+                // ClassLoader stats
+                JSONObject classLoaderStats = new JSONObject();
+                classLoaderStats.put("loadedClasses", stats.classLoaderStats.loadedClassCount);
+                classLoaderStats.put("totalBytecodeSize", stats.classLoaderStats.totalBytecodeSize);
+                classLoaderStats.put("highestVersion", stats.classLoaderStats.highestVersion);
+                response.put("classLoaderStats", classLoaderStats);
+                
+                // Compiler stats
+                JSONObject compilerStats = new JSONObject();
+                compilerStats.put("compiledClassCount", stats.compilerStats.compiledClassCount);
+                compilerStats.put("totalCompilationTimeMs", stats.compilerStats.totalCompilationTimeMs);
+                compilerStats.put("averageCompilationTimeMs", stats.compilerStats.getAverageCompilationTimeMs());
+                response.put("compilerStats", compilerStats);
+                
+                sendResponse(exchange, 200, response.toString());
+                
+            } catch (Exception e) {
+                JSONObject error = new JSONObject();
+                error.put("error", "Failed to get engine stats");
+                error.put("message", e.getMessage());
+                sendResponse(exchange, 500, error.toString());
+            }
+        }
+    }
+
     /**
      * Result class for validation operations
      */

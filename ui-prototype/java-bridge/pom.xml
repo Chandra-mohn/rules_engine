@@ -36,6 +36,13 @@
             <artifactId>json</artifactId>
             <version>20231013</version>
         </dependency>
+        
+        <!-- Jackson for RuleContext JSON processing -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
 
         <!-- JUnit 5 for Testing -->
         <dependency>
@@ -81,6 +88,7 @@
                         </goals>
                         <configuration>
                             <outputDirectory>${project.build.directory}/generated-sources/antlr4</outputDirectory>
+                            <visitor>true</visitor>
                             <arguments>
                                 <argument>-package</argument>
                                 <argument>com.rules.grammar</argument>
