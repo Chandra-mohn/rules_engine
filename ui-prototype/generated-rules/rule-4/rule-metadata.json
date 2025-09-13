@@ -1,0 +1,9 @@
+{
+  "ruleId": 4,
+  "ruleName": "businessDateCheck",
+  "ruleContent": "rule businessDateCheck:\n    if applicant.applicationDate after business_date then conditionalApproval\n    if applicant.applicationDate before business_date then rejectApplication",
+  "generatedAt": "2025-09-13T19:23:19.764785Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: businessDateCheck"
+}

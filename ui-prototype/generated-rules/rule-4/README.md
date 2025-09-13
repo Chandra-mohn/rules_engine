@@ -1,6 +1,6 @@
-# rewardsPointsRule Rule Library
+# businessDateCheck Rule Library
 
-This is a generated rule library JAR for rule: **rewardsPointsRule** (ID: `13`)
+This is a generated rule library JAR for rule: **businessDateCheck** (ID: `4`)
 
 ## Usage
 
@@ -13,21 +13,21 @@ mvn clean package
 ```
 
 This will create:
-- `target/13-rule-1.0.0.jar` - Main library JAR
-- `target/13-rule-1.0.0-jar-with-dependencies.jar` - JAR with all dependencies
+- `target/4-rule-1.0.0.jar` - Main library JAR
+- `target/4-rule-1.0.0-jar-with-dependencies.jar` - JAR with all dependencies
 
 ### Integration
 
 Add this library to your main rules engine service classpath and invoke:
 
 ```java
-import com.rules.generated.13.RewardsPointsRuleRule;
+import com.rules.4.BusinessDateCheckRule;
 import com.rules.context.RuleContext;
 import com.rules.runtime.RuleResult;
 
 // Execute the rule
 RuleContext context = new RuleContext(jsonData);
-RuleResult result = RewardsPointsRuleRule.execute(context);
+RuleResult result = BusinessDateCheckRule.execute(context);
 
 // Check result
 if (result.wasExecuted()) {
@@ -55,7 +55,7 @@ This follows the **library JAR** pattern rather than microservices:
 
 ## Generated Files
 
-- `src/main/java/.../RewardsPointsRuleRule.java` - Rule implementation
+- `src/main/java/.../BusinessDateCheckRule.java` - Rule implementation
 - `pom.xml` - Maven build configuration
 - `README.md` - This documentation
 - `Dockerfile` - Container setup for rules engine service

@@ -6,12 +6,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.rules.libraries</groupId>
-    <artifactId>13-rule</artifactId>
+    <artifactId>4-rule</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>rewardsPointsRule Rule Library</name>
-    <description>Generated rule library for rewardsPointsRule</description>
+    <name>businessDateCheck Rule Library</name>
+    <description>Generated rule library for businessDateCheck</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

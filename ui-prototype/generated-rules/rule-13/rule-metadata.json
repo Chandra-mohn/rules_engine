@@ -1,9 +1,9 @@
 {
   "ruleId": 13,
-  "ruleName": "testRule",
-  "ruleContent": "rule testRule: if applicant.creditScore >= 700 then approveApplication",
-  "generatedAt": "2025-09-13T19:09:28.134496Z",
+  "ruleName": "rewardsPointsRule",
+  "ruleContent": "rule rewardsPointsRule:\n    if applicant.creditScore >= 700 and applicant.annualIncome >= 60000 then approveApplication\n    if applicant.employmentStatus == \"employed\" and applicant.employmentYears >= 3 then approveApplication\n    if applicant.creditScore < 680 then rejectApplication",
+  "generatedAt": "2025-09-13T19:19:27.322638Z",
   "deploymentType": "library",
   "version": "1.0.0",
-  "description": "Production library JAR for rule: testRule"
+  "description": "Production library JAR for rule: rewardsPointsRule"
 }

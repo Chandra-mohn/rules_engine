@@ -349,7 +349,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         ruleId: ruleId,
         ruleName: parsedRuleName || rule.name || ruleId,
         ruleContent: editorContent,
-        packageName: `com.rules.generated.${ruleId.toString().toLowerCase().replace(/[^a-zA-Z0-9]/g, '')}`
+        packageName: `com.rules.${ruleId.toString().toLowerCase().replace(/[^a-zA-Z0-9]/g, '')}`
       });
 
       if (response.data.success) {
@@ -370,56 +370,44 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
   // Show generated production files
   const showGeneratedFiles = (data) => {
-    const { files, ruleId, ruleName, packageName } = data;
-    
+    const { files, ruleId, ruleName, packageName, outputDirectory } = data;
+
     Modal.info({
-      title: `Production Code Generated: ${ruleName}`,
-      width: '80%',
+      title: `Code Generated: ${ruleName}`,
+      width: '600px',
       icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
       content: (
-        <div style={{ maxHeight: '600px', overflow: 'auto' }}>
-          <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: '6px' }}>
-            <p><strong>Rule ID:</strong> {ruleId}</p>
-            <p><strong>Package:</strong> {packageName}</p>
-            <p><strong>Files Generated:</strong> {Object.keys(files).length}</p>
-            <p style={{ color: '#389e0d', marginBottom: 0 }}>
-              <strong>✅ Ready for version control!</strong> Copy these files to your project repository.
-            </p>
-          </div>
-          
-          {Object.entries(files).map(([filePath, content]) => (
-            <div key={filePath} style={{ marginBottom: '24px' }}>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                marginBottom: '8px',
-                padding: '8px 12px',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '4px'
-              }}>
-                <strong style={{ color: '#1890ff' }}>{filePath}</strong>
-                <Button 
-                  size="small" 
-                  onClick={() => navigator.clipboard.writeText(content)}
-                  icon={<SaveOutlined />}
-                >
-                  Copy Content
-                </Button>
-              </div>
-              <pre style={{ 
-                backgroundColor: '#fafafa', 
-                border: '1px solid #d9d9d9', 
-                borderRadius: '6px',
-                padding: '12px',
-                fontSize: '12px',
-                maxHeight: '300px',
-                overflow: 'auto'
-              }}>
-                {content}
-              </pre>
+        <div>
+          <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: '6px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ color: '#389e0d', fontSize: '16px' }}>✅ Code Generated Successfully!</strong>
             </div>
-          ))}
+            <div style={{ marginBottom: '8px' }}>
+              <strong>Rule ID:</strong> {ruleId}
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+              <strong>Package:</strong> {packageName}
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <strong>Files Generated:</strong> {Object.keys(files).length}
+            </div>
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #d9d9d9',
+              borderRadius: '4px',
+              fontSize: '13px',
+              fontFamily: 'monospace',
+              color: '#1890ff',
+              wordBreak: 'break-all'
+            }}>
+              <strong>📂 Location:</strong> {outputDirectory}
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'center', color: '#666', fontSize: '14px' }}>
+            Generated files are saved to the above directory and ready for version control.
+          </div>
         </div>
       ),
       okText: 'Done',
@@ -1013,7 +1001,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               opacity: rule && isExecutableStatus(rule.status) ? 1 : 0.6
             }}
           >
-            Generate Production Code {(!rule || !isExecutableStatus(rule.status)) && '(VALID+ Only)'}
+            Generate Code {(!rule || !isExecutableStatus(rule.status)) && '(VALID+ Only)'}
           </Button>
           <Button
             icon={<DatabaseOutlined />}
@@ -1086,7 +1074,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                     />
                   ) : (
                     <Alert
-                      message="Invalid"
+                      message={validation.message && validation.message.toLowerCase().includes('valid') ? 'Validation Warning' : 'Invalid'}
                       description={
                         <div>
                           <div>{validation.message}</div>
@@ -1099,9 +1087,9 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                           )}
                         </div>
                       }
-                      type="error"
+                      type={validation.message && validation.message.toLowerCase().includes('valid') ? 'warning' : 'error'}
                       showIcon
-                      icon={<CloseCircleOutlined />}
+                      icon={validation.message && validation.message.toLowerCase().includes('valid') ? <InfoCircleOutlined /> : <CloseCircleOutlined />}
                     />
                   )}
                   {validation.warnings && validation.warnings.length > 0 && (
