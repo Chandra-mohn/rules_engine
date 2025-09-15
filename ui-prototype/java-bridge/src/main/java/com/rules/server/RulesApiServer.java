@@ -36,17 +36,24 @@ public class RulesApiServer {
         // Rule testing endpoint
         server.createContext("/api/rules/test", new RuleTestHandler());
         
-        // Rule validation endpoint  
+        // Rule validation endpoint
         server.createContext("/api/rules/validate", new RuleValidationHandler());
+
+        // Enhanced validation endpoint (same as validate but with different path)
+        server.createContext("/api/rules/validate-enhanced", new RuleValidationHandler());
         
         // Code generation endpoints
         server.createContext("/api/rules/generate", new CodeGenerationHandler());
+        server.createContext("/api/rules/generate-code", new CodeGenerationHandler());
         server.createContext("/api/rules/compile", new RuleCompilationHandler());
         
         // Hot compilation and execution endpoints
         server.createContext("/api/rules/execute", new RuleExecutionHandler());
         server.createContext("/api/engine/stats", new EngineStatsHandler());
         
+        // Enhanced test endpoint (validation + generation + compilation + execution)
+        server.createContext("/api/rules/test-enhanced", new EnhancedTestHandler());
+
         // Health check
         server.createContext("/api/health", new HealthCheckHandler());
         
@@ -61,6 +68,7 @@ public class RulesApiServer {
         System.out.println("  POST /api/rules/generate - Generate Java code from rule DSL");
         System.out.println("  POST /api/rules/compile - Compile rule to bytecode and load");
         System.out.println("  POST /api/rules/execute - Execute compiled rule with data");
+        System.out.println("  POST /api/rules/test-enhanced - Enhanced test with validation, generation, compilation & execution");
         System.out.println("  GET  /api/engine/stats - Engine performance statistics");
         System.out.println("  GET  /api/health - Health check");
     }
@@ -111,33 +119,49 @@ public class RulesApiServer {
     static class RuleValidationHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            // Always set CORS headers first
+            setCorsHeaders(exchange);
+
+            // Handle preflight OPTIONS request
+            if ("OPTIONS".equals(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(200, -1);
+                return;
+            }
+
             if (!"POST".equals(exchange.getRequestMethod())) {
                 sendResponse(exchange, 405, "{\"error\": \"Method not allowed\"}");
                 return;
             }
-            
+
             try {
-                setCorsHeaders(exchange);
-                
                 String requestBody = readRequestBody(exchange);
                 JSONObject request = new JSONObject(requestBody);
-                String ruleContent = request.getString("ruleContent");
-                
+                // Support both parameter names for backward compatibility
+                String ruleContent;
+                if (request.has("content")) {
+                    ruleContent = request.getString("content");
+                } else if (request.has("ruleContent")) {
+                    ruleContent = request.getString("ruleContent");
+                } else {
+                    sendResponse(exchange, 400, "{\"valid\": false, \"message\": \"Missing required parameter: content or ruleContent\"}");
+                    return;
+                }
+
                 // Use full ANTLR parsing for validation
                 ValidationResult validation = validateRuleWithANTLR(ruleContent);
-                
+
                 JSONObject response = new JSONObject();
                 response.put("valid", validation.valid);
                 response.put("message", validation.message);
                 if (!validation.errors.isEmpty()) {
                     response.put("errors", validation.errors);
                 }
-                
+
                 sendResponse(exchange, 200, response.toString());
-                
+
             } catch (Exception e) {
                 String errorResponse = String.format(
-                    "{\"valid\": false, \"message\": \"Validation failed: %s\"}", 
+                    "{\"valid\": false, \"message\": \"Validation failed: %s\"}",
                     e.getMessage().replace("\"", "\\\"")
                 );
                 sendResponse(exchange, 500, errorResponse);
@@ -245,36 +269,55 @@ public class RulesApiServer {
     static class CodeGenerationHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            // Always set CORS headers first
+            setCorsHeaders(exchange);
+
+            // Handle preflight OPTIONS request
+            if ("OPTIONS".equals(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(200, -1);
+                return;
+            }
+
             if (!"POST".equals(exchange.getRequestMethod())) {
                 sendResponse(exchange, 405, "{\"error\": \"Method not allowed\"}");
                 return;
             }
-            
+
             try {
-                setCorsHeaders(exchange);
-                
                 String requestBody = readRequestBody(exchange);
                 JSONObject request = new JSONObject(requestBody);
-                String ruleContent = request.getString("ruleContent");
-                
+                // Support both parameter names for backward compatibility
+                String ruleContent;
+                if (request.has("content")) {
+                    ruleContent = request.getString("content");
+                } else if (request.has("ruleContent")) {
+                    ruleContent = request.getString("ruleContent");
+                } else {
+                    JSONObject error = new JSONObject();
+                    error.put("success", false);
+                    error.put("error", "Missing required parameter: content or ruleContent");
+                    sendResponse(exchange, 400, error.toString());
+                    return;
+                }
+
                 // Parse rule with ANTLR
                 CharStream input = CharStreams.fromString(ruleContent);
                 RulesLexer lexer = new RulesLexer(input);
                 CommonTokenStream tokens = new CommonTokenStream(lexer);
                 RulesParser parser = new RulesParser(tokens);
                 RulesParser.RuleSetContext parseTree = parser.ruleSet();
-                
+
                 // Generate Java code
                 DirectJavaCodeGenerator generator = new DirectJavaCodeGenerator();
                 String javaCode = generator.generateCode(parseTree);
-                
+
                 JSONObject response = new JSONObject();
                 response.put("success", true);
                 response.put("javaCode", javaCode);
                 response.put("message", "Code generated successfully");
-                
+
                 sendResponse(exchange, 200, response.toString());
-                
+
             } catch (Exception e) {
                 JSONObject error = new JSONObject();
                 error.put("success", false);
@@ -298,19 +341,14 @@ public class RulesApiServer {
             
             try {
                 setCorsHeaders(exchange);
-                System.out.println("DEBUG: Starting compilation request");
-                
+
                 String requestBody = readRequestBody(exchange);
-                System.out.println("DEBUG: Request body: " + requestBody);
                 JSONObject request = new JSONObject(requestBody);
                 String ruleContent = request.getString("ruleContent");
                 String ruleId = request.optString("ruleId", "rule_" + System.currentTimeMillis());
-                System.out.println("DEBUG: Parsed ruleId=" + ruleId + ", ruleContent=" + ruleContent);
-                
+
                 // Compile the rule using the execution engine
-                System.out.println("DEBUG: About to call ruleEngine.compileRule");
                 RuleExecutionEngine.CompilationResult result = ruleEngine.compileRule(ruleId, ruleContent);
-                System.out.println("DEBUG: CompileRule returned: " + result);
                 
                 JSONObject response = new JSONObject();
                 if (result.success) {
@@ -445,6 +483,179 @@ public class RulesApiServer {
             } catch (Exception e) {
                 JSONObject error = new JSONObject();
                 error.put("error", "Failed to get engine stats");
+                error.put("message", e.getMessage());
+                sendResponse(exchange, 500, error.toString());
+            }
+        }
+    }
+
+    /**
+     * Enhanced test handler - performs validation, generation, compilation, and execution
+     */
+    static class EnhancedTestHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            // Always set CORS headers first
+            setCorsHeaders(exchange);
+
+            // Handle preflight OPTIONS request
+            if ("OPTIONS".equals(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(200, -1);
+                return;
+            }
+
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                sendResponse(exchange, 405, "{\"error\": \"Method not allowed\"}");
+                return;
+            }
+
+            try {
+                String requestBody = readRequestBody(exchange);
+                JSONObject request = new JSONObject(requestBody);
+                String ruleContent = request.getString("rule_content");
+                JSONObject testData = request.getJSONObject("test_data");
+
+                JSONObject response = new JSONObject();
+                response.put("success", true);
+
+                // STEP 1: Validation
+                long validationStart = System.currentTimeMillis();
+                ValidationResult validation = validateRuleWithANTLR(ruleContent);
+                long validationTime = System.currentTimeMillis() - validationStart;
+
+                JSONObject validationStep = new JSONObject();
+                validationStep.put("success", validation.valid);
+                validationStep.put("timeMs", validationTime);
+                validationStep.put("message", validation.message);
+                if (!validation.errors.isEmpty()) {
+                    validationStep.put("errors", validation.errors);
+                }
+                response.put("validation", validationStep);
+
+                if (!validation.valid) {
+                    response.put("success", false);
+                    response.put("error", "Validation failed");
+                    sendResponse(exchange, 400, response.toString());
+                    return;
+                }
+
+                // STEP 2: Code Generation
+                long generationStart = System.currentTimeMillis();
+                String javaCode = "";
+                try {
+                    CharStream input = CharStreams.fromString(ruleContent);
+                    RulesLexer lexer = new RulesLexer(input);
+                    CommonTokenStream tokens = new CommonTokenStream(lexer);
+                    RulesParser parser = new RulesParser(tokens);
+                    RulesParser.RuleSetContext parseTree = parser.ruleSet();
+
+                    DirectJavaCodeGenerator generator = new DirectJavaCodeGenerator();
+                    javaCode = generator.generateCode(parseTree);
+
+                    long generationTime = System.currentTimeMillis() - generationStart;
+                    JSONObject generationStep = new JSONObject();
+                    generationStep.put("success", true);
+                    generationStep.put("timeMs", generationTime);
+                    generationStep.put("javaCode", javaCode);
+                    generationStep.put("message", "Code generated successfully");
+                    response.put("generation", generationStep);
+                } catch (Exception e) {
+                    long generationTime = System.currentTimeMillis() - generationStart;
+                    JSONObject generationStep = new JSONObject();
+                    generationStep.put("success", false);
+                    generationStep.put("timeMs", generationTime);
+                    generationStep.put("error", e.getMessage());
+                    response.put("generation", generationStep);
+                    response.put("success", false);
+                    response.put("error", "Code generation failed");
+                    sendResponse(exchange, 500, response.toString());
+                    return;
+                }
+
+                // STEP 3: Compilation
+                long compilationStart = System.currentTimeMillis();
+                String ruleId = "rule_" + System.currentTimeMillis();
+                try {
+                    RuleExecutionEngine.CompilationResult compilationResult = ruleEngine.compileRule(ruleId, ruleContent);
+                    long compilationTime = System.currentTimeMillis() - compilationStart;
+
+                    JSONObject compilationStep = new JSONObject();
+                    compilationStep.put("success", compilationResult.success);
+                    compilationStep.put("timeMs", compilationTime);
+                    if (compilationResult.success) {
+                        compilationStep.put("className", compilationResult.className);
+                        compilationStep.put("message", "Compilation successful");
+                    } else {
+                        compilationStep.put("error", compilationResult.message);
+                    }
+                    response.put("compilation", compilationStep);
+
+                    if (!compilationResult.success) {
+                        response.put("success", false);
+                        response.put("error", "Compilation failed");
+                        sendResponse(exchange, 500, response.toString());
+                        return;
+                    }
+                } catch (Exception e) {
+                    long compilationTime = System.currentTimeMillis() - compilationStart;
+                    JSONObject compilationStep = new JSONObject();
+                    compilationStep.put("success", false);
+                    compilationStep.put("timeMs", compilationTime);
+                    compilationStep.put("error", e.getMessage());
+                    response.put("compilation", compilationStep);
+                    response.put("success", false);
+                    response.put("error", "Compilation failed");
+                    sendResponse(exchange, 500, response.toString());
+                    return;
+                }
+
+                // STEP 4: Execution
+                long executionStart = System.currentTimeMillis();
+                try {
+                    RuleContext context = new RuleContext(testData.toString());
+                    RuleExecutionEngine.ExecutionResult executionResult = ruleEngine.executeRule(ruleId, context);
+                    long executionTime = System.currentTimeMillis() - executionStart;
+
+                    JSONObject executionStep = new JSONObject();
+                    executionStep.put("success", executionResult.success);
+                    executionStep.put("timeMs", executionTime);
+
+                    if (executionResult.success && executionResult.ruleResult != null) {
+                        executionStep.put("matched", executionResult.ruleResult.wasExecuted());
+                        executionStep.put("hasActions", executionResult.ruleResult.hasActions());
+                        if (executionResult.ruleResult.hasActions()) {
+                            executionStep.put("actions", executionResult.ruleResult.getActions());
+                        }
+                        if (executionResult.ruleResult.hasError()) {
+                            executionStep.put("error", executionResult.ruleResult.getError().getMessage());
+                        }
+                        executionStep.put("message", "Execution successful");
+                    } else {
+                        executionStep.put("error", executionResult.message);
+                    }
+                    response.put("execution", executionStep);
+
+                    if (!executionResult.success) {
+                        response.put("success", false);
+                        response.put("error", "Execution failed");
+                    }
+                } catch (Exception e) {
+                    long executionTime = System.currentTimeMillis() - executionStart;
+                    JSONObject executionStep = new JSONObject();
+                    executionStep.put("success", false);
+                    executionStep.put("timeMs", executionTime);
+                    executionStep.put("error", e.getMessage());
+                    response.put("execution", executionStep);
+                    response.put("success", false);
+                    response.put("error", "Execution failed");
+                }
+
+                sendResponse(exchange, 200, response.toString());
+
+            } catch (Exception e) {
+                JSONObject error = new JSONObject();
+                error.put("success", false);
+                error.put("error", "Enhanced test failed");
                 error.put("message", e.getMessage());
                 sendResponse(exchange, 500, error.toString());
             }

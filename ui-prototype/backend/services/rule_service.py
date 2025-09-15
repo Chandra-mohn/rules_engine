@@ -333,11 +333,11 @@ class RuleService:
         if 'content' in data and data['content'] != rule.content:
             # New content provided - validate it
             content_to_validate = data['content']
-            validation_result = self.validate_rule_with_lists(data['content'], data.get('schema_version', 'modern'))
+            validation_result = self.validate_rule_content(data['content'], data.get('schema_version', 'modern'), resolve_lists=True)
         elif rule.status == 'DRAFT' and 'status' not in data:
             # DRAFT rule without explicit status change - validate current content for potential auto-promotion
             content_to_validate = rule.content
-            validation_result = self.validate_rule_with_lists(rule.content, rule.schema_version or 'modern')
+            validation_result = self.validate_rule_content(rule.content, rule.schema_version or 'modern', resolve_lists=True)
         
         # Parse name from content if content changed
         if 'content' in data:
@@ -420,17 +420,41 @@ class RuleService:
         
         return True
     
-    def validate_rule_content(self, content: str) -> Dict[str, Any]:
-        """Validate rule or actionset content without saving."""
-        # Detect if this is an ActionSet and handle validation accordingly
-        is_actionset = content.strip().startswith('ActionSet')
+    def validate_rule_content(self, content: str, schema_version: str = 'modern', resolve_lists: bool = False) -> Dict[str, Any]:
+        """
+        Unified validation method for rules and actionsets.
 
-        if is_actionset:
-            # Basic ActionSet validation - skip Java bridge for now
-            return self._validate_actionset_basic(content)
-        else:
-            # Validate rule content using Java bridge
-            return self.java_bridge.validate_rule(content)
+        Args:
+            content: Rule or ActionSet content to validate
+            schema_version: Schema version for list compatibility (default: 'modern')
+            resolve_lists: Whether to resolve named lists before validation (default: False)
+
+        Returns:
+            Validation result dictionary
+        """
+        try:
+            # Resolve named lists if requested
+            content_to_validate = content
+            if resolve_lists:
+                content_to_validate = self.list_service.resolve_rule_lists(content, schema_version)
+
+            # Detect if this is an ActionSet and handle validation accordingly
+            is_actionset = content_to_validate.strip().startswith('ActionSet')
+
+            if is_actionset:
+                # Basic ActionSet validation - skip Java bridge for now
+                return self._validate_actionset_basic(content_to_validate)
+            else:
+                # Validate rule content using Java bridge
+                return self.java_bridge.validate_rule(content_to_validate)
+
+        except Exception as e:
+            return {
+                'valid': False,
+                'message': f'Validation failed: {str(e)}',
+                'errors': [str(e)],
+                'warnings': []
+            }
     
     def test_rule(self, content: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
         """Test rule execution with sample data using AST-based hot compilation only."""
@@ -626,30 +650,6 @@ class RuleService:
         db.session.add(history)
         db.session.commit()
     
-    def validate_rule_with_lists(self, content: str, schema_version: str = 'modern') -> Dict[str, Any]:
-        """
-        Validate rule content by first resolving named lists.
-        
-        Args:
-            content: Rule content potentially containing named list references
-            schema_version: Schema version for list compatibility
-            
-        Returns:
-            Validation result dictionary
-        """
-        try:
-            # Resolve named lists in the rule content
-            resolved_content = self.list_service.resolve_rule_lists(content, schema_version)
-            
-            # Validate the resolved content
-            return self.java_bridge.validate_rule(resolved_content)
-            
-        except Exception as e:
-            return {
-                'valid': False,
-                'message': f'List resolution failed: {str(e)}',
-                'errors': [str(e)]
-            }
     
     def generate_production_artifacts(self, rule_id: str, rule_name: str, rule_content: str, package_name: str) -> Dict[str, Any]:
         """
