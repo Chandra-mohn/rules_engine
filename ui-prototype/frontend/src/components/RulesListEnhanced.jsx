@@ -13,6 +13,7 @@ import {
   Row,
   Col,
   Typography,
+  Radio,
 } from 'antd';
 import {
   PlusOutlined,
@@ -50,11 +51,12 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
     process_group_id: null,
     process_area_id: null,
   });
+  const [itemType, setItemType] = useState('rules');
   const [selectedTreeKeys, setSelectedTreeKeys] = useState([]);
   const [currentHierarchy, setCurrentHierarchy] = useState(null);
   const [showCacheDebugger, setShowCacheDebugger] = useState(false);
 
-  // Load rules data
+  // Load data (rules or actionsets)
   const loadRules = async (page = 1, pageSize = 10, filterParams = {}) => {
     setLoading(true);
     try {
@@ -64,8 +66,10 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
         ...filterParams,
       };
 
-      const response = await rulesApi.getRules(params);
-      const { rules: rulesData, total, page: currentPage } = response.data;
+      // Add item_type parameter for unified API
+      const apiParams = { ...params, item_type: itemType === 'rules' ? 'rule' : 'actionset' };
+      const response = await rulesApi.getRules(apiParams);
+      const { [itemType === 'rules' ? 'rules' : 'actionsets']: rulesData, total, page: currentPage } = response.data;
 
       setRules(rulesData);
       setPagination({
@@ -74,7 +78,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
         total,
       });
     } catch (error) {
-      message.error('Failed to load rules: ' + (error.response?.data?.error || error.message));
+      message.error(`Failed to load ${itemType}: ` + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
     }
@@ -83,12 +87,12 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
   // Initial load and preload suggestions cache
   useEffect(() => {
     loadRules();
-    
+
     // Preload suggestions cache in background
     suggestionCache.preload().catch(error => {
       console.warn('Failed to preload suggestions cache:', error);
     });
-  }, []);
+  }, [itemType]);
 
   // Keyboard listener for Ctrl+D to toggle cache debugger
   useEffect(() => {
@@ -110,16 +114,18 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
 
   // Handle delete
   const handleDelete = (rule) => {
+    const isRule = itemType === 'rules';
     Modal.confirm({
-      title: 'Delete Rule',
-      content: `Are you sure you want to delete the rule "${rule.name}"?`,
+      title: `Delete ${isRule ? 'Rule' : 'ActionSet'}`,
+      content: `Are you sure you want to delete the ${isRule ? 'rule' : 'actionset'} "${rule.name}"?`,
       onOk: async () => {
         try {
+          // Use unified rules API for both types
           await rulesApi.deleteRule(rule.id);
-          message.success('Rule deleted successfully');
+          message.success(`${isRule ? 'Rule' : 'ActionSet'} deleted successfully`);
           loadRules();
         } catch (error) {
-          message.error('Failed to delete rule: ' + (error.response?.data?.error || error.message));
+          message.error(`Failed to delete ${isRule ? 'rule' : 'actionset'}: ` + (error.response?.data?.error || error.message));
         }
       },
     });
@@ -297,7 +303,23 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
       sorter: true,
       render: (text, record) => (
         <div>
-          <div style={{ fontWeight: 'bold' }}>{text}</div>
+          <div style={{ fontWeight: 'bold' }}>
+            <span style={{
+              display: 'inline-block',
+              width: '16px',
+              height: '16px',
+              backgroundColor: 'black',
+              color: 'white',
+              fontSize: '10px',
+              textAlign: 'center',
+              lineHeight: '16px',
+              marginRight: '8px',
+              fontWeight: 'bold'
+            }}>
+              {itemType === 'rules' ? 'R' : 'A'}
+            </span>
+            {text}
+          </div>
           {record.description && (
             <div style={{ fontSize: '12px', color: '#666' }}>
               {record.description}
@@ -412,7 +434,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
           }}>
             <div>
               <Title level={4} style={{ margin: 0 }}>
-                Rules Management
+                {itemType === 'rules' ? 'Rules' : 'ActionSets'} Management
                 {currentHierarchy && (
                   <span style={{ fontSize: '14px', fontWeight: 'normal', marginLeft: 8, color: '#666' }}>
                     - {currentHierarchy.code ? `${currentHierarchy.code} (${currentHierarchy.name})` : currentHierarchy.name}
@@ -420,19 +442,39 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
                 )}
               </Title>
             </div>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={onCreateRule}
+            <Space>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={onCreateRule}
+              >
+                New Rule
+              </Button>
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => message.info('ActionSet creation coming soon')}
+              >
+                New ActionSet
+              </Button>
+            </Space>
+          </div>
+
+          {/* Type Filter */}
+          <div style={{ marginBottom: 16 }}>
+            <Radio.Group
+              value={itemType}
+              onChange={(e) => setItemType(e.target.value)}
+              style={{ marginBottom: 16 }}
             >
-              Create Rule
-            </Button>
+              <Radio.Button value="rules">Rules</Radio.Button>
+              <Radio.Button value="actionsets">ActionSets</Radio.Button>
+            </Radio.Group>
           </div>
 
           {/* Filters */}
           <Space style={{ marginBottom: 16 }}>
             <Search
-              placeholder="Search rules..."
+              placeholder={`Search ${itemType}...`}
               allowClear
               value={filters.search}
               onChange={(e) => {
@@ -481,8 +523,8 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
               ...pagination,
               showSizeChanger: true,
               showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} of ${total} rules`,
+              showTotal: (total, range) =>
+                `${range[0]}-${range[1]} of ${total} ${itemType}`,
             }}
             onChange={handleTableChange}
             size="small"

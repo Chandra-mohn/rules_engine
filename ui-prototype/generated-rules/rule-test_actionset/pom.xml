@@ -6,12 +6,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.rules.libraries</groupId>
-    <artifactId>test-rule-2-rule</artifactId>
+    <artifactId>test-actionset-rule</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>ageVerification Rule Library</name>
-    <description>Generated rule library for ageVerification</description>
+    <name>TestActionSet Rule Library</name>
+    <description>Generated rule library for TestActionSet</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

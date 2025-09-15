@@ -1,4 +1,4 @@
-package com.rules.generated.13;
+package com.rules.13;
 
 import com.rules.context.RuleContext;
 import com.rules.runtime.RuleResult;

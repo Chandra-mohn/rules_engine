@@ -1,9 +1,0 @@
-{
-  "ruleId": "test_rule_2",
-  "ruleName": "ageVerification",
-  "ruleContent": "rule ageVerification:\n    if applicant.age >= 18 then approveApplication\n    if applicant.age < 18 then rejectApplication",
-  "generatedAt": "2025-09-12T02:15:46.212777Z",
-  "deploymentType": "library",
-  "version": "1.0.0",
-  "description": "Production library JAR for rule: ageVerification"
-}

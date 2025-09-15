@@ -50,10 +50,10 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
 
-  // Parse rule name from content
+  // Parse rule or actionset name from content
   const parseRuleNameFromContent = (content) => {
     if (!content) return '';
-    
+
     // Match both quoted and unquoted rule names
     // rule "PROMOTION $5%3 @SEARS":
     // rule regularRuleName:
@@ -61,6 +61,15 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     if (ruleMatch) {
       return ruleMatch[1] || ruleMatch[2] || ''; // quoted name or unquoted name
     }
+
+    // Match ActionSet names too
+    // ActionSet "Complex Name":
+    // ActionSet simpleActionSetName:
+    const actionsetMatch = content.match(/^\s*ActionSet\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:/m);
+    if (actionsetMatch) {
+      return actionsetMatch[1] || actionsetMatch[2] || ''; // quoted name or unquoted name
+    }
+
     return '';
   };
 
@@ -1023,11 +1032,11 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       <Row gutter={24}>
         {/* Rule Metadata */}
         <Col span={8}>
-          <Card title="Rule Information" size="small">
+          <Card title={`${rule?.item_type === 'actionset' ? 'ActionSet' : 'Rule'} Information`} size="small">
             <Form form={form} layout="vertical">
               <Form.Item
-                label="Rule Name"
-                help="Extracted from rule definition"
+                label={`${rule?.item_type === 'actionset' ? 'ActionSet' : 'Rule'} Name`}
+                help={`Extracted from ${rule?.item_type === 'actionset' ? 'actionset' : 'rule'} definition`}
               >
                 <Input 
                   value={parsedRuleName || '(not parsed)'} 

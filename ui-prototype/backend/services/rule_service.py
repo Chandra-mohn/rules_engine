@@ -18,38 +18,88 @@ class RuleService:
     
     def parse_rule_name_from_content(self, content: str) -> str:
         """
-        Parse rule name from rule content.
+        Parse rule or actionset name from content.
         Supports both quoted and unquoted identifiers:
         - rule "PROMOTION $5%3 @SEARS":
         - rule regularRuleName:
-        
+        - ActionSet "Complex Name":
+        - ActionSet simpleActionSetName:
+
         Args:
-            content: Rule content string
-            
+            content: Rule or ActionSet content string
+
         Returns:
-            Parsed rule name or empty string if not found
+            Parsed name or empty string if not found
         """
         if not content:
             return ''
-        
-        # Match both quoted and unquoted rule names
+
+        # Match both rules and actionsets with quoted and unquoted names
         # rule "PROMOTION $5%3 @SEARS":
         # rule regularRuleName:
-        pattern = r'^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:'
-        match = re.search(pattern, content, re.MULTILINE)
-        
-        if match:
-            return match.group(1) or match.group(2) or ''
-        
+        # ActionSet "Complex Name":
+        # ActionSet simpleActionSetName:
+        patterns = [
+            r'^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:',
+            r'^\s*ActionSet\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:'
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, content, re.MULTILINE)
+            if match:
+                return match.group(1) or match.group(2) or ''
+
         return ''
-    
-    def get_rules(self, page: int = 1, limit: int = 10, status: Optional[str] = None, 
+
+    def _validate_actionset_basic(self, content: str) -> Dict[str, Any]:
+        """
+        Basic ActionSet validation until Java bridge supports ActionSets.
+
+        Args:
+            content: ActionSet content string
+
+        Returns:
+            Validation result dictionary
+        """
+        errors = []
+        warnings = []
+
+        # Check basic ActionSet structure
+        if not content.strip().startswith('ActionSet'):
+            errors.append('ActionSet must start with "ActionSet"')
+
+        if ':' not in content:
+            errors.append('ActionSet must contain ":" after name')
+
+        # Check for common syntax patterns
+        lines = content.split('\n')
+        for i, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+
+            # Basic checks for common issues
+            if 'if ' in line and ' then' not in line and not line.endswith('then'):
+                if i < len(lines) and 'then' not in lines[i]:  # Check next line too
+                    warnings.append(f'Line {i}: "if" statement should have corresponding "then"')
+
+        is_valid = len(errors) == 0
+        message = 'ActionSet syntax is valid' if is_valid else 'ActionSet has syntax errors'
+
+        return {
+            'valid': is_valid,
+            'message': message,
+            'errors': errors,
+            'warnings': warnings
+        }
+
+    def get_rules(self, page: int = 1, limit: int = 10, status: Optional[str] = None,
                   search: Optional[str] = None, schema_version: Optional[str] = None,
                   client_id: Optional[int] = None, process_group_id: Optional[int] = None,
-                  process_area_id: Optional[int] = None) -> Tuple[List[Rule], int]:
+                  process_area_id: Optional[int] = None, item_type: str = 'rule') -> Tuple[List[Rule], int]:
         """
         Get paginated list of rules with optional filtering.
-        
+
         Args:
             page: Page number (1-based)
             limit: Number of rules per page
@@ -59,7 +109,8 @@ class RuleService:
             client_id: Filter by client (optional)
             process_group_id: Filter by process group (optional)
             process_area_id: Filter by process area (optional)
-            
+            item_type: Filter by item type - 'rule' or 'actionset' (default: 'rule')
+
         Returns:
             Tuple of (rules_list, total_count)
         """
@@ -67,7 +118,10 @@ class RuleService:
         
         # Start with Rule query and join hierarchy for filtering
         query = Rule.query.join(ProcessArea).join(ProcessGroup).join(Client)
-        
+
+        # Apply item_type filter (this is the key addition)
+        query = query.filter(Rule.item_type == item_type)
+
         # Apply hierarchy filters
         if client_id:
             query = query.filter(Client.id == client_id)
@@ -75,11 +129,11 @@ class RuleService:
             query = query.filter(ProcessGroup.id == process_group_id)
         if process_area_id:
             query = query.filter(ProcessArea.id == process_area_id)
-        
+
         # Apply status filter
         if status:
             query = query.filter(Rule.status == status)
-        
+
         # Apply schema version filter
         if schema_version:
             query = query.filter(Rule.schema_version == schema_version)
@@ -126,13 +180,20 @@ class RuleService:
         parsed_name = self.parse_rule_name_from_content(data['content'])
         if not parsed_name:
             return None, {
-                'valid': False, 
-                'message': 'Could not parse rule name from content. Rule must start with "rule name:"',
-                'errors': ['Rule name not found in content']
+                'valid': False,
+                'message': 'Could not parse name from content. Must start with "rule name:" or "ActionSet name:"',
+                'errors': ['Rule/ActionSet name not found in content']
             }
-        
-        # Validate rule content
-        validation_result = self.java_bridge.validate_rule(data['content'])
+
+        # Detect if this is an ActionSet and handle validation accordingly
+        is_actionset = data['content'].strip().startswith('ActionSet')
+
+        if is_actionset:
+            # Basic ActionSet validation - skip Java bridge for now
+            validation_result = self._validate_actionset_basic(data['content'])
+        else:
+            # Validate rule content using Java bridge
+            validation_result = self.java_bridge.validate_rule(data['content'])
         
         # Handle dates
         effective_date = None
@@ -155,6 +216,7 @@ class RuleService:
             name=parsed_name,
             description=data.get('description', ''),
             content=data['content'],
+            item_type='actionset' if is_actionset else 'rule',
             status=initial_status,
             effective_date=effective_date,
             expiry_date=expiry_date,
@@ -359,19 +421,27 @@ class RuleService:
         return True
     
     def validate_rule_content(self, content: str) -> Dict[str, Any]:
-        """Validate rule content without saving."""
-        return self.java_bridge.validate_rule(content)
+        """Validate rule or actionset content without saving."""
+        # Detect if this is an ActionSet and handle validation accordingly
+        is_actionset = content.strip().startswith('ActionSet')
+
+        if is_actionset:
+            # Basic ActionSet validation - skip Java bridge for now
+            return self._validate_actionset_basic(content)
+        else:
+            # Validate rule content using Java bridge
+            return self.java_bridge.validate_rule(content)
     
     def test_rule(self, content: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Test rule execution with sample data using hot compilation."""
-        # Use hot compilation for better performance
+        """Test rule execution with sample data using AST-based hot compilation only."""
+        # Use AST-based hot compilation - no fallback to legacy
         hot_result = self.java_bridge.test_rule_hot(content, test_data)
-        
+
         if hot_result['success']:
             # Transform hot compilation result to match expected format
             result = hot_result['result']
             performance = hot_result.get('performance', {})
-            
+
             return {
                 'success': True,
                 'result': {
@@ -387,20 +457,23 @@ class RuleService:
                     'compilationTimeMs': performance.get('compilationTimeMs', 0),
                     'executionTimeMs': performance.get('executionTimeMs', 0),
                     'totalTimeMs': performance.get('totalTimeMs', 0),
-                    'method': 'hot_compilation'
+                    'method': 'ast_compilation'
                 },
                 'errors': []
             }
         else:
-            # If hot compilation fails, fall back to legacy method
-            legacy_result = self.java_bridge.test_rule(content, test_data)
-            if legacy_result['success']:
-                # Add performance indicator for legacy method
-                legacy_result['performance'] = {
-                    'method': 'legacy_interpretation',
-                    'note': 'Hot compilation failed, used legacy method'
+            # No fallback - return compilation/execution errors
+            return {
+                'success': False,
+                'result': {},
+                'errors': hot_result.get('errors', ['AST compilation failed']),
+                'performance': {
+                    'compilationTimeMs': hot_result.get('performance', {}).get('compilationTimeMs', 0),
+                    'executionTimeMs': 0,
+                    'totalTimeMs': hot_result.get('performance', {}).get('totalTimeMs', 0),
+                    'method': 'ast_compilation_failed'
                 }
-            return legacy_result
+            }
     
     def get_rule_history(self, rule_id: int) -> List[RuleHistory]:
         """Get history of changes for a rule."""

@@ -21,7 +21,7 @@ This will create:
 Add this library to your main rules engine service classpath and invoke:
 
 ```java
-import com.rules.generated.13.RewardsPointsRuleRule;
+import com.rules.13.RewardsPointsRuleRule;
 import com.rules.context.RuleContext;
 import com.rules.runtime.RuleResult;
 

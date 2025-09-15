@@ -1,22 +1,22 @@
-package com.rules.generated.test;
+package com.rules.test;
 
 import com.rules.context.RuleContext;
 import com.rules.runtime.RuleResult;
 
 /**
- * Generated rule library for: testRule
- * Rule ID: TestRuleRule
+ * Generated rule library for: TestActionSet
+ * Rule ID: TestActionSetRule
  * 
  * Original rule content:
- * rule testRule: if applicant.creditScore >= 700 then approveApplication
+ * ActionSet TestActionSet: if applicant.age > 18 then approve_application
  * 
  * This is a library JAR - designed to be loaded into a main rules engine service.
  * Not intended as a standalone microservice.
  */
-public class TestRuleRule {
+public class TestActionSetRule {
     
-    private static final String RULE_ID = "testrulerule";
-    private static final String RULE_NAME = "testRule";
+    private static final String RULE_ID = "testactionsetrule";
+    private static final String RULE_NAME = "TestActionSet";
     
     /**
      * Execute this rule with the provided context.
@@ -34,8 +34,8 @@ public class TestRuleRule {
              */
             public class GeneratedRule implements Rule {
 
-                private int getApplicantCreditscore(RuleContext ctx) {
-                    Object value = ctx.getValue("applicant.creditScore");
+                private int getApplicantAge(RuleContext ctx) {
+                    Object value = ctx.getValue("applicant.age");
                     if (value == null) return null;
                             if (value instanceof Number) {
                         return ((Number) value).intValue();
@@ -54,7 +54,7 @@ public class TestRuleRule {
 
                 @Override
                 public String getRuleName() {
-                    return "testRule";
+                    return "TestActionSet";
                 }
             }
         } catch (Exception e) {

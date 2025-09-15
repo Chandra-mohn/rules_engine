@@ -112,6 +112,8 @@ export const rulesApi = {
   generateProductionCode: (data) => api.post('/rules/generate-production', data),
 };
 
+// ActionSets are now unified with Rules API - no separate endpoint needed
+
 // Schema API
 export const schemaApi = {
   // Get complete schema

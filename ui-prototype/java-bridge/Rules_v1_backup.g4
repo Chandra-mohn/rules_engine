@@ -2,43 +2,19 @@ grammar Rules;
 
 // Parser Rules
 ruleSet
-    : definition+ EOF
-    ;
-
-definition
-    : namedRule
-    | actionSetDefinition
+    : namedRule+ EOF
     ;
 
 namedRule
     : RULE ruleName COLON step+
     ;
 
-actionSetDefinition
-    : ACTIONSET actionSetName COLON actionSetStep+
-    ;
-
 ruleName
     : IDENTIFIER
-    | STRING
-    ;
-
-actionSetName
-    : IDENTIFIER
-    | STRING
     ;
 
 step
-    : IF condition THEN actionList (ELSE actionList)?
-    ;
-
-actionSetStep
-    : IF condition THEN actionList (ELSE actionList)?
-    | actionList
-    ;
-
-actionList
-    : action (COMMA action)*
+    : IF condition THEN action (ELSE action)?
     ;
 
 condition
@@ -72,12 +48,7 @@ operand
     ;
 
 attribute
-    : attributeIdentifier (DOT attributeIdentifier)*
-    ;
-
-attributeIdentifier
-    : IDENTIFIER
-    | STRING
+    : IDENTIFIER (DOT IDENTIFIER)*
     ;
 
 operator
@@ -109,7 +80,6 @@ action
 
 // Keywords
 RULE        : 'rule' | 'RULE';
-ACTIONSET   : 'actionset' | 'ActionSet' | 'ACTIONSET';
 IF          : 'if' | 'IF';
 THEN        : 'then' | 'THEN';
 ELSE        : 'else' | 'ELSE';

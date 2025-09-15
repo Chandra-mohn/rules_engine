@@ -76,6 +76,7 @@ class ProcessArea(db.Model):
     
     # Relationships
     rules = db.relationship('Rule', backref='process_area', lazy=True, cascade='all, delete-orphan')
+    # Note: actionsets relationship removed - they're now stored in rules table with item_type='actionset'
     
     # Unique constraint
     __table_args__ = (db.UniqueConstraint('process_group_id', 'code', name='uq_process_group_area'),)
@@ -97,9 +98,17 @@ class ProcessArea(db.Model):
             'client_name': self.process_group.client.name if self.process_group and self.process_group.client else None
         }
 
+    @property
+    def actionsets(self):
+        return [rule for rule in self.rules if rule.item_type == 'actionset']
+
+    @property
+    def actual_rules(self):
+        return [rule for rule in self.rules if rule.item_type == 'rule']
+
 class Rule(db.Model):
     __tablename__ = 'rules'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     process_area_id = db.Column(db.Integer, db.ForeignKey('process_areas.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
@@ -117,6 +126,7 @@ class Rule(db.Model):
     validation_message = db.Column(db.Text)  # Keep for validation error messages
     version = db.Column(db.Integer, default=1)
     schema_version = db.Column(db.String(20), default='modern')  # modern, legacy
+    item_type = db.Column(db.String(10), default='rule')  # 'rule' or 'actionset'
     
     # Relationships
     history = db.relationship('RuleHistory', backref='rule', lazy=True, cascade='all, delete-orphan')
@@ -142,6 +152,7 @@ class Rule(db.Model):
             'validation_message': self.validation_message,
             'version': self.version,
             'schema_version': self.schema_version,
+            'item_type': self.item_type,
             # Include hierarchy information
             'process_area_code': self.process_area.code if self.process_area else None,
             'process_area_name': self.process_area.name if self.process_area else None,
@@ -152,6 +163,16 @@ class Rule(db.Model):
             'client_code': self.process_area.process_group.client.code if self.process_area and self.process_area.process_group and self.process_area.process_group.client else None,
             'client_name': self.process_area.process_group.client.name if self.process_area and self.process_area.process_group and self.process_area.process_group.client else None
         }
+
+    @property
+    def is_actionset(self):
+        return self.item_type == 'actionset'
+
+    @property
+    def is_rule(self):
+        return self.item_type == 'rule'
+
+# ActionSet model removed - now unified into Rule model with item_type='actionset'
 
 class RuleHistory(db.Model):
     __tablename__ = 'rule_history'
@@ -165,6 +186,8 @@ class RuleHistory(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.String(50), default='system')
     change_reason = db.Column(db.Text)
+
+# ActionSetHistory model removed - now using unified RuleHistory for both rules and actionsets
 
 class RuleList(db.Model):
     __tablename__ = 'rule_lists'
@@ -249,8 +272,10 @@ class RuleHistorySchema(SQLAlchemyAutoSchema):
     class Meta:
         model = RuleHistory
         load_instance = True
-        
+
     created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+
+# ActionSet schemas removed - now using unified Rule schema for both rules and actionsets
 
 # Schema Management Tables
 class SchemaEntity(db.Model):

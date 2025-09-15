@@ -22,6 +22,8 @@ def create_app():
     app.register_blueprint(schema_bp, url_prefix='/api')
     app.register_blueprint(lists_bp, url_prefix='/api')
     app.register_blueprint(hierarchy_bp, url_prefix='/api')
+
+    # ActionSets are now unified into rules API - no separate endpoint needed
     
     # Create database tables
     with app.app_context():
@@ -205,7 +207,81 @@ def create_app():
                 db.session.add(rule)
             
             db.session.commit()
-            
+
+        # Create sample ActionSets as Rules with item_type='actionset'
+        actionset_count = Rule.query.filter_by(item_type='actionset').count()
+        if actionset_count == 0:
+            # Create credit card-focused ActionSets as Rules with item_type='actionset'
+            sample_actionsets = [
+                # Demo Bank - Standard Card Application Approval ActionSets
+                Rule(
+                    name='Standard Application Workflow',
+                    description='Complete workflow for standard credit card applications',
+                    content='ActionSet "Standard Application Workflow":\n    validateApplicantInfo\n    if applicant.creditScore >= 700 then approveApplication, sendWelcomeEmail\n    if applicant.creditScore < 600 then rejectApplication, sendRejectionLetter\n    else conditionalApproval, requestDocumentation\n    updateCustomerRecord',
+                    status='VALID',
+                    process_area_id=std_approval.id,
+                    item_type='actionset'
+                ),
+                Rule(
+                    name='Quick Credit Assessment',
+                    description='Fast credit scoring for instant decisions',
+                    content='ActionSet quickCreditAssessment:\n    calculateRiskScore\n    if applicant.creditScore >= 750 and applicant.annualIncome >= 60000 then instantApproval\n    if applicant.creditScore < 550 then immediateReject\n    else "Standard Application Workflow"',
+                    status='DRAFT',
+                    process_area_id=std_approval.id,
+                    item_type='actionset'
+                ),
+                # Demo Bank - Standard Card Fraud Detection ActionSets
+                Rule(
+                    name='Risk Evaluation Suite',
+                    description='Comprehensive risk assessment for fraud prevention',
+                    content='ActionSet riskEvaluation:\n    calculateRiskScore\n    if applicant.bankruptcyHistory == true then rejectApplication, logHighRiskApplicant\n    if applicant.employmentYears < 1 and applicant.age < 25 then requireCoSigner, scheduleManualReview\n    if applicant.monthlyIncome >= 5000 and applicant.creditScore >= 700 then approveApplication\n    else conditionalApproval',
+                    status='VALID',
+                    process_area_id=std_fraud.id,
+                    item_type='actionset'
+                ),
+                # Demo Bank - Premium Card Approval ActionSets
+                Rule(
+                    name='Premium Card Processing',
+                    description='Specialized workflow for premium credit card applications',
+                    content='ActionSet "Premium Card Processing":\n    if applicant.annualIncome >= 100000 and applicant.creditScore >= 750 then\n        instantApproval, assignPremiumBenefits, "send platinum welcome package"\n    if applicant.creditScore >= 700 and applicant.employmentStatus == "employed" then\n        approveApplication, "assign standard benefits"\n    else "Standard Application Workflow"',
+                    status='PROD',
+                    process_area_id=prem_approval.id,
+                    item_type='actionset'
+                ),
+                Rule(
+                    name='High Net Worth Processing',
+                    description='Expedited processing for high-value clients',
+                    content='ActionSet highNetWorthProcessing:\n    if applicant.annualIncome >= 250000 then fastTrackApproval, assignPrivateBanker\n    if applicant.creditScore >= 800 and applicant.employmentYears >= 5 then premiumApproval\n    else conditionalApproval, schedulePersonalConsultation',
+                    status='VALID',
+                    process_area_id=prem_limits.id,
+                    item_type='actionset'
+                ),
+                # Premium Card Co - Platinum Card Eligibility ActionSets
+                Rule(
+                    name='Platinum Tier Qualification',
+                    description='Comprehensive qualification process for platinum cards',
+                    content='ActionSet "Platinum Tier Qualification":\n    if applicant.annualIncome >= 200000 and applicant.creditScore >= 780 then\n        platinumApproval, "assign concierge services", setupPlatinumBenefits\n    if applicant.annualIncome >= 150000 and applicant.creditScore >= 750 then\n        conditionalPlatinum, requestFinancialVerification\n    else rejectPlatinum, "suggest premium alternative"',
+                    status='PROD',
+                    process_area_id=platinum_eligibility.id,
+                    item_type='actionset'
+                ),
+                # Premium Card Co - Rewards Card Approval ActionSets
+                Rule(
+                    name='Rewards Program Selection',
+                    description='Dynamic rewards program assignment based on spending patterns',
+                    content='ActionSet rewardsProgramSelection:\n    if applicant.creditScore >= 720 then\n        if applicant.annualIncome >= 75000 then premiumRewards, "5% cashback tier"\n        else standardRewards, "2% cashback tier"\n    if applicant.employmentStatus == "student" and applicant.age >= 21 then\n        studentRewards, "1% cashback with bonus categories"\n    else basicRewards',
+                    status='DRAFT',
+                    process_area_id=rewards_approval.id,
+                    item_type='actionset'
+                )
+            ]
+
+            for actionset_rule in sample_actionsets:
+                db.session.add(actionset_rule)
+
+            db.session.commit()
+            print(f"✅ Created {len(sample_actionsets)} sample ActionSets as Rules")
+
         # Insert schema data if schema tables are empty
         if SchemaEntity.query.count() == 0:
             # Create applicant entity

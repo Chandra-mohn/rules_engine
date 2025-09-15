@@ -1,6 +1,6 @@
-# businessDateCheck Rule Library
+# TestActionSet Rule Library
 
-This is a generated rule library JAR for rule: **businessDateCheck** (ID: `4`)
+This is a generated rule library JAR for rule: **TestActionSet** (ID: `test-actionset`)
 
 ## Usage
 
@@ -13,21 +13,21 @@ mvn clean package
 ```
 
 This will create:
-- `target/4-rule-1.0.0.jar` - Main library JAR
-- `target/4-rule-1.0.0-jar-with-dependencies.jar` - JAR with all dependencies
+- `target/test-actionset-rule-1.0.0.jar` - Main library JAR
+- `target/test-actionset-rule-1.0.0-jar-with-dependencies.jar` - JAR with all dependencies
 
 ### Integration
 
 Add this library to your main rules engine service classpath and invoke:
 
 ```java
-import com.rules.4.BusinessDateCheckRule;
+import com.rules.test.TestActionSetRule;
 import com.rules.context.RuleContext;
 import com.rules.runtime.RuleResult;
 
 // Execute the rule
 RuleContext context = new RuleContext(jsonData);
-RuleResult result = BusinessDateCheckRule.execute(context);
+RuleResult result = TestActionSetRule.execute(context);
 
 // Check result
 if (result.wasExecuted()) {
@@ -55,7 +55,7 @@ This follows the **library JAR** pattern rather than microservices:
 
 ## Generated Files
 
-- `src/main/java/.../BusinessDateCheckRule.java` - Rule implementation
+- `src/main/java/.../TestActionSetRule.java` - Rule implementation
 - `pom.xml` - Maven build configuration
 - `README.md` - This documentation
 - `Dockerfile` - Container setup for rules engine service

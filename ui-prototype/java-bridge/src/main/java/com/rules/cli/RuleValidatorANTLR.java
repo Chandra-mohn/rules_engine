@@ -247,13 +247,13 @@ public class RuleValidatorANTLR {
         
         @Override
         public void enterAttribute(RulesParser.AttributeContext ctx) {
-            List<TerminalNode> identifiers = ctx.IDENTIFIER();
-            
+            List<RulesParser.AttributeIdentifierContext> identifiers = ctx.attributeIdentifier();
+
             // Note: Main grammar handles quoted attributes differently than simplified grammar
-            
+
             if (identifiers.size() >= 2) {
-                String entity = identifiers.get(0).getText();
-                String property = identifiers.get(1).getText();
+                String entity = getIdentifierText(identifiers.get(0));
+                String property = getIdentifierText(identifiers.get(1));
                 
                 if (!VALID_ENTITIES.contains(entity)) {
                     errors.add("Invalid entity '" + entity + "'. Valid entities are: applicant, transaction, account");
@@ -280,7 +280,18 @@ public class RuleValidatorANTLR {
             default: return new HashSet<>();
         }
     }
-    
+
+    private static String getIdentifierText(RulesParser.AttributeIdentifierContext ctx) {
+        if (ctx.IDENTIFIER() != null) {
+            return ctx.IDENTIFIER().getText();
+        } else if (ctx.STRING() != null) {
+            // Remove quotes from string
+            String text = ctx.STRING().getText();
+            return text.substring(1, text.length() - 1);
+        }
+        return "";
+    }
+
     private static String findClosestAction(String input) {
         String bestMatch = null;
         int bestScore = Integer.MAX_VALUE;

@@ -23,19 +23,24 @@ def get_rules():
         client_id = request.args.get('client_id', type=int)
         process_group_id = request.args.get('process_group_id', type=int)
         process_area_id = request.args.get('process_area_id', type=int)
-        
-        # Get rules from service with new filters
+        item_type = request.args.get('item_type', 'rule')  # 'rule' or 'actionset'
+
+        # Get rules from service with new filters including item_type
         rules, total = rule_service.get_rules(
-            page=page, limit=limit, status=status, search=search, 
+            page=page, limit=limit, status=status, search=search,
             schema_version=schema_version, client_id=client_id,
-            process_group_id=process_group_id, process_area_id=process_area_id
+            process_group_id=process_group_id, process_area_id=process_area_id,
+            item_type=item_type
         )
         
         # Calculate pagination info
         pages = math.ceil(total / limit) if total > 0 else 1
         
+        # Use appropriate response key based on item_type
+        response_key = 'actionsets' if item_type == 'actionset' else 'rules'
+
         return jsonify({
-            'rules': [rule.to_dict() for rule in rules],
+            response_key: [rule.to_dict() for rule in rules],
             'total': total,
             'page': page,
             'pages': pages,
