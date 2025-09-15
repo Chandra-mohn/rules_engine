@@ -2,7 +2,7 @@
   "ruleId": 13,
   "ruleName": "rewardsPointsRule",
   "ruleContent": "rule rewardsPointsRule:\n    if applicant.creditScore >= 700 and applicant.annualIncome >= 60000 then approveApplication\n    if applicant.employmentStatus == \"employed\" and applicant.employmentYears >= 3 then approveApplication\n    if applicant.creditScore < 680 then rejectApplication",
-  "generatedAt": "2025-09-15T00:21:28.767920Z",
+  "generatedAt": "2025-09-15T02:43:14.092247Z",
   "deploymentType": "library",
   "version": "1.0.0",
   "description": "Production library JAR for rule: rewardsPointsRule"

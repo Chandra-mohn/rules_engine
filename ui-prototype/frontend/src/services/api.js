@@ -1,8 +1,17 @@
 import axios from 'axios';
 
-// Create axios instance with base configuration
+// Create axios instance with base configuration for Python backend
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001/api',
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Create axios instance for Java server
+const javaApi = axios.create({
+  baseURL: process.env.REACT_APP_JAVA_API_URL || 'http://localhost:8081/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -110,6 +119,24 @@ export const rulesApi = {
 
   // Generate production code
   generateProductionCode: (data) => api.post('/rules/generate-production', data),
+
+  // Enhanced validation with detailed error reporting (calls Java server)
+  validateRuleEnhanced: (content) => {
+    return javaApi.post('/rules/validate-enhanced', { content });
+  },
+
+  // Generate Java code from rule DSL (calls Java server)
+  generateCode: (content) => {
+    return javaApi.post('/rules/generate-code', { content });
+  },
+
+  // Enhanced test with validation, generation, compilation, and execution (calls Java server)
+  testRuleEnhanced: (ruleContent, testData) => {
+    return javaApi.post('/rules/test-enhanced', {
+      rule_content: ruleContent,
+      test_data: testData,
+    });
+  },
 };
 
 // ActionSets are now unified with Rules API - no separate endpoint needed

@@ -45,9 +45,7 @@ public class RuleExecutionEngine {
      * @return CompilationResult with success status and details
      */
     public CompilationResult compileRule(String ruleId, String ruleDsl) {
-        System.out.println("DEBUG: Attempting to acquire write lock for rule: " + ruleId);
         engineLock.writeLock().lock();
-        System.out.println("DEBUG: Write lock acquired for rule: " + ruleId);
         try {
             long startTime = System.currentTimeMillis();
             
@@ -97,9 +95,7 @@ public class RuleExecutionEngine {
             return CompilationResult.success(ruleId, className, ruleInfo.compilationTimeMs);
 
         } finally {
-            System.out.println("DEBUG: Releasing write lock for rule: " + ruleId);
             engineLock.writeLock().unlock();
-            System.out.println("DEBUG: Write lock released for rule: " + ruleId);
         }
     }
     

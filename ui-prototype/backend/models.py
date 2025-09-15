@@ -222,18 +222,6 @@ class RuleList(db.Model):
         """Get values as a Python set for fast membership testing."""
         import json
         return set(json.loads(self.list_values))
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'rule_id': self.rule_id,
-            'name': self.name,
-            'content': self.content,
-            'version': self.version,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'created_by': self.created_by,
-            'change_reason': self.change_reason
-        }
 
 # Marshmallow schemas for serialization
 class ClientSchema(SQLAlchemyAutoSchema):
