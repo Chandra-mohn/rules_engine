@@ -1,0 +1,18 @@
+ M ui-prototype/backend/api/rules.py
+ M ui-prototype/backend/schema/rules_schema.py
+ M ui-prototype/backend/services/java_bridge.py
+ M ui-prototype/backend/services/rule_service.py
+ M ui-prototype/frontend/src/components/RuleEditor.jsx
+ M ui-prototype/frontend/src/components/RulesListEnhanced.jsx
+ M ui-prototype/frontend/src/components/RulesTreeNavigation.jsx
+ M ui-prototype/frontend/src/services/api.js
+ M ui-prototype/java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4
+ M ui-prototype/java-bridge/src/main/java/com/rules/codegen/DirectJavaCodeGenerator.java
+?? ui-prototype/.context_snapshots/
+?? ui-prototype/CLAUDE.md
+?? ui-prototype/CONTEXT_PRESERVATION_FRAMEWORK.md
+?? ui-prototype/CONTEXT_QUICK_REFERENCE.md
+?? ui-prototype/generated-rules/rule-test_rule/
+?? ui-prototype/java-bridge/classpath.txt
+?? ui-prototype/restore_context.sh
+?? ui-prototype/save_context.sh

@@ -34,7 +34,6 @@ class SuggestionCache {
     this.cache.error = null;
 
     try {
-      console.log('🚀 Preloading suggestions cache...');
       const startTime = performance.now();
       
       const response = await fetch(this.API_ENDPOINT);
@@ -54,17 +53,7 @@ class SuggestionCache {
       this.cache.timestamp = Date.now();
       this.cache.version = data.metadata?.version || '1.0';
       
-      const loadTime = Math.round(performance.now() - startTime);
-      const totalCount = data.metadata?.total_count || 0;
-      
-      console.log(`✅ Suggestions cache loaded: ${totalCount} items in ${loadTime}ms`);
-      console.log('📊 Cache breakdown:', {
-        attributes: data.attributes?.all?.length || 0,
-        actions: data.actions?.all?.length || 0,
-        functions: data.functions?.all?.length || 0,
-        keywords: data.keywords?.length || 0,
-        operators: data.operators?.length || 0
-      });
+      // Cache successfully loaded
       
       return data;
     } catch (error) {
@@ -82,7 +71,7 @@ class SuggestionCache {
    */
   getSuggestions(context = '', position = 0) {
     if (!this.cache.loaded || !this.cache.data) {
-      console.warn('⚠️ Suggestions cache not loaded, returning empty array');
+      // Suggestions cache not loaded, returning empty array
       return [];
     }
 
@@ -92,22 +81,22 @@ class SuggestionCache {
     try {
       // Context-based suggestion filtering (all with deduplication)
       if (this.isEntityContext(currentLine, 'applicant')) {
-        console.log('🎯 Applicant context detected:', currentLine);
+        // Applicant context detected
         return this.removeDuplicates(data.attributes.by_entity.applicant || []);
       }
       
       if (this.isEntityContext(currentLine, 'transaction')) {
-        console.log('🎯 Transaction context detected:', currentLine);
+        // Transaction context detected
         return this.removeDuplicates(data.attributes.by_entity.transaction || []);
       }
       
       if (this.isEntityContext(currentLine, 'account')) {
-        console.log('🎯 Account context detected:', currentLine);
+        // Account context detected
         return this.removeDuplicates(data.attributes.by_entity.account || []);
       }
       
       if (this.isActionContext(currentLine)) {
-        console.log('🎯 Action context detected:', currentLine);
+        // Action context detected
         return this.removeDuplicates(data.actions.all || []);
       }
       
@@ -117,7 +106,7 @@ class SuggestionCache {
       }
 
       // General context - return comprehensive suggestions
-      console.log('🎯 General context (no specific match):', currentLine);
+      // General context (no specific match)
       return this.buildGeneralSuggestions(data);
       
     } catch (error) {
@@ -209,7 +198,7 @@ class SuggestionCache {
       version: null,
       error: null
     };
-    console.log('🗑️ Suggestions cache cleared');
+    // Suggestions cache cleared
   }
 
   refresh() {

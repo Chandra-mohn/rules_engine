@@ -1,56 +1,31 @@
 {
-  "timestamp": "2025-09-14T17:34:43.263624",
+  "timestamp": "2025-09-18T11:41:15.645333",
   "success": true,
   "issues": [
     {
-      "timestamp": "2025-09-14T17:34:43.240682",
+      "timestamp": "2025-09-18T11:41:15.624947",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule testCrossModel"
+      "message": "Missing effective_date for active rule ageTest"
     },
     {
-      "timestamp": "2025-09-14T17:34:43.240689",
+      "timestamp": "2025-09-18T11:41:15.624953",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule rewardsPointsRule"
+      "message": "Missing effective_date for active rule creditScoreTest"
     },
     {
-      "timestamp": "2025-09-14T17:34:43.240691",
+      "timestamp": "2025-09-18T11:41:15.624954",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule platinumIncomeCheck"
+      "message": "Missing effective_date for active rule test"
     },
     {
-      "timestamp": "2025-09-14T17:34:43.240692",
+      "timestamp": "2025-09-18T11:41:15.624956",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule rewardsCashbackRule"
+      "message": "Missing effective_date for active rule testRule"
     },
     {
-      "timestamp": "2025-09-14T17:34:43.240693",
+      "timestamp": "2025-09-18T11:41:15.624957",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule employmentYearsCheck"
-    },
-    {
-      "timestamp": "2025-09-14T17:34:43.240694",
-      "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule employmentStatusCheck"
-    },
-    {
-      "timestamp": "2025-09-14T17:34:43.240696",
-      "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule highValueApplicant"
-    },
-    {
-      "timestamp": "2025-09-14T17:34:43.240699",
-      "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule monthlyIncomeCheck"
-    },
-    {
-      "timestamp": "2025-09-14T17:34:43.240700",
-      "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule premiumEligibilityCheck"
-    },
-    {
-      "timestamp": "2025-09-14T17:34:43.240702",
-      "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule riskAssessment"
+      "message": "Missing effective_date for active rule testValidRule"
     }
   ]
 }

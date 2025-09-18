@@ -1,0 +1,5 @@
+backend/models.py
+backend/services/rule_service.py
+frontend/src/components/RuleEditor.jsx
+java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4
+CLAUDE.md

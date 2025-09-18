@@ -29,33 +29,115 @@ const RulesTreeNavigation = ({ onNodeSelect, selectedKeys = [], onBreadcrumbClic
   const [filteredTreeData, setFilteredTreeData] = useState([]);
   const [breadcrumb, setBreadcrumb] = useState([]);
 
-  // Remove rules from tree data, stop at process area level
-  const removeRulesFromTree = (nodes) => {
-    return nodes.map(node => ({
-      ...node,
-      children: node.children ? node.children.filter(child => child.type !== 'rule').map(child => removeRulesFromTree([child])[0]) : []
+  // Add synthetic nodes under process areas and get rule counts
+  const addSyntheticNodes = async (nodes) => {
+    const processedNodes = await Promise.all(nodes.map(async node => {
+      if (node.type === 'process_area') {
+        // Get counts for rules and actionsets in this process area
+        try {
+          const rulesResponse = await rulesApi.getRules({
+            process_area_id: node.id,
+            item_type: 'rule',
+            limit: 1
+          });
+          const actionsetsResponse = await rulesApi.getRules({
+            process_area_id: node.id,
+            item_type: 'actionset',
+            limit: 1
+          });
+
+          const rulesCount = rulesResponse.data.total || 0;
+          const actionsetsCount = actionsetsResponse.data.total || 0;
+
+          // Create synthetic nodes
+          const syntheticChildren = [];
+
+          if (rulesCount > 0) {
+            syntheticChildren.push({
+              key: `${node.key}-rules`,
+              title: `📋 Rules (${rulesCount})`,
+              type: 'synthetic_rules',
+              parent_process_area_id: node.id,
+              parent_process_area_name: node.name,
+              isLeaf: true
+            });
+          }
+
+          if (actionsetsCount > 0) {
+            syntheticChildren.push({
+              key: `${node.key}-actionsets`,
+              title: `⚙️ ActionSets (${actionsetsCount})`,
+              type: 'synthetic_actionsets',
+              parent_process_area_id: node.id,
+              parent_process_area_name: node.name,
+              isLeaf: true
+            });
+          }
+
+          return {
+            ...node,
+            children: syntheticChildren
+          };
+        } catch (error) {
+          console.error('Error getting counts for process area:', node.id, error);
+          // Fallback: show both synthetic nodes without counts
+          return {
+            ...node,
+            children: [
+              {
+                key: `${node.key}-rules`,
+                title: '📋 Rules',
+                type: 'synthetic_rules',
+                parent_process_area_id: node.id,
+                parent_process_area_name: node.name,
+                isLeaf: true
+              },
+              {
+                key: `${node.key}-actionsets`,
+                title: '⚙️ ActionSets',
+                type: 'synthetic_actionsets',
+                parent_process_area_id: node.id,
+                parent_process_area_name: node.name,
+                isLeaf: true
+              }
+            ]
+          };
+        }
+      } else if (node.children) {
+        // Recursively process children, but filter out individual rules
+        const filteredChildren = node.children.filter(child => child.type !== 'rule');
+        const processedChildren = await addSyntheticNodes(filteredChildren);
+        return {
+          ...node,
+          children: processedChildren
+        };
+      } else {
+        return node;
+      }
     }));
+
+    return processedNodes;
   };
 
   // Load tree data
   const loadTreeData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await rulesApi.getHierarchyTree();
       const tree = response.data.tree;
-      
-      // Remove rules from tree, stop at process area level
-      const treeWithoutRules = removeRulesFromTree(tree);
-      
-      setTreeData(treeWithoutRules);
-      setFilteredTreeData(treeWithoutRules);
-      
+
+      // Add synthetic nodes under process areas
+      const treeWithSyntheticNodes = await addSyntheticNodes(tree);
+
+      setTreeData(treeWithSyntheticNodes);
+      setFilteredTreeData(treeWithSyntheticNodes);
+
       // Auto-expand first level by default
-      const firstLevelKeys = treeWithoutRules.map(node => node.key);
+      const firstLevelKeys = treeWithSyntheticNodes.map(node => node.key);
       setExpandedKeys(firstLevelKeys);
-      
+
     } catch (error) {
       setError('Failed to load navigation tree: ' + (error.response?.data?.error || error.message));
     } finally {
@@ -71,15 +153,15 @@ const RulesTreeNavigation = ({ onNodeSelect, selectedKeys = [], onBreadcrumbClic
   // Filter tree based on search
   const filterTreeData = (data, searchValue) => {
     if (!searchValue) return data;
-    
+
     const filterNode = (node) => {
-      // Skip rule nodes
+      // Skip individual rule nodes but keep synthetic nodes
       if (node.type === 'rule') return null;
-      
+
       const childrenMatch = node.children?.map(filterNode).filter(Boolean) || [];
       const nodeMatch = node.title.toLowerCase().includes(searchValue.toLowerCase()) ||
                        node.name?.toLowerCase().includes(searchValue.toLowerCase());
-      
+
       if (nodeMatch || childrenMatch.length > 0) {
         return {
           ...node,
@@ -88,7 +170,7 @@ const RulesTreeNavigation = ({ onNodeSelect, selectedKeys = [], onBreadcrumbClic
       }
       return null;
     };
-    
+
     return data.map(filterNode).filter(Boolean);
   };
 
@@ -119,15 +201,34 @@ const RulesTreeNavigation = ({ onNodeSelect, selectedKeys = [], onBreadcrumbClic
     if (selectedKeys.length === 0) return;
 
     try {
-      // Load breadcrumb for selected node
-      const nodeType = node.type;
-      const nodeId = node.id;
-      
-      if (nodeType && nodeId) {
-        const breadcrumbResponse = await rulesApi.getBreadcrumb(nodeType, nodeId);
-        setBreadcrumb(breadcrumbResponse.data.breadcrumb);
+      // Handle synthetic nodes differently
+      if (node.type === 'synthetic_rules' || node.type === 'synthetic_actionsets') {
+        // For synthetic nodes, load breadcrumb for the parent process area
+        const processAreaId = node.parent_process_area_id;
+        if (processAreaId) {
+          const breadcrumbResponse = await rulesApi.getBreadcrumb('process_area', processAreaId);
+          // Add synthetic node to breadcrumb
+          const breadcrumbWithSynthetic = [
+            ...breadcrumbResponse.data.breadcrumb,
+            {
+              type: node.type,
+              name: node.title,
+              id: node.key
+            }
+          ];
+          setBreadcrumb(breadcrumbWithSynthetic);
+        }
+      } else {
+        // Load breadcrumb for regular nodes
+        const nodeType = node.type;
+        const nodeId = node.id;
+
+        if (nodeType && nodeId) {
+          const breadcrumbResponse = await rulesApi.getBreadcrumb(nodeType, nodeId);
+          setBreadcrumb(breadcrumbResponse.data.breadcrumb);
+        }
       }
-      
+
       // Call parent handler
       if (onNodeSelect) {
         onNodeSelect(selectedKeys, { node });
@@ -202,7 +303,7 @@ const RulesTreeNavigation = ({ onNodeSelect, selectedKeys = [], onBreadcrumbClic
     >
       {/* Search */}
       <Search
-        placeholder="Search rules..."
+        placeholder="Search hierarchy..."
         allowClear
         value={searchValue}
         onChange={(e) => handleSearch(e.target.value)}

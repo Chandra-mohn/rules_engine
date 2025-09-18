@@ -1,0 +1,56 @@
+ D ui-prototype/ARCHITECTURE_CONSOLIDATION.md
+ D ui-prototype/ATTRIBUTES_AND_ACTIONS_REFERENCE.md
+ D ui-prototype/ActionSetsSpecs.md
+ D ui-prototype/ActionSets_Complex_Examples.md
+ D ui-prototype/ActionSets_Implementation_Plan.md
+ D ui-prototype/CLAUDE_SESSION_CHECKPOINT.md
+ D ui-prototype/Grammar_Test_Suite.md
+ D ui-prototype/QUOTED_IDENTIFIERS.md
+ D ui-prototype/SCHEMA_CONFIGURATION.md
+ D ui-prototype/SOLUTION_DESIGN.md
+ D ui-prototype/WINDOWS_SETUP.md
+ D ui-prototype/api_design.md
+ M ui-prototype/backend/api/rules.py
+ D ui-prototype/backend/debug_hot_compilation.py.backup
+ D ui-prototype/backend/migrate_actionsets.py.backup
+ M ui-prototype/backend/regression_test_results.json
+ M ui-prototype/backend/schema/rules_schema.py
+ M ui-prototype/backend/services/java_bridge.py
+ M ui-prototype/backend/services/rule_service.py
+ M ui-prototype/frontend/src/components/RuleEditor.jsx
+ M ui-prototype/frontend/src/components/RulesList.jsx
+ M ui-prototype/frontend/src/components/RulesListEnhanced.jsx
+ M ui-prototype/frontend/src/components/RulesTreeNavigation.jsx
+ M ui-prototype/frontend/src/services/api.js
+ M ui-prototype/frontend/src/services/suggestionCache.js
+ M ui-prototype/java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4
+ M ui-prototype/java-bridge/src/main/java/com/rules/codegen/DirectJavaCodeGenerator.java
+ D ui-prototype/java-bridge/src/main/java/com/rules/engine/RulesEngine.java.bak
+ D ui-prototype/project_structure.md
+ D ui-prototype/test-data.json
+ D ui-prototype/test-quoted-identifiers.rules
+ D ui-prototype/test-simple-quoted.rules
+ D ui-prototype/test_rule_name_parsing.py
+?? ui-prototype/.context_snapshots/
+?? ui-prototype/.memory_consolidation/
+?? ui-prototype/.serena/
+?? ui-prototype/.session_continuity/
+?? ui-prototype/CLAUDE.md
+?? ui-prototype/CLEANUP_SUMMARY.md
+?? ui-prototype/backend/data_integrity_monitor.py
+?? ui-prototype/backend/enhanced_regression_suite.py
+?? ui-prototype/docs/
+?? ui-prototype/generated-rules/rule-test_rule/
+?? ui-prototype/java-bridge/classpath.txt
+?? ui-prototype/reports/
+?? ui-prototype/scripts/claude_memory_manager.py
+?? ui-prototype/scripts/code_quality_validator.py
+?? ui-prototype/scripts/integrated_memory_system.py
+?? ui-prototype/scripts/memory_consolidation_agent.py
+?? ui-prototype/scripts/restore_context.sh
+?? ui-prototype/scripts/run_memory_consolidation.py
+?? ui-prototype/scripts/run_validation_demo.py
+?? ui-prototype/scripts/save_context.sh
+?? ui-prototype/scripts/session_continuity_bridge.py
+?? ui-prototype/scripts/validation_agent.py
+?? ui-prototype/tests/

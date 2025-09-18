@@ -50,26 +50,25 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
     client_id: null,
     process_group_id: null,
     process_area_id: null,
+    item_type: null,
   });
-  const [itemType, setItemType] = useState('rules');
   const [selectedTreeKeys, setSelectedTreeKeys] = useState([]);
   const [currentHierarchy, setCurrentHierarchy] = useState(null);
   const [showCacheDebugger, setShowCacheDebugger] = useState(false);
 
-  // Load data (rules or actionsets)
+  // Load rules data
   const loadRules = async (page = 1, pageSize = 10, filterParams = {}) => {
     setLoading(true);
     try {
       const params = {
         page,
         limit: pageSize,
+        // Load both rules and actionsets - let the backend filter by hierarchy
         ...filterParams,
       };
 
-      // Add item_type parameter for unified API
-      const apiParams = { ...params, item_type: itemType === 'rules' ? 'rule' : 'actionset' };
-      const response = await rulesApi.getRules(apiParams);
-      const { [itemType === 'rules' ? 'rules' : 'actionsets']: rulesData, total, page: currentPage } = response.data;
+      const response = await rulesApi.getRules(params);
+      const { rules: rulesData, total, page: currentPage } = response.data;
 
       setRules(rulesData);
       setPagination({
@@ -78,7 +77,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
         total,
       });
     } catch (error) {
-      message.error(`Failed to load ${itemType}: ` + (error.response?.data?.error || error.message));
+      message.error('Failed to load rules: ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
     }
@@ -90,9 +89,9 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
 
     // Preload suggestions cache in background
     suggestionCache.preload().catch(error => {
-      console.warn('Failed to preload suggestions cache:', error);
+      // Failed to preload suggestions cache
     });
-  }, [itemType]);
+  }, []);
 
   // Keyboard listener for Ctrl+D to toggle cache debugger
   useEffect(() => {
@@ -114,18 +113,16 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
 
   // Handle delete
   const handleDelete = (rule) => {
-    const isRule = itemType === 'rules';
     Modal.confirm({
-      title: `Delete ${isRule ? 'Rule' : 'ActionSet'}`,
-      content: `Are you sure you want to delete the ${isRule ? 'rule' : 'actionset'} "${rule.name}"?`,
+      title: 'Delete Rule',
+      content: `Are you sure you want to delete the rule "${rule.name}"?`,
       onOk: async () => {
         try {
-          // Use unified rules API for both types
           await rulesApi.deleteRule(rule.id);
-          message.success(`${isRule ? 'Rule' : 'ActionSet'} deleted successfully`);
+          message.success('Rule deleted successfully');
           loadRules();
         } catch (error) {
-          message.error(`Failed to delete ${isRule ? 'rule' : 'actionset'}: ` + (error.response?.data?.error || error.message));
+          message.error('Failed to delete rule: ' + (error.response?.data?.error || error.message));
         }
       },
     });
@@ -268,14 +265,37 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
       newFilters.client_id = node.id;
       newFilters.process_group_id = null;
       newFilters.process_area_id = null;
+      newFilters.item_type = null; // Clear item type filter
       setCurrentHierarchy({ type: 'client', name: node.name, code: node.code });
     } else if (node.type === 'process_group') {
       newFilters.process_group_id = node.id;
       newFilters.process_area_id = null;
+      newFilters.item_type = null; // Clear item type filter
       setCurrentHierarchy({ type: 'process_group', name: node.name, code: node.code });
     } else if (node.type === 'process_area') {
       newFilters.process_area_id = node.id;
+      newFilters.item_type = null; // Clear item type filter
       setCurrentHierarchy({ type: 'process_area', name: node.name, code: node.code });
+    } else if (node.type === 'synthetic_rules') {
+      // Filter to show only rules for this process area
+      newFilters.process_area_id = node.parent_process_area_id;
+      newFilters.item_type = 'rule';
+      setCurrentHierarchy({
+        type: 'synthetic_rules',
+        name: node.parent_process_area_name,
+        code: node.parent_process_area_name,
+        synthetic_type: 'Rules'
+      });
+    } else if (node.type === 'synthetic_actionsets') {
+      // Filter to show only actionsets for this process area
+      newFilters.process_area_id = node.parent_process_area_id;
+      newFilters.item_type = 'actionset';
+      setCurrentHierarchy({
+        type: 'synthetic_actionsets',
+        name: node.parent_process_area_name,
+        code: node.parent_process_area_name,
+        synthetic_type: 'ActionSets'
+      });
     } else if (node.type === 'rule') {
       // Open rule for editing
       onEditRule({ id: node.id });
@@ -296,7 +316,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
   // Table columns with hierarchy information
   const columns = [
     {
-      title: 'Rule Name',
+      title: 'Name',
       dataIndex: 'name',
       key: 'name',
       width: 300,
@@ -308,7 +328,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
               display: 'inline-block',
               width: '16px',
               height: '16px',
-              backgroundColor: 'black',
+              backgroundColor: record.item_type === 'actionset' ? '#1890ff' : '#000',
               color: 'white',
               fontSize: '10px',
               textAlign: 'center',
@@ -316,7 +336,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
               marginRight: '8px',
               fontWeight: 'bold'
             }}>
-              {itemType === 'rules' ? 'R' : 'A'}
+              {record.item_type === 'actionset' ? 'A' : 'R'}
             </span>
             {text}
           </div>
@@ -329,6 +349,17 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
             {record.client_code} → {record.process_group_code} → {record.process_area_code}
           </div>
         </div>
+      ),
+    },
+    {
+      title: 'Type',
+      dataIndex: 'item_type',
+      key: 'item_type',
+      width: 100,
+      render: (type) => (
+        <Tag color={type === 'actionset' ? 'blue' : 'green'}>
+          {type === 'actionset' ? 'ActionSet' : 'Rule'}
+        </Tag>
       ),
     },
     {
@@ -355,21 +386,21 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
       width: 240,
       render: (_, record) => (
         <Space>
-          <Tooltip title="Edit Rule">
+          <Tooltip title={`Edit ${record.item_type === 'actionset' ? 'ActionSet' : 'Rule'}`}>
             <Button
               icon={<EditOutlined />}
               size="small"
               onClick={() => onEditRule(record)}
             />
           </Tooltip>
-          <Tooltip title="Test Rule">
+          <Tooltip title={`Test ${record.item_type === 'actionset' ? 'ActionSet' : 'Rule'}`}>
             <Button
               icon={<PlayCircleOutlined />}
               size="small"
               onClick={() => handleTest(record)}
             />
           </Tooltip>
-          <Tooltip title={record.status === 'PROD' ? 'Execute Rule' : 'Execute (PROD only)'}>
+          <Tooltip title={record.status === 'PROD' ? `Execute ${record.item_type === 'actionset' ? 'ActionSet' : 'Rule'}` : 'Execute (PROD only)'}>
             <Button
               icon={<ThunderboltOutlined />}
               size="small"
@@ -434,10 +465,13 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
           }}>
             <div>
               <Title level={4} style={{ margin: 0 }}>
-                {itemType === 'rules' ? 'Rules' : 'ActionSets'} Management
+                {currentHierarchy && currentHierarchy.synthetic_type ? currentHierarchy.synthetic_type : 'Rules & ActionSets'}
                 {currentHierarchy && (
                   <span style={{ fontSize: '14px', fontWeight: 'normal', marginLeft: 8, color: '#666' }}>
-                    - {currentHierarchy.code ? `${currentHierarchy.code} (${currentHierarchy.name})` : currentHierarchy.name}
+                    - {currentHierarchy.synthetic_type
+                        ? `${currentHierarchy.name}`
+                        : (currentHierarchy.code ? `${currentHierarchy.code} (${currentHierarchy.name})` : currentHierarchy.name)
+                    }
                   </span>
                 )}
               </Title>
@@ -448,33 +482,22 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
                 icon={<PlusOutlined />}
                 onClick={onCreateRule}
               >
-                New Rule
+                New Rule/ActionSet
               </Button>
               <Button
+                type="default"
                 icon={<PlusOutlined />}
-                onClick={() => message.info('ActionSet creation coming soon')}
+                onClick={() => message.info('Not yet implemented')}
               >
-                New ActionSet
+                + New Non-Mon
               </Button>
             </Space>
-          </div>
-
-          {/* Type Filter */}
-          <div style={{ marginBottom: 16 }}>
-            <Radio.Group
-              value={itemType}
-              onChange={(e) => setItemType(e.target.value)}
-              style={{ marginBottom: 16 }}
-            >
-              <Radio.Button value="rules">Rules</Radio.Button>
-              <Radio.Button value="actionsets">ActionSets</Radio.Button>
-            </Radio.Group>
           </div>
 
           {/* Filters */}
           <Space style={{ marginBottom: 16 }}>
             <Search
-              placeholder={`Search ${itemType}...`}
+              placeholder="Search rules & actionsets..."
               allowClear
               value={filters.search}
               onChange={(e) => {
@@ -524,7 +547,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
               showSizeChanger: true,
               showQuickJumper: true,
               showTotal: (total, range) =>
-                `${range[0]}-${range[1]} of ${total} ${itemType}`,
+                `${range[0]}-${range[1]} of ${total} rules`,
             }}
             onChange={handleTableChange}
             size="small"

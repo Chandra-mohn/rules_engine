@@ -50,7 +50,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
 
-  // Parse rule or actionset name from content
+  // Parse rule name from content
   const parseRuleNameFromContent = (content) => {
     if (!content) return '';
 
@@ -60,14 +60,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     const ruleMatch = content.match(/^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:/m);
     if (ruleMatch) {
       return ruleMatch[1] || ruleMatch[2] || ''; // quoted name or unquoted name
-    }
-
-    // Match ActionSet names too
-    // ActionSet "Complex Name":
-    // ActionSet simpleActionSetName:
-    const actionsetMatch = content.match(/^\s*ActionSet\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:/m);
-    if (actionsetMatch) {
-      return actionsetMatch[1] || actionsetMatch[2] || ''; // quoted name or unquoted name
     }
 
     return '';
@@ -147,7 +139,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             
             // If cache is empty or not loaded, fall back to API
             if (!allSuggestions || allSuggestions.length === 0) {
-              console.warn('Cache not available, falling back to API...');
+              // Cache not available, falling back to API
               
               try {
                 const [attributesResponse, actionsResponse] = await Promise.all([
@@ -165,7 +157,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                   ];
                 }
               } catch (apiError) {
-                console.warn('API fallback failed, using empty suggestions:', apiError);
+                // API fallback failed, using empty suggestions
                 allSuggestions = [];
               }
             }
@@ -250,7 +242,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     validateContent(editorContent);
   };
 
-  // Handle execute rule using hot compilation
+  // Handle execute rule using subprocess compilation
   const handleExecute = async () => {
     if (!rule || !isExecutableStatus(rule.status)) {
       message.error('Rule execution is only allowed for VALID, PEND, SCHD, or PROD status rules');
@@ -318,13 +310,26 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       }
 
       setLoading(true);
-      message.loading('Executing rule with hot compilation...', 0.5);
-      
-      // Call test API (uses hot compilation backend)
+      message.loading('Executing rule...', 0.5);
+
+      // Call test API (uses subprocess compilation backend)
       const response = await rulesApi.testRuleContent(editorContent, testData);
       
       // Show results with execution-specific styling
-      const testResult = response.data.result || response.data;
+      const backendResult = response.data.result || response.data;
+
+      // Transform backend response to match frontend expectations
+      const testResult = {
+        success: backendResult.matched || false,
+        ruleName: parsedRuleName || 'Unnamed Rule',
+        executedActions: backendResult.actions || [],
+        executedActionsCount: (backendResult.actions || []).length,
+        totalAvailableActions: (backendResult.actions || []).length,
+        conditions: [], // We don't have detailed condition info from subprocess
+        timestamp: new Date().toISOString(),
+        performance: response.data.performance || {}
+      };
+
       showExecutionResults(testResult);
       
     } catch (error) {
@@ -441,7 +446,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
       let validationResult;
       try {
-        const validationResponse = await rulesApi.validateRuleEnhanced(editorContent);
+        const validationResponse = await rulesApi.validateRule(editorContent);
         validationResult = validationResponse.data;
         testSteps.push({
           step: 'validation',
@@ -467,6 +472,8 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         return;
       }
 
+      // Rules can call ActionSets directly by name - continue with full pipeline
+
       // STEP 2: Code Generation (Optional preview)
       message.loading('Step 2/4: Generating Java code...', 0);
       const codeGenStart = performance.now();
@@ -491,84 +498,69 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         });
       }
 
-      // STEP 3: Compilation
-      message.loading('Step 3/4: Compiling rule...', 0);
-      const compileStart = performance.now();
+      // STEP 3 & 4: Test rule using consolidated Python backend
+      message.loading('Step 3/4: Testing rule with Python backend...', 0);
+      const testStart = performance.now();
 
-      const ruleId = `test_${Date.now()}`;
-      let compilationResult;
+      // Get test data
+      const testData = getTestData();
+
+      let testResult;
       try {
-        const compileResponse = await fetch('http://localhost:8081/api/rules/compile', {
+        const testResponse = await fetch('/api/rules/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ruleContent: editorContent,
-            ruleId: ruleId
+            rule_content: editorContent,
+            test_data: testData
           })
         });
-        compilationResult = await compileResponse.json();
+
+        if (!testResponse.ok) {
+          throw new Error(`HTTP ${testResponse.status}: ${testResponse.statusText}`);
+        }
+
+        testResult = await testResponse.json();
+
         testSteps.push({
-          step: 'compilation',
-          duration: Math.round(performance.now() - compileStart),
-          success: compilationResult.success,
+          step: 'test',
+          duration: Math.round(performance.now() - testStart),
+          success: testResult.success,
           data: {
-            compilationTimeMs: compilationResult.compilationTimeMs,
-            className: compilationResult.className
-          }
+            testTimeMs: testResult.performance?.testTimeMs || 0,
+            compilationTimeMs: testResult.performance?.compilationTimeMs || 0,
+            executionTimeMs: testResult.performance?.executionTimeMs || 0,
+            result: testResult.result
+          },
+          error: testResult.success ? null : (testResult.message || JSON.stringify(testResult))
         });
       } catch (error) {
         setLoading(false);
-        message.error('Compilation failed: ' + error.message);
+        message.destroy();
+        message.error('Rule testing failed: ' + error.message);
         return;
       }
 
-      if (!compilationResult.success) {
+      if (!testResult.success) {
         setLoading(false);
+        message.destroy();
         showEnhancedTestResults({
           success: false,
-          message: 'Rule compilation failed',
+          message: 'Rule testing failed',
           steps: testSteps,
-          compilationError: compilationResult.message,
+          compilationError: testResult.message,
           totalTimeMs: Math.round(performance.now() - totalStartTime)
         });
         return;
       }
 
-      // STEP 4: Execution
-      message.loading('Step 4/4: Executing rule...', 0);
-      const executionStart = performance.now();
+      // Skip the separate execution step since it's now combined
+      message.loading('Step 4/4: Finalizing results...', 0);
 
-      // Get test data
-      const testData = getTestData();
+      let executionResult = testResult;
 
-      let executionResult;
-      try {
-        const execResponse = await fetch('http://localhost:8081/api/rules/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ruleId: ruleId,
-            contextData: testData
-          })
-        });
-        executionResult = await execResponse.json();
-        testSteps.push({
-          step: 'execution',
-          duration: Math.round(performance.now() - executionStart),
-          success: executionResult.success,
-          data: {
-            executionTimeMs: executionResult.executionTimeMs,
-            matched: executionResult.matched,
-            actions: executionResult.actions
-          }
-        });
-      } catch (error) {
-        setLoading(false);
-        message.error('Execution failed: ' + error.message);
-        return;
-      }
-
-      // Show enhanced results
+      // Clear all loading messages and show results
+      message.destroy();
       const totalTime = Math.round(performance.now() - totalStartTime);
       message.success(`Test completed in ${totalTime}ms`, 2);
 
@@ -722,9 +714,9 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span>⚡ Rule Execution Complete</span>
           <Tag color="gold" style={{ fontSize: '11px' }}>
-            HOT COMPILED
+            COMPILED
           </Tag>
-          {performance.method === 'hot_compilation' && (
+          {performance.method && (
             <Tag color="green" style={{ fontSize: '10px' }}>
               {performance.totalTimeMs}ms total
             </Tag>
@@ -735,7 +727,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       content: (
         <div>
           {/* Performance Summary */}
-          {performance.method === 'hot_compilation' && (
+          {performance.method && (
             <Card 
               style={{ 
                 marginBottom: '20px',
@@ -1408,11 +1400,11 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       <Row gutter={24}>
         {/* Rule Metadata */}
         <Col span={8}>
-          <Card title={`${rule?.item_type === 'actionset' ? 'ActionSet' : 'Rule'} Information`} size="small">
+          <Card title="Rule Information" size="small">
             <Form form={form} layout="vertical">
               <Form.Item
-                label={`${rule?.item_type === 'actionset' ? 'ActionSet' : 'Rule'} Name`}
-                help={`Extracted from ${rule?.item_type === 'actionset' ? 'actionset' : 'rule'} definition`}
+                label="Rule Name"
+                help="Extracted from rule definition"
               >
                 <Input 
                   value={parsedRuleName || '(not parsed)'} 

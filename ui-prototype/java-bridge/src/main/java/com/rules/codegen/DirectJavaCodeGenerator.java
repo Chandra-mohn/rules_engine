@@ -32,12 +32,9 @@ public class DirectJavaCodeGenerator extends RulesBaseVisitor<String> {
         StringBuilder allRules = new StringBuilder();
 
         for (RulesParser.DefinitionContext defCtx : ctx.definition()) {
-            if (defCtx.namedRule() != null) {
-                String ruleCode = visit(defCtx.namedRule());
+            if (defCtx.unifiedRule() != null) {
+                String ruleCode = visit(defCtx.unifiedRule());
                 allRules.append(ruleCode).append("\n\n");
-            } else if (defCtx.actionSetDefinition() != null) {
-                String actionSetCode = visit(defCtx.actionSetDefinition());
-                allRules.append(actionSetCode).append("\n\n");
             }
         }
 
@@ -45,7 +42,7 @@ public class DirectJavaCodeGenerator extends RulesBaseVisitor<String> {
     }
     
     @Override
-    public String visitNamedRule(RulesParser.NamedRuleContext ctx) {
+    public String visitUnifiedRule(RulesParser.UnifiedRuleContext ctx) {
         code.setLength(0);
         indentLevel = 0;
         
@@ -67,7 +64,7 @@ public class DirectJavaCodeGenerator extends RulesBaseVisitor<String> {
         
         // Generate condition checks for each step
         boolean firstStep = true;
-        for (RulesParser.StepContext stepCtx : ctx.step()) {
+        for (RulesParser.RuleStepContext stepCtx : ctx.ruleStep()) {
             if (!firstStep) {
                 appendLine("");
             }
@@ -99,17 +96,32 @@ public class DirectJavaCodeGenerator extends RulesBaseVisitor<String> {
     }
     
     @Override
-    public String visitStep(RulesParser.StepContext ctx) {
+    public String visitRuleStep(RulesParser.RuleStepContext ctx) {
         StringBuilder stepCode = new StringBuilder();
-        
-        // Generate if condition
-        String conditionCode = visit(ctx.condition());
-        String actionCode = visit(ctx.actionList(0).action(0)); // Get first action from first actionList
-        
-        stepCode.append(indent()).append("if (").append(conditionCode).append(") {\n");
-        stepCode.append(indent()).append("    return RuleResult.action(\"").append(actionCode).append("\");\n");
-        stepCode.append(indent()).append("}\n");
-        
+
+        if (ctx.condition() != null) {
+            // RuleStep with condition: IF condition THEN actionList (ELSE actionList)?
+            String conditionCode = visit(ctx.condition());
+            String thenActions = generateActionListCode(ctx.actionList(0));
+
+            stepCode.append(indent()).append("if (").append(conditionCode).append(") {\n");
+            stepCode.append(thenActions);
+            stepCode.append(indent()).append("}");
+
+            // Handle ELSE clause if present
+            if (ctx.actionList().size() > 1) {
+                String elseActions = generateActionListCode(ctx.actionList(1));
+                stepCode.append(" else {\n");
+                stepCode.append(elseActions);
+                stepCode.append(indent()).append("}");
+            }
+            stepCode.append("\n");
+        } else {
+            // RuleStep without condition: just actionList (standalone actions)
+            String actions = generateActionListCode(ctx.actionList(0));
+            stepCode.append(actions);
+        }
+
         return stepCode.toString();
     }
     
@@ -248,17 +260,45 @@ public class DirectJavaCodeGenerator extends RulesBaseVisitor<String> {
     
     @Override
     public String visitAction(RulesParser.ActionContext ctx) {
+        String actionName;
+
         if (ctx.IDENTIFIER() != null) {
-            return ctx.IDENTIFIER().getText();
-        }
-        if (ctx.STRING() != null) {
+            actionName = ctx.IDENTIFIER().getText();
+        } else if (ctx.STRING() != null) {
             String str = ctx.STRING().getText();
             // Remove quotes
-            return str.substring(1, str.length() - 1);
+            actionName = str.substring(1, str.length() - 1);
+        } else {
+            actionName = "unknown";
         }
-        return "unknown";
+
+        // Handle parameterized actions
+        if (ctx.parameterList() != null) {
+            StringBuilder params = new StringBuilder();
+            List<RulesParser.ParameterContext> parameters = ctx.parameterList().parameter();
+
+            for (int i = 0; i < parameters.size(); i++) {
+                if (i > 0) params.append(", ");
+                params.append(visit(parameters.get(i)));
+            }
+
+            return actionName + "(" + params.toString() + ")";
+        }
+
+        return actionName;
     }
-    
+
+
+    @Override
+    public String visitParameter(RulesParser.ParameterContext ctx) {
+        if (ctx.value() != null) {
+            return visit(ctx.value());
+        } else if (ctx.attribute() != null) {
+            return visit(ctx.attribute());
+        }
+        return "null";
+    }
+
     /**
      * Generate comparison code based on attribute, operator and operand
      */
@@ -281,100 +321,6 @@ public class DirectJavaCodeGenerator extends RulesBaseVisitor<String> {
         }
     }
 
-    @Override
-    public String visitActionSetDefinition(RulesParser.ActionSetDefinitionContext ctx) {
-        code.setLength(0);
-        indentLevel = 0;
-
-        // Extract ActionSet name
-        currentRuleName = ctx.actionSetName().getText();
-        // Remove quotes if present
-        if (currentRuleName.startsWith("\"") && currentRuleName.endsWith("\"")) {
-            currentRuleName = currentRuleName.substring(1, currentRuleName.length() - 1);
-        }
-        String className = capitalize(currentRuleName) + "ActionSet";
-
-        // Generate class header
-        generateClassHeader(className, currentRuleName, true);
-
-        indentLevel++;
-        appendLine("");
-        appendLine("@Override");
-        appendLine("public RuleResult execute(RuleContext ctx) {");
-        indentLevel++;
-
-        // Add utility method for comparing values
-        generateCompareValuesUtility();
-        appendLine("List<String> executedActions = new ArrayList<>();");
-        appendLine("");
-
-        // Generate condition checks for each actionSetStep
-        boolean firstStep = true;
-        for (RulesParser.ActionSetStepContext stepCtx : ctx.actionSetStep()) {
-            if (!firstStep) {
-                appendLine("");
-            }
-            String stepCode = visit(stepCtx);
-            code.append(stepCode);
-            firstStep = false;
-        }
-
-        // Return final result with all executed actions
-        appendLine("");
-        appendLine("// Return result with all executed actions");
-        appendLine("if (!executedActions.isEmpty()) {");
-        appendLine("    return RuleResult.actions(\"" + currentRuleName + "\", executedActions);");
-        appendLine("} else {");
-        appendLine("    return RuleResult.noMatch();");
-        appendLine("}");
-
-        indentLevel--;
-        appendLine("}");
-
-        // Add getRuleName method
-        appendLine("");
-        appendLine("@Override");
-        appendLine("public String getRuleName() {");
-        indentLevel++;
-        appendLine("return \"" + currentRuleName + "\";");
-        indentLevel--;
-        appendLine("}");
-
-        indentLevel--;
-        appendLine("}");
-
-        return code.toString();
-    }
-
-    @Override
-    public String visitActionSetStep(RulesParser.ActionSetStepContext ctx) {
-        StringBuilder stepCode = new StringBuilder();
-
-        if (ctx.condition() != null) {
-            // ActionSetStep with condition: IF condition THEN actionList (ELSE actionList)?
-            String conditionCode = visit(ctx.condition());
-            String thenActions = generateActionListCode(ctx.actionList(0));
-
-            stepCode.append(indent()).append("if (").append(conditionCode).append(") {\n");
-            stepCode.append(thenActions);
-            stepCode.append(indent()).append("}");
-
-            // Handle ELSE clause if present
-            if (ctx.actionList().size() > 1) {
-                String elseActions = generateActionListCode(ctx.actionList(1));
-                stepCode.append(" else {\n");
-                stepCode.append(elseActions);
-                stepCode.append(indent()).append("}");
-            }
-            stepCode.append("\n");
-        } else {
-            // ActionSetStep without condition: just actionList
-            String actions = generateActionListCode(ctx.actionList(0));
-            stepCode.append(actions);
-        }
-
-        return stepCode.toString();
-    }
 
     /**
      * Generate code for executing a list of actions
@@ -384,7 +330,9 @@ public class DirectJavaCodeGenerator extends RulesBaseVisitor<String> {
 
         for (RulesParser.ActionContext actionCtx : ctx.action()) {
             String action = visit(actionCtx);
-            actionCode.append(indent()).append("    executedActions.add(\"").append(action).append("\");\n");
+            // Escape quotes in the action string for Java
+            String escapedAction = action.replace("\"", "\\\"");
+            actionCode.append(indent()).append("    executedActions.add(\"").append(escapedAction).append("\");\n");
         }
 
         return actionCode.toString();

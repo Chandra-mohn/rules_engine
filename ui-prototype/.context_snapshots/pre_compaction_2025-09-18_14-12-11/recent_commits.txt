@@ -1,0 +1,10 @@
+db90f10 Merge branch 'feature/code-reduction-safe'
+42c1da1 Consolidate validation methods and complete code reduction
+465580f Safe code reduction: Remove debug files and fix duplicate code
+66da898 Support for ActionSet implemented
+6c44d09 Plan for ActioSet implementation
+e269fbb Fixed regression issues
+08a840f Fixed regression issues
+7a8c124 Consolidated Rules engine and retired the unused one
+b637221 Support AND the right way
+eb28916 Added support for quoted actions for lagacy rules

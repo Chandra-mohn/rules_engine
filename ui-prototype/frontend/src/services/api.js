@@ -139,7 +139,7 @@ export const rulesApi = {
   },
 };
 
-// ActionSets are now unified with Rules API - no separate endpoint needed
+// ActionSets are called directly by name within rules - no separate API needed
 
 // Schema API
 export const schemaApi = {

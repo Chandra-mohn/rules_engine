@@ -6,16 +6,11 @@ ruleSet
     ;
 
 definition
-    : namedRule
-    | actionSetDefinition
+    : unifiedRule
     ;
 
-namedRule
-    : RULE ruleName COLON step+
-    ;
-
-actionSetDefinition
-    : ACTIONSET actionSetName COLON actionSetStep+
+unifiedRule
+    : RULE ruleName COLON ruleStep+
     ;
 
 ruleName
@@ -23,16 +18,7 @@ ruleName
     | STRING
     ;
 
-actionSetName
-    : IDENTIFIER
-    | STRING
-    ;
-
-step
-    : IF condition THEN actionList (ELSE actionList)?
-    ;
-
-actionSetStep
+ruleStep
     : IF condition THEN actionList (ELSE actionList)?
     | actionList
     ;
@@ -101,15 +87,23 @@ list
     ;
 
 action
-    : IDENTIFIER
-    | STRING
+    : IDENTIFIER (LPAREN parameterList? RPAREN)?
+    | STRING (LPAREN parameterList? RPAREN)?
+    ;
+
+parameterList
+    : parameter (COMMA parameter)*
+    ;
+
+parameter
+    : value
+    | attribute
     ;
 
 // Lexer Rules
 
 // Keywords
 RULE        : 'rule' | 'RULE';
-ACTIONSET   : 'actionset' | 'ActionSet' | 'ACTIONSET';
 IF          : 'if' | 'IF';
 THEN        : 'then' | 'THEN';
 ELSE        : 'else' | 'ELSE';

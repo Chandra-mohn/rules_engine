@@ -351,18 +351,63 @@ def get_all_attributes():
     return attributes
 
 def get_all_actions():
-    """Get all actions as a list for autocomplete."""
-    actions = []
-    for action_name, action_data in ACTIONS.items():
-        actions.append({
-            'label': action_name,
-            'kind': 'function',
-            'detail': 'action',
-            'documentation': action_data['description'],
-            'category': action_data['category'],
-            'examples': action_data.get('examples', [])
-        })
-    return actions
+    """Get all actions and ActionSets from rules table for autocomplete."""
+    db_path = get_database_path()
+    if not db_path:
+        # Fallback to hardcoded actions if database not available
+        actions = []
+        for action_name, action_data in ACTIONS.items():
+            actions.append({
+                'label': action_name,
+                'kind': 'function',
+                'detail': 'action',
+                'documentation': action_data['description'],
+                'category': action_data['category'],
+                'examples': action_data.get('examples', [])
+            })
+        return actions
+
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT name, item_type, description
+            FROM rules
+            WHERE item_type IN ('action', 'actionset')
+            AND status = 'VALID'
+            ORDER BY item_type, name
+        """)
+
+        actions = []
+        for row in cursor.fetchall():
+            row_dict = dict(row)
+            actions.append({
+                'label': row_dict['name'],
+                'kind': 'function',
+                'detail': row_dict['item_type'],
+                'documentation': row_dict['description'] or f"Predefined {row_dict['item_type']}",
+                'category': row_dict['item_type'],
+                'examples': []
+            })
+
+        conn.close()
+        return actions
+    except Exception as e:
+        print(f"Error fetching actions from rules table: {e}")
+        # Fallback to hardcoded actions
+        actions = []
+        for action_name, action_data in ACTIONS.items():
+            actions.append({
+                'label': action_name,
+                'kind': 'function',
+                'detail': 'action',
+                'documentation': action_data['description'],
+                'category': action_data['category'],
+                'examples': action_data.get('examples', [])
+            })
+        return actions
 
 def get_all_functions():
     """Get all functions as a list for autocomplete."""
@@ -482,21 +527,23 @@ def get_schema_attributes(schema_version='modern'):
         return get_all_attributes() if schema_version == 'modern' else []
 
 def get_schema_actions(schema_version='modern'):
-    """Get actions for a specific schema version from database."""
+    """Get actions for a specific schema version from unified rules table."""
     db_path = get_database_path()
     if not db_path:
         return get_all_actions() if schema_version == 'modern' else []
-    
+
     try:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
+
         cursor.execute("""
-            SELECT action_name, description, category, examples 
-            FROM schema_actions 
-            WHERE schema_version = ?
-            ORDER BY category, action_name
+            SELECT name as action_name, description, 'action' as category, NULL as examples
+            FROM rules
+            WHERE item_type = 'action'
+            AND schema_version = ?
+            AND status = 'VALID'
+            ORDER BY name
         """, (schema_version,))
         
         actions = []

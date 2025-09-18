@@ -1,0 +1,37 @@
+ M ui-prototype/backend/api/rules.py
+ M ui-prototype/backend/regression_test_results.json
+ M ui-prototype/backend/schema/rules_schema.py
+ M ui-prototype/backend/services/java_bridge.py
+ M ui-prototype/backend/services/rule_service.py
+ M ui-prototype/frontend/src/components/RuleEditor.jsx
+ M ui-prototype/frontend/src/components/RulesListEnhanced.jsx
+ M ui-prototype/frontend/src/components/RulesTreeNavigation.jsx
+ M ui-prototype/frontend/src/services/api.js
+ M ui-prototype/java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4
+ M ui-prototype/java-bridge/src/main/java/com/rules/codegen/DirectJavaCodeGenerator.java
+?? ui-prototype/.context_snapshots/
+?? ui-prototype/.memory_consolidation/
+?? ui-prototype/.session_continuity/
+?? ui-prototype/CLAUDE.md
+?? ui-prototype/CONTEXT_PRESERVATION_FRAMEWORK.md
+?? ui-prototype/CONTEXT_QUICK_REFERENCE.md
+?? ui-prototype/MEMORY_CONSOLIDATION_SYSTEM.md
+?? ui-prototype/USAGE_SUMMARY.md
+?? ui-prototype/VALIDATION_AGENT_GUIDE.md
+?? ui-prototype/backend/data_integrity_monitor.py
+?? ui-prototype/backend/enhanced_regression_suite.py
+?? ui-prototype/claude_memory_manager.py
+?? ui-prototype/code_quality_validator.py
+?? ui-prototype/generated-rules/rule-test_rule/
+?? ui-prototype/integrated_memory_system.py
+?? ui-prototype/integration_test_framework.py
+?? ui-prototype/java-bridge/classpath.txt
+?? ui-prototype/memory_consolidation_agent.py
+?? ui-prototype/memory_report_20250917_141653.md
+?? ui-prototype/memory_system_tests.py
+?? ui-prototype/restore_context.sh
+?? ui-prototype/run_memory_consolidation.py
+?? ui-prototype/run_validation_demo.py
+?? ui-prototype/save_context.sh
+?? ui-prototype/session_continuity_bridge.py
+?? ui-prototype/validation_agent.py

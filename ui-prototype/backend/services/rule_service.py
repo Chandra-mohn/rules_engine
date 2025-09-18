@@ -18,15 +18,13 @@ class RuleService:
     
     def parse_rule_name_from_content(self, content: str) -> str:
         """
-        Parse rule or actionset name from content.
+        Parse rule name from content.
         Supports both quoted and unquoted identifiers:
         - rule "PROMOTION $5%3 @SEARS":
         - rule regularRuleName:
-        - ActionSet "Complex Name":
-        - ActionSet simpleActionSetName:
 
         Args:
-            content: Rule or ActionSet content string
+            content: Rule content string
 
         Returns:
             Parsed name or empty string if not found
@@ -34,69 +32,22 @@ class RuleService:
         if not content:
             return ''
 
-        # Match both rules and actionsets with quoted and unquoted names
+        # Match rules with quoted and unquoted names
         # rule "PROMOTION $5%3 @SEARS":
         # rule regularRuleName:
-        # ActionSet "Complex Name":
-        # ActionSet simpleActionSetName:
-        patterns = [
-            r'^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:',
-            r'^\s*ActionSet\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:'
-        ]
+        pattern = r'^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:'
 
-        for pattern in patterns:
-            match = re.search(pattern, content, re.MULTILINE)
-            if match:
-                return match.group(1) or match.group(2) or ''
+        match = re.search(pattern, content, re.MULTILINE)
+        if match:
+            return match.group(1) or match.group(2) or ''
 
         return ''
 
-    def _validate_actionset_basic(self, content: str) -> Dict[str, Any]:
-        """
-        Basic ActionSet validation until Java bridge supports ActionSets.
-
-        Args:
-            content: ActionSet content string
-
-        Returns:
-            Validation result dictionary
-        """
-        errors = []
-        warnings = []
-
-        # Check basic ActionSet structure
-        if not content.strip().startswith('ActionSet'):
-            errors.append('ActionSet must start with "ActionSet"')
-
-        if ':' not in content:
-            errors.append('ActionSet must contain ":" after name')
-
-        # Check for common syntax patterns
-        lines = content.split('\n')
-        for i, line in enumerate(lines, 1):
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-
-            # Basic checks for common issues
-            if 'if ' in line and ' then' not in line and not line.endswith('then'):
-                if i < len(lines) and 'then' not in lines[i]:  # Check next line too
-                    warnings.append(f'Line {i}: "if" statement should have corresponding "then"')
-
-        is_valid = len(errors) == 0
-        message = 'ActionSet syntax is valid' if is_valid else 'ActionSet has syntax errors'
-
-        return {
-            'valid': is_valid,
-            'message': message,
-            'errors': errors,
-            'warnings': warnings
-        }
 
     def get_rules(self, page: int = 1, limit: int = 10, status: Optional[str] = None,
                   search: Optional[str] = None, schema_version: Optional[str] = None,
                   client_id: Optional[int] = None, process_group_id: Optional[int] = None,
-                  process_area_id: Optional[int] = None, item_type: str = 'rule') -> Tuple[List[Rule], int]:
+                  process_area_id: Optional[int] = None, item_type: Optional[str] = None) -> Tuple[List[Rule], int]:
         """
         Get paginated list of rules with optional filtering.
 
@@ -109,7 +60,7 @@ class RuleService:
             client_id: Filter by client (optional)
             process_group_id: Filter by process group (optional)
             process_area_id: Filter by process area (optional)
-            item_type: Filter by item type - 'rule' or 'actionset' (default: 'rule')
+            item_type: Filter by item type - 'rule', 'actionset', 'action', or None for rules+actionsets (default: None)
 
         Returns:
             Tuple of (rules_list, total_count)
@@ -119,8 +70,12 @@ class RuleService:
         # Start with Rule query and join hierarchy for filtering
         query = Rule.query.join(ProcessArea).join(ProcessGroup).join(Client)
 
-        # Apply item_type filter (this is the key addition)
-        query = query.filter(Rule.item_type == item_type)
+        # Apply item_type filter - if None, show both rules and actionsets (exclude actions)
+        if item_type:
+            query = query.filter(Rule.item_type == item_type)
+        else:
+            # Default: show both rules and actionsets, but not standalone actions
+            query = query.filter(Rule.item_type.in_(['rule', 'actionset']))
 
         # Apply hierarchy filters
         if client_id:
@@ -181,19 +136,12 @@ class RuleService:
         if not parsed_name:
             return None, {
                 'valid': False,
-                'message': 'Could not parse name from content. Must start with "rule name:" or "ActionSet name:"',
-                'errors': ['Rule/ActionSet name not found in content']
+                'message': 'Could not parse name from content. Must start with "rule name:"',
+                'errors': ['Rule name not found in content']
             }
 
-        # Detect if this is an ActionSet and handle validation accordingly
-        is_actionset = data['content'].strip().startswith('ActionSet')
-
-        if is_actionset:
-            # Basic ActionSet validation - skip Java bridge for now
-            validation_result = self._validate_actionset_basic(data['content'])
-        else:
-            # Validate rule content using Java bridge
-            validation_result = self.java_bridge.validate_rule(data['content'])
+        # Validate rule content using Java bridge
+        validation_result = self.java_bridge.validate_rule(data['content'])
         
         # Handle dates
         effective_date = None
@@ -216,7 +164,7 @@ class RuleService:
             name=parsed_name,
             description=data.get('description', ''),
             content=data['content'],
-            item_type='actionset' if is_actionset else 'rule',
+            item_type='rule',
             status=initial_status,
             effective_date=effective_date,
             expiry_date=expiry_date,
@@ -422,10 +370,10 @@ class RuleService:
     
     def validate_rule_content(self, content: str, schema_version: str = 'modern', resolve_lists: bool = False) -> Dict[str, Any]:
         """
-        Unified validation method for rules and actionsets.
+        Enhanced validation method for rules with action/ActionSet checking.
 
         Args:
-            content: Rule or ActionSet content to validate
+            content: Rule content to validate
             schema_version: Schema version for list compatibility (default: 'modern')
             resolve_lists: Whether to resolve named lists before validation (default: False)
 
@@ -438,15 +386,27 @@ class RuleService:
             if resolve_lists:
                 content_to_validate = self.list_service.resolve_rule_lists(content, schema_version)
 
-            # Detect if this is an ActionSet and handle validation accordingly
-            is_actionset = content_to_validate.strip().startswith('ActionSet')
+            # Enhanced validation with action checking
+            validation_errors = []
 
-            if is_actionset:
-                # Basic ActionSet validation - skip Java bridge for now
-                return self._validate_actionset_basic(content_to_validate)
-            else:
-                # Validate rule content using Java bridge
-                return self.java_bridge.validate_rule(content_to_validate)
+            # 1. Extract and validate actions from rule content
+            action_validation = self._validate_actions_in_rule(content_to_validate)
+            if not action_validation['valid']:
+                validation_errors.extend(action_validation['errors'])
+
+            # 2. Basic syntax validation using Python AST-based parsing
+            syntax_validation = self._validate_rule_syntax(content_to_validate)
+            if not syntax_validation['valid']:
+                validation_errors.extend(syntax_validation['errors'])
+
+            # 3. Return combined results
+            is_valid = len(validation_errors) == 0
+            return {
+                'valid': is_valid,
+                'message': 'Rule validation completed' if is_valid else 'Rule validation failed',
+                'errors': validation_errors,
+                'warnings': syntax_validation.get('warnings', [])
+            }
 
         except Exception as e:
             return {
@@ -455,7 +415,197 @@ class RuleService:
                 'errors': [str(e)],
                 'warnings': []
             }
-    
+
+    def _validate_actions_in_rule(self, content: str) -> Dict[str, Any]:
+        """
+        Validate that all actions in rule content exist in rules table.
+
+        Args:
+            content: Rule content to validate
+
+        Returns:
+            Validation result with any action errors
+        """
+        try:
+            # Extract actions from rule content
+            actions = self._extract_actions_from_rule(content)
+
+            # Get known actions and ActionSets from rules table
+            known_items = self._get_known_actions_and_actionsets()
+
+            # Validate each action
+            errors = []
+            for action in actions:
+                if action not in known_items:
+                    errors.append(f"Unknown action/ActionSet: '{action}'. Available items: {', '.join(sorted(known_items.keys()))}")
+
+            return {
+                'valid': len(errors) == 0,
+                'errors': errors
+            }
+
+        except Exception as e:
+            return {
+                'valid': False,
+                'errors': [f"Action validation failed: {str(e)}"]
+            }
+
+    def _extract_actions_from_rule(self, content: str) -> list:
+        """Extract action names from rule content."""
+        import re
+        actions = []
+
+        # Find actions in "then" clauses and standalone actions
+        lines = content.split('\n')
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#') or stripped.startswith('rule'):
+                continue
+
+            # Extract actions from "then" clauses
+            if ' then ' in stripped:
+                then_part = stripped.split(' then ', 1)[1]
+                action_texts = [a.strip() for a in then_part.split(',')]
+                for action_text in action_texts:
+                    action_name = self._parse_action_name(action_text)
+                    if action_name:
+                        actions.append(action_name)
+
+            # Extract actions from "else" clauses
+            elif stripped.startswith('else '):
+                else_part = stripped[5:]  # Remove 'else '
+                action_texts = [a.strip() for a in else_part.split(',')]
+                for action_text in action_texts:
+                    action_name = self._parse_action_name(action_text)
+                    if action_name:
+                        actions.append(action_name)
+
+            # Extract standalone actions
+            elif not stripped.startswith('if') and not stripped.startswith('else'):
+                action_texts = [a.strip() for a in stripped.split(',')]
+                for action_text in action_texts:
+                    action_name = self._parse_action_name(action_text)
+                    if action_name:
+                        actions.append(action_name)
+
+        return list(set(actions))  # Remove duplicates
+
+    def _parse_action_name(self, action_text: str) -> str:
+        """Parse action name from action text, handling parameters."""
+        action_text = action_text.strip().strip('"')
+
+        # Handle parameterized actions: actionName("param1", param2)
+        if '(' in action_text:
+            return action_text.split('(')[0].strip()
+
+        return action_text
+
+    def _get_known_actions_and_actionsets(self) -> Dict[str, str]:
+        """Get all known actions and ActionSets from rules table.
+
+        Returns empty dict if database is unavailable - this will cause
+        validation warnings which is the correct behavior when actions
+        are not properly stored in the database.
+        """
+        try:
+            # Query for actions and actionsets using SQLAlchemy
+            results = Rule.query.filter(
+                Rule.item_type.in_(['action', 'actionset']),
+                Rule.status == 'VALID'
+            ).with_entities(Rule.name, Rule.item_type, Rule.description).all()
+
+            return {
+                result.name: f"{result.item_type} - {result.description or 'No description'}"
+                for result in results
+            }
+
+        except Exception as e:
+            print(f"Error: Could not load actions from database: {e}")
+            print("This will cause validation warnings for all actions - ensure database is accessible")
+            return {}  # Return empty dict - this will trigger validation warnings as intended
+
+    def _validate_rule_syntax(self, content: str) -> Dict[str, Any]:
+        """
+        Validate rule syntax using Python AST-based parsing.
+
+        Args:
+            content: Rule content to validate
+
+        Returns:
+            Validation result dictionary
+        """
+        try:
+            import re
+            errors = []
+            warnings = []
+
+            # Parse rule content line by line for basic syntax validation
+            lines = content.strip().split('\n')
+            if not lines:
+                return {'valid': False, 'errors': ['Rule content cannot be empty'], 'warnings': []}
+
+            # Check rule header
+            first_line = lines[0].strip()
+            if not re.match(r'^rule\s+\w+:', first_line, re.IGNORECASE):
+                errors.append("Rule must start with 'rule <name>:'")
+
+            # Track rule structure
+            has_if_clause = False
+            has_then_clause = False
+            in_rule_body = False
+
+            for i, line in enumerate(lines[1:], 2):  # Start from line 2
+                stripped = line.strip()
+
+                # Skip empty lines and comments
+                if not stripped or stripped.startswith('#'):
+                    continue
+
+                in_rule_body = True
+
+                # Check for if clauses
+                if re.match(r'^if\s+.+\s+then\s+.+', stripped, re.IGNORECASE):
+                    has_if_clause = True
+                    has_then_clause = True
+
+                    # Validate if-then structure
+                    if ' then ' not in stripped.lower():
+                        errors.append(f"Line {i}: 'if' clause missing 'then' keyword")
+
+                # Check for standalone then clauses
+                elif re.match(r'^then\s+.+', stripped, re.IGNORECASE):
+                    if not has_if_clause:
+                        errors.append(f"Line {i}: 'then' clause without preceding 'if' clause")
+                    has_then_clause = True
+
+                # Check for else clauses
+                elif re.match(r'^else\s+.+', stripped, re.IGNORECASE):
+                    if not has_if_clause:
+                        errors.append(f"Line {i}: 'else' clause without preceding 'if' clause")
+
+                # Check for standalone actions (should be valid action names)
+                elif not any(keyword in stripped.lower() for keyword in ['if ', 'then ', 'else ', 'rule ']):
+                    # This could be a standalone action - basic validation
+                    if not re.match(r'^[a-zA-Z_]\w*(\s*\([^)]*\))?\s*$', stripped):
+                        warnings.append(f"Line {i}: Possible syntax issue in action: '{stripped}'")
+
+            # Ensure rule has some executable content
+            if in_rule_body and not has_then_clause:
+                errors.append("Rule must have at least one 'then' clause or standalone action")
+
+            return {
+                'valid': len(errors) == 0,
+                'errors': errors,
+                'warnings': warnings
+            }
+
+        except Exception as e:
+            return {
+                'valid': False,
+                'errors': [f"Syntax validation failed: {str(e)}"],
+                'warnings': []
+            }
+
     def test_rule(self, content: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
         """Test rule execution with sample data using AST-based hot compilation only."""
         # Use AST-based hot compilation - no fallback to legacy

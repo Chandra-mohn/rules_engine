@@ -1,0 +1,338 @@
+[
+  {
+    "id": 1,
+    "name": "creditScoreCheck",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 2,
+    "name": "ageVerification",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 3,
+    "name": "incomeVerification",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 4,
+    "name": "businessDateCheck",
+    "status": "DRAFT",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 5,
+    "name": "riskAssessment",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 6,
+    "name": "monthlyIncomeCheck",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 7,
+    "name": "premiumEligibilityCheck",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 8,
+    "name": "employmentStatusCheck",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 9,
+    "name": "highValueApplicant",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 10,
+    "name": "employmentYearsCheck",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 11,
+    "name": "platinumIncomeCheck",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 12,
+    "name": "rewardsCashbackRule",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 13,
+    "name": "rewardsPointsRule",
+    "status": "VALID",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 14,
+    "name": "Standard Application Workflow",
+    "status": "VALID",
+    "item_type": "actionset",
+    "is_deleted": false
+  },
+  {
+    "id": 15,
+    "name": "Quick Credit Assessment",
+    "status": "DRAFT",
+    "item_type": "actionset",
+    "is_deleted": false
+  },
+  {
+    "id": 16,
+    "name": "Risk Evaluation Suite",
+    "status": "VALID",
+    "item_type": "actionset",
+    "is_deleted": false
+  },
+  {
+    "id": 17,
+    "name": "Premium Card Processing",
+    "status": "PROD",
+    "item_type": "actionset",
+    "is_deleted": false
+  },
+  {
+    "id": 18,
+    "name": "High Net Worth Processing",
+    "status": "VALID",
+    "item_type": "actionset",
+    "is_deleted": false
+  },
+  {
+    "id": 19,
+    "name": "Platinum Tier Qualification",
+    "status": "PROD",
+    "item_type": "actionset",
+    "is_deleted": false
+  },
+  {
+    "id": 20,
+    "name": "Rewards Program Selection",
+    "status": "DRAFT",
+    "item_type": "actionset",
+    "is_deleted": false
+  },
+  {
+    "id": 21,
+    "name": "approveApplication",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 22,
+    "name": "rejectApplication",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 23,
+    "name": "conditionalApproval",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 24,
+    "name": "fastTrackApproval",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 25,
+    "name": "premiumApproval",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 26,
+    "name": "validateApplicantInfo",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 27,
+    "name": "sendWelcomeEmail",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 28,
+    "name": "sendRejectionLetter",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 29,
+    "name": "requestDocumentation",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 30,
+    "name": "updateCustomerRecord",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 31,
+    "name": "calculateRiskScore",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 32,
+    "name": "instantApproval",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 33,
+    "name": "immediateReject",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 34,
+    "name": "assignPremiumBenefits",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 35,
+    "name": "setupPlatinumBenefits",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 36,
+    "name": "assignPrivateBanker",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 37,
+    "name": "logHighRiskApplicant",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 38,
+    "name": "scheduleManualReview",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 39,
+    "name": "schedulePersonalConsultation",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 40,
+    "name": "requestFinancialVerification",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 41,
+    "name": "requireCoSigner",
+    "status": "VALID",
+    "item_type": "action",
+    "is_deleted": false
+  },
+  {
+    "id": 42,
+    "name": "testValidRule",
+    "status": "DRAFT",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 43,
+    "name": "testRule",
+    "status": "DRAFT",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 44,
+    "name": "test",
+    "status": "DRAFT",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 45,
+    "name": "creditScoreTest",
+    "status": "DRAFT",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 46,
+    "name": "ageTest",
+    "status": "DRAFT",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 47,
+    "name": "creditScoreTest1758209262",
+    "status": "deleted",
+    "item_type": "rule",
+    "is_deleted": false
+  },
+  {
+    "id": 48,
+    "name": "ageTest1758209262",
+    "status": "deleted",
+    "item_type": "rule",
+    "is_deleted": false
+  }
+]
