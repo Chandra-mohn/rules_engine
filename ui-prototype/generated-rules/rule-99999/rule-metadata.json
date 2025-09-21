@@ -1,0 +1,9 @@
+{
+  "ruleId": 99999,
+  "ruleName": "nonexistent_rule",
+  "ruleContent": "rule nonexistent_rule:\nif true then approve",
+  "generatedAt": "2025-09-20T03:40:09.923337Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: nonexistent_rule"
+}

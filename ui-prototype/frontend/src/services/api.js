@@ -120,6 +120,15 @@ export const rulesApi = {
   // Generate production code
   generateProductionCode: (data) => api.post('/rules/generate-production', data),
 
+  // Build generated Java code using Maven
+  buildRuleCode: (ruleId) => api.post(`/rules/${ruleId}/build`),
+
+  // Test generated Java code using Maven
+  testRuleCode: (ruleId, testData = null) => api.post(`/rules/${ruleId}/test`, { test_data: testData }),
+
+  // Execute compiled Java rule with input data
+  executeRuleCode: (ruleId, inputData) => api.post(`/rules/${ruleId}/execute`, { input_data: inputData }),
+
   // Enhanced validation with detailed error reporting (calls Java server)
   validateRuleEnhanced: (content) => {
     return javaApi.post('/rules/validate-enhanced', { content });

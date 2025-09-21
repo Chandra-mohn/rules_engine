@@ -217,7 +217,7 @@ def create_app():
                 Rule(
                     name='Standard Application Workflow',
                     description='Complete workflow for standard credit card applications',
-                    content='ActionSet "Standard Application Workflow":\n    validateApplicantInfo\n    if applicant.creditScore >= 700 then approveApplication, sendWelcomeEmail\n    if applicant.creditScore < 600 then rejectApplication, sendRejectionLetter\n    else conditionalApproval, requestDocumentation\n    updateCustomerRecord',
+                    content='rule "Standard Application Workflow":\n    validateApplicantInfo\n    if applicant.creditScore >= 700 then approveApplication, sendWelcomeEmail\n    if applicant.creditScore < 600 then rejectApplication, sendRejectionLetter\n    else conditionalApproval, requestDocumentation\n    updateCustomerRecord',
                     status='VALID',
                     process_area_id=std_approval.id,
                     item_type='actionset'
@@ -225,7 +225,7 @@ def create_app():
                 Rule(
                     name='Quick Credit Assessment',
                     description='Fast credit scoring for instant decisions',
-                    content='ActionSet quickCreditAssessment:\n    calculateRiskScore\n    if applicant.creditScore >= 750 and applicant.annualIncome >= 60000 then instantApproval\n    if applicant.creditScore < 550 then immediateReject\n    else "Standard Application Workflow"',
+                    content='rule quickCreditAssessment:\n    calculateRiskScore\n    if applicant.creditScore >= 750 and applicant.annualIncome >= 60000 then instantApproval\n    if applicant.creditScore < 550 then immediateReject\n    else "Standard Application Workflow"',
                     status='DRAFT',
                     process_area_id=std_approval.id,
                     item_type='actionset'
@@ -234,7 +234,7 @@ def create_app():
                 Rule(
                     name='Risk Evaluation Suite',
                     description='Comprehensive risk assessment for fraud prevention',
-                    content='ActionSet riskEvaluation:\n    calculateRiskScore\n    if applicant.bankruptcyHistory == true then rejectApplication, logHighRiskApplicant\n    if applicant.employmentYears < 1 and applicant.age < 25 then requireCoSigner, scheduleManualReview\n    if applicant.monthlyIncome >= 5000 and applicant.creditScore >= 700 then approveApplication\n    else conditionalApproval',
+                    content='rule riskEvaluation:\n    calculateRiskScore\n    if applicant.bankruptcyHistory == true then rejectApplication, logHighRiskApplicant\n    if applicant.employmentYears < 1 and applicant.age < 25 then requireCoSigner, scheduleManualReview\n    if applicant.monthlyIncome >= 5000 and applicant.creditScore >= 700 then approveApplication\n    else conditionalApproval',
                     status='VALID',
                     process_area_id=std_fraud.id,
                     item_type='actionset'
@@ -243,7 +243,7 @@ def create_app():
                 Rule(
                     name='Premium Card Processing',
                     description='Specialized workflow for premium credit card applications',
-                    content='ActionSet "Premium Card Processing":\n    if applicant.annualIncome >= 100000 and applicant.creditScore >= 750 then\n        instantApproval, assignPremiumBenefits, "send platinum welcome package"\n    if applicant.creditScore >= 700 and applicant.employmentStatus == "employed" then\n        approveApplication, "assign standard benefits"\n    else "Standard Application Workflow"',
+                    content='rule "Premium Card Processing":\n    if applicant.annualIncome >= 100000 and applicant.creditScore >= 750 then\n        instantApproval, assignPremiumBenefits, "send platinum welcome package"\n    if applicant.creditScore >= 700 and applicant.employmentStatus == "employed" then\n        approveApplication, "assign standard benefits"\n    else "Standard Application Workflow"',
                     status='PROD',
                     process_area_id=prem_approval.id,
                     item_type='actionset'
@@ -251,7 +251,7 @@ def create_app():
                 Rule(
                     name='High Net Worth Processing',
                     description='Expedited processing for high-value clients',
-                    content='ActionSet highNetWorthProcessing:\n    if applicant.annualIncome >= 250000 then fastTrackApproval, assignPrivateBanker\n    if applicant.creditScore >= 800 and applicant.employmentYears >= 5 then premiumApproval\n    else conditionalApproval, schedulePersonalConsultation',
+                    content='rule highNetWorthProcessing:\n    if applicant.annualIncome >= 250000 then fastTrackApproval, assignPrivateBanker\n    if applicant.creditScore >= 800 and applicant.employmentYears >= 5 then premiumApproval\n    else conditionalApproval, schedulePersonalConsultation',
                     status='VALID',
                     process_area_id=prem_limits.id,
                     item_type='actionset'
@@ -260,7 +260,7 @@ def create_app():
                 Rule(
                     name='Platinum Tier Qualification',
                     description='Comprehensive qualification process for platinum cards',
-                    content='ActionSet "Platinum Tier Qualification":\n    if applicant.annualIncome >= 200000 and applicant.creditScore >= 780 then\n        platinumApproval, "assign concierge services", setupPlatinumBenefits\n    if applicant.annualIncome >= 150000 and applicant.creditScore >= 750 then\n        conditionalPlatinum, requestFinancialVerification\n    else rejectPlatinum, "suggest premium alternative"',
+                    content='rule "Platinum Tier Qualification":\n    if applicant.annualIncome >= 200000 and applicant.creditScore >= 780 then\n        platinumApproval, "assign concierge services", setupPlatinumBenefits\n    if applicant.annualIncome >= 150000 and applicant.creditScore >= 750 then\n        conditionalPlatinum, requestFinancialVerification\n    else rejectPlatinum, "suggest premium alternative"',
                     status='PROD',
                     process_area_id=platinum_eligibility.id,
                     item_type='actionset'
@@ -269,7 +269,7 @@ def create_app():
                 Rule(
                     name='Rewards Program Selection',
                     description='Dynamic rewards program assignment based on spending patterns',
-                    content='ActionSet rewardsProgramSelection:\n    if applicant.creditScore >= 720 then\n        if applicant.annualIncome >= 75000 then premiumRewards, "5% cashback tier"\n        else standardRewards, "2% cashback tier"\n    if applicant.employmentStatus == "student" and applicant.age >= 21 then\n        studentRewards, "1% cashback with bonus categories"\n    else basicRewards',
+                    content='rule rewardsProgramSelection:\n    if applicant.creditScore >= 720 then\n        if applicant.annualIncome >= 75000 then premiumRewards, "5% cashback tier"\n        else standardRewards, "2% cashback tier"\n    if applicant.employmentStatus == "student" and applicant.age >= 21 then\n        studentRewards, "1% cashback with bonus categories"\n    else basicRewards',
                     status='DRAFT',
                     process_area_id=rewards_approval.id,
                     item_type='actionset'
@@ -281,6 +281,98 @@ def create_app():
 
             db.session.commit()
             print(f"✅ Created {len(sample_actionsets)} sample ActionSets as Rules")
+
+        # Create sample Monetary and Non-Monetary rules
+        monetary_rules_count = Rule.query.filter_by(item_type='mon_rule').count()
+        non_monetary_rules_count = Rule.query.filter_by(item_type='non_mon_rule').count()
+
+        if monetary_rules_count == 0 or non_monetary_rules_count == 0:
+            # Get existing process areas for the new rules
+            std_approval = ProcessArea.query.filter_by(code='APPROVAL').first()
+            prem_limits = ProcessArea.query.filter_by(code='CREDIT_LIMITS').first()
+            std_fraud = ProcessArea.query.filter_by(code='FRAUD').first()
+            prem_approval = ProcessArea.query.filter_by(code='PREMIUM_APPROVAL').first()
+            platinum_eligibility = ProcessArea.query.filter_by(code='PLATINUM_ELIGIBILITY').first()
+            rewards_approval = ProcessArea.query.filter_by(code='REWARDS_APPROVAL').first()
+            # Sample Non-Monetary Rules (Account management, settings, cards)
+            sample_non_monetary_rules = [
+                Rule(
+                    name='Address Update Validation',
+                    description='Validate customer address change requests',
+                    content='rule "Address Update Validation":\n    if applicant.addressChangeRequest == true and applicant.documentationProvided == true then\n        updateCustomerAddress(applicant.newAddress),\n        notifyCustomer("Address updated successfully")\n    else\n        requestAdditionalDocumentation',
+                    status='VALID',
+                    process_area_id=std_approval.id,
+                    item_type='non_mon_rule'
+                ),
+                Rule(
+                    name='Credit Limit Increase Request',
+                    description='Process credit limit increase requests',
+                    content='rule "Credit Limit Increase Request":\n    if account.creditScore > 750 and account.requestedLimit <= account.income * 0.3 then\n        setCreditLimit(account.requestedLimit),\n        logCreditChange("Automatic approval")\n    else\n        requireManualReview("High limit request")',
+                    status='VALID',
+                    process_area_id=prem_limits.id,
+                    item_type='non_mon_rule'
+                ),
+                Rule(
+                    name='Additional Card Management',
+                    description='Manage additional card requests and lost card disabling',
+                    content='rule "Additional Card Management":\n    if request.type == "ADD_CARD" and account.cardCount < 3 then\n        issueAdditionalCard(request.cardType),\n        updateAccountStatus("ACTIVE")\n    else if request.type == "DISABLE_CARD" and request.reason == "LOST" then\n        disableCard(request.cardNumber),\n        alertFraudDepartment(request.cardNumber)\n    else\n        rejectRequest("Card limit reached")',
+                    status='DRAFT',
+                    process_area_id=std_fraud.id,
+                    item_type='non_mon_rule'
+                ),
+                Rule(
+                    name='Account Settings Update',
+                    description='Process account settings and preference changes',
+                    content='rule "Account Settings Update":\n    if customer.requestType == "EMAIL_PREFERENCES" then\n        updateEmailPreferences(customer.preferences),\n        sendConfirmationEmail\n    else if customer.requestType == "PAYMENT_METHOD" and customer.verificationComplete == true then\n        updatePaymentMethod(customer.newPaymentMethod),\n        notifyCustomer("Payment method updated")\n    else\n        requireIdentityVerification',
+                    status='VALID',
+                    process_area_id=prem_approval.id,
+                    item_type='non_mon_rule'
+                )
+            ]
+
+            # Sample Monetary Rules (Transactions, fees, purchases)
+            sample_monetary_rules = [
+                Rule(
+                    name='Purchase Authorization',
+                    description='Authorize credit card purchase transactions',
+                    content='rule "Purchase Authorization":\n    if transaction.amount <= account.creditLimit and transaction.merchant.riskLevel == "LOW" then\n        approveTransaction(transaction.amount),\n        updateAccountBalance(transaction.amount)\n    else if transaction.amount > account.creditLimit then\n        declineTransaction("Insufficient credit limit")\n    else\n        declineTransaction("High risk merchant")',
+                    status='PROD',
+                    process_area_id=std_fraud.id,
+                    item_type='mon_rule'
+                ),
+                Rule(
+                    name='Cash Advance Processing',
+                    description='Process cash advance requests with fees',
+                    content='rule "Cash Advance Processing":\n    if transaction.type == "CASH_ADVANCE" and transaction.amount <= account.cashAdvanceLimit then\n        approveCashAdvance(transaction.amount),\n        applyFee(transaction.amount * 0.03),\n        updateAccountBalance(transaction.amount + transaction.amount * 0.03)\n    else\n        declineTransaction("Cash advance limit exceeded")',
+                    status='VALID',
+                    process_area_id=prem_limits.id,
+                    item_type='mon_rule'
+                ),
+                Rule(
+                    name='Monthly Fee Application',
+                    description='Apply monthly maintenance fees based on account tier',
+                    content='rule "Monthly Fee Application":\n    if account.tier == "PREMIUM" and account.monthlySpend < 1000 then\n        applyMonthlyFee(25.00),\n        notifyCustomer("Monthly maintenance fee applied")\n    else if account.tier == "STANDARD" and account.balance < 500 then\n        applyMonthlyFee(10.00),\n        notifyCustomer("Low balance fee applied")\n    else\n        waiveFee("Spending threshold met")',
+                    status='VALID',
+                    process_area_id=platinum_eligibility.id,
+                    item_type='mon_rule'
+                ),
+                Rule(
+                    name='International Transaction Processing',
+                    description='Process international purchases with foreign exchange fees',
+                    content='rule "International Transaction Processing":\n    if transaction.location.country != "US" and transaction.amount <= account.internationalLimit then\n        approveTransaction(transaction.amount),\n        applyForeignExchangeFee(transaction.amount * 0.025),\n        updateAccountBalance(transaction.amount + transaction.amount * 0.025)\n    else if transaction.location.country != "US" and transaction.amount > account.internationalLimit then\n        declineTransaction("International transaction limit exceeded")\n    else\n        approveTransaction(transaction.amount)',
+                    status='DRAFT',
+                    process_area_id=rewards_approval.id,
+                    item_type='mon_rule'
+                )
+            ]
+
+            # Add all new rule types
+            all_new_rules = sample_non_monetary_rules + sample_monetary_rules
+            for rule in all_new_rules:
+                db.session.add(rule)
+
+            db.session.commit()
+            print(f"✅ Created {len(sample_non_monetary_rules)} Non-Monetary rules and {len(sample_monetary_rules)} Monetary rules")
 
         # Insert schema data if schema tables are empty
         if SchemaEntity.query.count() == 0:

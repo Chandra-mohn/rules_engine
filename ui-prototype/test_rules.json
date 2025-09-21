@@ -1,0 +1,6 @@
+{
+  "standard_rule": "rule \"Standard Credit Check\":\nif applicant.creditScore >= 750 and applicant.annualIncome >= 50000 then approve_application",
+  "actionset": "actionset \"Risk Assessment Actions\":\napprove_application,\nmanual_review,\nreject_application",
+  "complex_rule": "rule \"Complex Risk Assessment\":\nif applicant.creditScore >= 700 and (applicant.annualIncome >= 75000 or applicant.existingCustomer = true) and transaction.amount <= account.creditLimit * 0.8 then approve_application\nelse if applicant.creditScore >= 650 and applicant.debtToIncome < 0.4 then manual_review\nelse reject_application",
+  "edge_case": "rule \"Edge Case Rule\":\nif account.balance is_null or applicant.age < 18 then reject_application\nelse if transaction.amount in [100, 200, 300] then approve_application"
+}

@@ -1,0 +1,9 @@
+{
+  "ruleId": 74,
+  "ruleName": "test_error",
+  "ruleContent": "rule test_error:\nif account.status = \"Active\" then INVALID_ACTION",
+  "generatedAt": "2025-09-20T03:38:30.559982Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: test_error"
+}

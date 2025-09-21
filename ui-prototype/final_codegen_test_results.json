@@ -1,0 +1,47 @@
+{
+  "timestamp": "2025-09-19T23:56:02.360389",
+  "summary": {
+    "total_tests": 6,
+    "passed": 2,
+    "failed": 4,
+    "success_rate": 33.33333333333333,
+    "rule_type_results": {
+      "Standard Rule": false,
+      "ActionSet": false,
+      "Complex Rule": false,
+      "Edge Case": false
+    }
+  },
+  "detailed_results": [
+    {
+      "test_type": "Standard Rule",
+      "success": false,
+      "details": "Creation failed: 409"
+    },
+    {
+      "test_type": "ActionSet",
+      "success": false,
+      "details": "Creation failed: 400"
+    },
+    {
+      "test_type": "Complex Rule",
+      "success": false,
+      "details": "Creation failed: 409"
+    },
+    {
+      "test_type": "Edge Case",
+      "success": false,
+      "details": "Creation failed: 409"
+    },
+    {
+      "test_type": "Java Compilation",
+      "success": true,
+      "details": "Compilation successful with warnings"
+    },
+    {
+      "test_type": "Generated Files",
+      "success": true,
+      "details": "5 Java files generated"
+    }
+  ]
+}

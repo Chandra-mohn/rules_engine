@@ -11,8 +11,8 @@ function App() {
   const [selectedRule, setSelectedRule] = useState(null);
 
   // Handle create new rule
-  const handleCreateRule = () => {
-    setSelectedRule(null);
+  const handleCreateRule = (ruleType = 'rule') => {
+    setSelectedRule({ item_type: ruleType });
     setCurrentView('editor');
   };
 

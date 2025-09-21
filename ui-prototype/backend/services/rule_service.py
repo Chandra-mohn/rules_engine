@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy import or_
 from datetime import datetime
 from models import db, Rule, RuleHistory, SchemaEntity, SchemaAttribute
-from services.java_bridge import JavaBridge
+from services.python_rules_engine import PythonRulesEngine
 from services.list_cache import ListService
 from config import Config
 import re
@@ -12,8 +12,8 @@ class RuleService:
     """Service class for rule management operations."""
     
     def __init__(self):
-        # Use HTTP-based Java bridge instead of subprocess
-        self.java_bridge = JavaBridge(server_url="http://localhost:8081")
+        # Use Python ANTLR rules engine instead of Java bridge
+        self.rules_engine = PythonRulesEngine()
         self.list_service = ListService()
     
     def parse_rule_name_from_content(self, content: str) -> str:
@@ -70,12 +70,12 @@ class RuleService:
         # Start with Rule query and join hierarchy for filtering
         query = Rule.query.join(ProcessArea).join(ProcessGroup).join(Client)
 
-        # Apply item_type filter - if None, show both rules and actionsets (exclude actions)
+        # Apply item_type filter - if None, show all rule types (exclude actions)
         if item_type:
             query = query.filter(Rule.item_type == item_type)
         else:
-            # Default: show both rules and actionsets, but not standalone actions
-            query = query.filter(Rule.item_type.in_(['rule', 'actionset']))
+            # Default: show all rule types, but not standalone actions
+            query = query.filter(Rule.item_type.in_(['rule', 'actionset', 'mon_rule', 'non_mon_rule']))
 
         # Apply hierarchy filters
         if client_id:
@@ -140,8 +140,8 @@ class RuleService:
                 'errors': ['Rule name not found in content']
             }
 
-        # Validate rule content using Java bridge
-        validation_result = self.java_bridge.validate_rule(data['content'])
+        # Validate rule content using Python ANTLR engine
+        validation_result = self.rules_engine.validate_rule(data['content'])
         
         # Handle dates
         effective_date = None
@@ -164,7 +164,7 @@ class RuleService:
             name=parsed_name,
             description=data.get('description', ''),
             content=data['content'],
-            item_type='rule',
+            item_type=data.get('item_type', 'rule'),
             status=initial_status,
             effective_date=effective_date,
             expiry_date=expiry_date,
@@ -389,23 +389,64 @@ class RuleService:
             # Enhanced validation with action checking
             validation_errors = []
 
+            # Create validation context for ANTLR
+            available_actions = self._get_all_available_actions()
+            available_attributes = self._get_all_available_attributes()
+            validation_context = {
+                'available_actions': available_actions,
+                'available_attributes': available_attributes
+            }
+
             # 1. Extract and validate actions from rule content
             action_validation = self._validate_actions_in_rule(content_to_validate)
             if not action_validation['valid']:
                 validation_errors.extend(action_validation['errors'])
 
-            # 2. Basic syntax validation using Python AST-based parsing
-            syntax_validation = self._validate_rule_syntax(content_to_validate)
-            if not syntax_validation['valid']:
-                validation_errors.extend(syntax_validation['errors'])
+            # 2. ANTLR-based syntax and semantic validation
+            antlr_validation = self.rules_engine.validate_rule(content_to_validate, validation_context)
+            if not antlr_validation['valid']:
+                # Convert ANTLR error objects to strings for consistent frontend handling
+                for error in antlr_validation['errors']:
+                    if isinstance(error, dict):
+                        validation_errors.append(error.get('message', str(error)))
+                    else:
+                        validation_errors.append(str(error))
+            # Include ANTLR warnings as well (also convert to strings)
+            if antlr_validation.get('warnings'):
+                for warning in antlr_validation['warnings']:
+                    if isinstance(warning, dict):
+                        validation_errors.append(warning.get('message', str(warning)))
+                    else:
+                        validation_errors.append(str(warning))
 
-            # 3. Return combined results
+            # 3. Return combined results with validation details
             is_valid = len(validation_errors) == 0
+
+            # Create detailed validation summary
+            validation_details = {
+                'syntax_check': 'passed' if antlr_validation.get('valid', False) else 'failed',
+                'semantic_check': 'passed' if len(antlr_validation.get('undefined_actions', [])) == 0 and len(antlr_validation.get('undefined_attributes', [])) == 0 else 'warnings',
+                'action_validation': 'passed' if action_validation.get('valid', False) else 'failed',
+                'rule_info': antlr_validation.get('rule_info', {}),
+                'checks_performed': [
+                    'ANTLR grammar syntax validation',
+                    'Semantic analysis (actions, attributes)',
+                    'Action/ActionSet existence validation',
+                    'Rule structure validation'
+                ]
+            }
+
+            success_message = f"✅ Syntax validation: {validation_details['syntax_check']} | ✅ Semantic validation: {validation_details['semantic_check']} | ✅ Action validation: {validation_details['action_validation']}"
+
             return {
                 'valid': is_valid,
-                'message': 'Rule validation completed' if is_valid else 'Rule validation failed',
+                'message': success_message if is_valid else 'Rule validation failed',
                 'errors': validation_errors,
-                'warnings': syntax_validation.get('warnings', [])
+                'warnings': [
+                    warning.get('message', str(warning)) if isinstance(warning, dict) else str(warning)
+                    for warning in antlr_validation.get('warnings', [])
+                ],
+                'validation_details': validation_details
             }
 
         except Exception as e:
@@ -585,8 +626,10 @@ class RuleService:
 
                 # Check for standalone actions (should be valid action names)
                 elif not any(keyword in stripped.lower() for keyword in ['if ', 'then ', 'else ', 'rule ']):
-                    # This could be a standalone action - basic validation
-                    if not re.match(r'^[a-zA-Z_]\w*(\s*\([^)]*\))?\s*$', stripped):
+                    # This could be a standalone action or action list - basic validation
+                    # Pattern supports: action, "quoted action", action1, action2, action("param")
+                    action_list_pattern = r'^(?:[a-zA-Z_]\w*(?:\s*\([^)]*\))?|"[^"]+")(?:\s*,\s*(?:[a-zA-Z_]\w*(?:\s*\([^)]*\))?|"[^"]+"))*\s*$'
+                    if not re.match(action_list_pattern, stripped):
                         warnings.append(f"Line {i}: Possible syntax issue in action: '{stripped}'")
 
             # Ensure rule has some executable content
@@ -609,7 +652,7 @@ class RuleService:
     def test_rule(self, content: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
         """Test rule execution with sample data using AST-based hot compilation only."""
         # Use AST-based hot compilation - no fallback to legacy
-        hot_result = self.java_bridge.test_rule_hot(content, test_data)
+        hot_result = self.rules_engine.test_rule(content, test_data)
 
         if hot_result['success']:
             # Transform hot compilation result to match expected format
@@ -675,7 +718,7 @@ class RuleService:
             return None, {'valid': False, 'message': 'Version not found', 'errors': ['Version not found']}
         
         # Validate the historical content
-        validation_result = self.java_bridge.validate_rule(history_entry.content)
+        validation_result = self.rules_engine.validate_rule(history_entry.content)
         
         # Update rule with historical content
         rule.name = history_entry.name
@@ -784,7 +827,7 @@ class RuleService:
         Returns:
             Dict with suggestions: {'suggestions': list}
         """
-        return self.java_bridge.get_autocomplete_suggestions(context, position)
+        return self.rules_engine.get_autocomplete_suggestions(context, position)
     
     def _create_history_entry(self, rule: Rule, created_by: str, change_reason: str):
         """Create a history entry for a rule change."""
@@ -801,18 +844,19 @@ class RuleService:
         db.session.commit()
     
     
-    def generate_production_artifacts(self, rule_id: str, rule_name: str, rule_content: str, package_name: str) -> Dict[str, Any]:
+    def generate_production_artifacts(self, rule_id: str, rule_name: str, rule_content: str, package_name: str, item_type: str = 'rule') -> Dict[str, Any]:
         """
         Generate production deployment artifacts for a rule.
         Creates a library JAR with Java source, pom.xml, and Dockerfile.
         Saves files to disk for version control.
-        
+
         Args:
             rule_id: Unique rule identifier
             rule_name: Human-readable rule name
             rule_content: Rule DSL content
             package_name: Java package name for generated code
-            
+            item_type: Rule type (rule, actionset, mon_rule, non_mon_rule)
+
         Returns:
             Dictionary with success status, file paths, and metadata
         """
@@ -828,7 +872,7 @@ class RuleService:
                 java_code = self._generate_typed_java_code(rule_content, schema_context)
             except Exception as schema_error:
                 # Fallback to regular generation if schema-aware generation fails
-                java_code_result = self.java_bridge.generate_java_code(rule_content)
+                java_code_result = self.rules_engine.compile_rule(rule_content)
                 if not java_code_result.get('success'):
                     return {
                         'success': False,
@@ -838,7 +882,7 @@ class RuleService:
             
             # Generate artifacts in memory first
             artifacts = self._generate_rule_library_artifacts(
-                rule_id, rule_name, rule_content, package_name, java_code
+                rule_id, rule_name, rule_content, package_name, java_code, item_type
             )
             
             # Create output directory for generated code
@@ -877,22 +921,22 @@ class RuleService:
                 'message': f'Production artifact generation failed: {str(e)}'
             }
     
-    def _generate_rule_library_artifacts(self, rule_id: str, rule_name: str, rule_content: str, 
-                                       package_name: str, java_code: str) -> Dict[str, str]:
+    def _generate_rule_library_artifacts(self, rule_id: str, rule_name: str, rule_content: str,
+                                       package_name: str, java_code: str, item_type: str = 'rule') -> Dict[str, str]:
         """Generate all production artifacts for a rule library."""
-        
+
         # Implement proper naming conventions
         safe_rule_id = str(rule_id).replace('-', '_').replace(' ', '_').lower()
         safe_package_path = package_name.replace('.', '/')
-        
-        # Generate PascalCase class name from rule name
-        class_name = self._to_pascal_case(rule_name) + "Rule"
-        
+
+        # Generate PascalCase class name from rule name with type suffix
+        class_name = self._to_pascal_case(rule_name) + self._get_class_suffix(item_type)
+
         artifacts = {}
-        
-        # 1. Generated Java source file
-        artifacts[f'src/main/java/{safe_package_path}/{class_name}.java'] = self._generate_rule_java_wrapper(
-            package_name, class_name, java_code, rule_name, rule_content
+
+        # 1. Generated Java source file (rule-type-specific template)
+        artifacts[f'src/main/java/{safe_package_path}/{class_name}.java'] = self._generate_rule_type_specific_wrapper(
+            package_name, class_name, java_code, rule_name, rule_content, item_type
         )
         
         # 2. Maven pom.xml for library packaging
@@ -1387,3 +1431,1129 @@ public class GeneratedRule implements Rule {{
         lines = code.split('\n')
         indented_lines = [indent + line if line.strip() else line for line in lines]
         return '\n'.join(indented_lines)
+
+    def _get_all_available_actions(self) -> List[str]:
+        """Get all available actions from the database."""
+        try:
+            # Get all rules with item_type='action'
+            actions = db.session.query(Rule.name).filter(
+                Rule.item_type == 'action'
+            ).all()
+
+            # Also get ActionSets which can be called as actions
+            actionsets = db.session.query(Rule.name).filter(
+                Rule.item_type == 'actionset'
+            ).all()
+
+            action_names = [action.name for action in actions] + [actionset.name for actionset in actionsets]
+            return action_names
+
+        except Exception as e:
+            print(f"Error loading available actions: {e}")
+            return []
+
+    def _get_all_available_attributes(self) -> List[str]:
+        """Get all available attributes from the schema."""
+        try:
+            # Get all schema attributes
+            attributes = db.session.query(
+                SchemaEntity.name, SchemaAttribute.name
+            ).join(
+                SchemaAttribute, SchemaEntity.id == SchemaAttribute.entity_id
+            ).all()
+
+            # Format as entity.attribute
+            attribute_names = [f"{entity_name}.{attr_name}" for entity_name, attr_name in attributes]
+            return attribute_names
+
+        except Exception as e:
+            print(f"Error loading available attributes: {e}")
+            return []
+
+    # ==== Rule-Type-Specific Template Methods ====
+
+    def _get_class_suffix(self, item_type: str) -> str:
+        """Get class name suffix based on rule type."""
+        suffixes = {
+            'rule': 'Rule',
+            'actionset': 'ActionSet',
+            'mon_rule': 'MonetaryRule',
+            'non_mon_rule': 'NonMonetaryRule'
+        }
+        return suffixes.get(item_type, 'Rule')
+
+    def _generate_rule_type_specific_wrapper(self, package_name: str, class_name: str, java_code: str,
+                                           rule_name: str, rule_content: str, item_type: str) -> str:
+        """Generate unified React-like template with conditional capabilities."""
+
+        return self._generate_unified_template(package_name, class_name, java_code, rule_name, rule_content, item_type)
+
+    def _generate_unified_template(self, package_name: str, class_name: str, java_code: str,
+                                 rule_name: str, rule_content: str, item_type: str) -> str:
+        """Generate unified React-like template with conditional capabilities and high-performance shared data structure."""
+
+        # Determine capability flags
+        is_monetary = item_type == 'mon_rule'
+        is_validation = item_type == 'non_mon_rule'
+        is_actionset = item_type == 'actionset'
+        is_standard = item_type == 'rule'
+
+        # Build conditional imports
+        imports = ['java.util.*', 'java.time.LocalDateTime']
+        if is_monetary:
+            imports.extend(['java.math.BigDecimal', 'java.math.RoundingMode'])
+        if is_validation:
+            imports.append('java.util.regex.Pattern')
+
+        import_statements = '\n'.join([f'import {imp};' for imp in imports])
+
+        # High-performance shared data structure imports
+        shared_imports = [
+            'java.util.concurrent.ConcurrentHashMap',
+            'java.util.concurrent.atomic.AtomicLong',
+            'java.lang.ref.WeakReference',
+            'java.util.concurrent.Executors',
+            'java.util.concurrent.ScheduledExecutorService'
+        ]
+        import_statements += '\n' + '\n'.join([f'import {imp};' for imp in shared_imports])
+
+        # Generate conditional fields for RuleContext
+        context_fields = []
+        if is_monetary:
+            context_fields.extend([
+                '        private final Map<String, BigDecimal> calculations;',
+                '        private final List<String> auditTrail;',
+                '        private final String baseCurrency;'
+            ])
+        if is_validation:
+            context_fields.extend([
+                '        private final List<String> validationErrors;',
+                '        private final Map<String, Object> transformedData;'
+            ])
+        if is_actionset:
+            context_fields.append('        private final Map<String, Object> sharedState;')
+
+        # Generate conditional constructor parameters
+        constructor_params = ['Map<String, Object> entities']
+        if is_monetary:
+            constructor_params.append('String baseCurrency')
+
+        # Generate conditional constructor initialization
+        constructor_init = [
+            '            this.entities = new HashMap<>(entities);',
+            '            this.executionTrace = new ArrayList<>();'
+        ]
+        if is_monetary:
+            constructor_init.extend([
+                '            this.calculations = new HashMap<>();',
+                '            this.auditTrail = new ArrayList<>();',
+                '            this.baseCurrency = baseCurrency != null ? baseCurrency : "USD";'
+            ])
+        if is_validation:
+            constructor_init.extend([
+                '            this.validationErrors = new ArrayList<>();',
+                '            this.transformedData = new HashMap<>();'
+            ])
+        if is_actionset:
+            constructor_init.append('            this.sharedState = new HashMap<>();')
+
+        # Generate conditional methods
+        conditional_methods = []
+
+        if is_monetary:
+            conditional_methods.append('''
+        // Monetary-specific methods
+        public BigDecimal getMonetaryValue(String path) {
+            Object value = getValue(path);
+            if (value instanceof Number) {
+                auditTrail.add("RETRIEVE: " + path + " = " + value);
+                return new BigDecimal(value.toString()).setScale(2, RoundingMode.HALF_UP);
+            }
+            return BigDecimal.ZERO;
+        }
+
+        public RuleContext withCalculation(String key, BigDecimal value) {
+            Map<String, BigDecimal> newCalculations = new HashMap<>(calculations);
+            newCalculations.put(key, value.setScale(2, RoundingMode.HALF_UP));
+            auditTrail.add("CALCULATE: " + key + " = " + value);
+            return new RuleContext(entities, baseCurrency).copyWith(newCalculations, auditTrail, baseCurrency);
+        }
+
+        public void addAuditEntry(String entry) {
+            auditTrail.add(LocalDateTime.now() + ": " + entry);
+        }''')
+
+        if is_validation:
+            conditional_methods.append('''
+        // Validation-specific methods
+        public boolean validate(String field, String pattern, String errorMessage) {
+            Object value = getValue(field);
+            if (value != null && Pattern.matches(pattern, value.toString())) {
+                addExecutionStep("VALIDATE: " + field + " - PASSED");
+                return true;
+            } else {
+                validationErrors.add(errorMessage);
+                addExecutionStep("VALIDATE: " + field + " - FAILED: " + errorMessage);
+                return false;
+            }
+        }
+
+        public void transform(String key, Object value) {
+            transformedData.put(key, value);
+            addExecutionStep("TRANSFORM: " + key + " = " + value);
+        }
+
+        public void enrichData(String key, Object enrichedValue) {
+            transformedData.put(key, enrichedValue);
+            addExecutionStep("ENRICH: " + key + " = " + enrichedValue);
+        }''')
+
+        if is_actionset:
+            conditional_methods.append('''
+        // ActionSet-specific methods
+        public void setSharedValue(String key, Object value) {
+            sharedState.put(key, value);
+            addExecutionStep("SET: " + key + " = " + value);
+        }
+
+        public Object getSharedValue(String key) {
+            return sharedState.get(key);
+        }''')
+
+        # Generate result class based on type
+        if is_monetary:
+            result_class = '''
+    public static class RuleResult {
+        private final boolean approved;
+        private final Map<String, BigDecimal> calculations;
+        private final List<String> actions;
+        private final List<String> auditTrail;
+        private final String currency;
+
+        public RuleResult(boolean approved, Map<String, BigDecimal> calculations,
+                        List<String> actions, List<String> auditTrail, String currency) {
+            this.approved = approved;
+            this.calculations = calculations;
+            this.actions = actions;
+            this.auditTrail = auditTrail;
+            this.currency = currency;
+        }
+
+        public boolean isApproved() { return approved; }
+        public Map<String, BigDecimal> getCalculations() { return calculations; }
+        public List<String> getActions() { return actions; }
+        public List<String> getAuditTrail() { return auditTrail; }
+        public String getCurrency() { return currency; }
+    }'''
+        elif is_validation:
+            result_class = '''
+    public static class RuleResult {
+        private final boolean valid;
+        private final Map<String, Object> transformedData;
+        private final List<String> validationErrors;
+        private final List<String> actions;
+        private final List<String> executionTrace;
+
+        public RuleResult(boolean valid, Map<String, Object> transformedData,
+                        List<String> validationErrors, List<String> actions,
+                        List<String> executionTrace) {
+            this.valid = valid;
+            this.transformedData = transformedData;
+            this.validationErrors = validationErrors;
+            this.actions = actions;
+            this.executionTrace = executionTrace;
+        }
+
+        public boolean isValid() { return valid; }
+        public Map<String, Object> getTransformedData() { return transformedData; }
+        public List<String> getValidationErrors() { return validationErrors; }
+        public List<String> getActions() { return actions; }
+        public List<String> getExecutionTrace() { return executionTrace; }
+    }'''
+        elif is_actionset:
+            result_class = '''
+    public static class RuleResult {
+        private final boolean completed;
+        private final List<String> executedActions;
+        private final Map<String, Object> finalState;
+        private final List<String> executionTrace;
+
+        public RuleResult(boolean completed, List<String> executedActions,
+                        Map<String, Object> finalState, List<String> executionTrace) {
+            this.completed = completed;
+            this.executedActions = executedActions;
+            this.finalState = finalState;
+            this.executionTrace = executionTrace;
+        }
+
+        public boolean isCompleted() { return completed; }
+        public List<String> getExecutedActions() { return executedActions; }
+        public Map<String, Object> getFinalState() { return finalState; }
+        public List<String> getExecutionTrace() { return executionTrace; }
+    }'''
+        else:  # standard rule
+            result_class = '''
+    public static class RuleResult {
+        private final boolean matched;
+        private final List<String> actions;
+        private final List<String> executionTrace;
+
+        public RuleResult(boolean matched, List<String> actions, List<String> executionTrace) {
+            this.matched = matched;
+            this.actions = actions;
+            this.executionTrace = executionTrace;
+        }
+
+        public boolean isMatched() { return matched; }
+        public List<String> getActions() { return actions; }
+        public List<String> getExecutionTrace() { return executionTrace; }
+    }'''
+
+        # Generate evaluation method signature based on type
+        if is_monetary:
+            eval_method = 'public static RuleResult evaluate(Map<String, Object> input, String currency)'
+            eval_overload = '''
+    public static RuleResult evaluate(Map<String, Object> input) {
+        return evaluate(input, "USD");
+    }'''
+            eval_context = 'RuleContext context = new RuleContext(input, currency);'
+            eval_return = '''return new RuleResult(true, context.calculations, actions,
+                                context.auditTrail, context.baseCurrency);'''
+        elif is_validation:
+            eval_method = 'public static RuleResult process(Map<String, Object> input)'
+            eval_overload = ''
+            eval_context = 'RuleContext context = new RuleContext(input);'
+            eval_return = '''boolean isValid = context.validationErrors.isEmpty();
+        return new RuleResult(isValid, context.transformedData, context.validationErrors,
+                            actions, context.executionTrace);'''
+        elif is_actionset:
+            eval_method = 'public static RuleResult execute(Map<String, Object> input)'
+            eval_overload = ''
+            eval_context = 'RuleContext context = new RuleContext(input);'
+            eval_return = '''return new RuleResult(true, actions, context.sharedState, context.executionTrace);'''
+        else:  # standard
+            eval_method = 'public static RuleResult evaluate(Map<String, Object> input)'
+            eval_overload = ''
+            eval_context = 'RuleContext context = new RuleContext(input);'
+            eval_return = '''return new RuleResult(true, actions, context.executionTrace);'''
+
+        return f'''package {package_name};
+
+{import_statements}
+
+/**
+ * {item_type.title()} Rule: {rule_name}
+ * Unified React-like template with conditional capabilities
+ * Generated at {datetime.now()}
+ */
+public class {class_name} {{
+
+    // High-Performance Shared Data Structure - React-like Global State Manager
+    public static class SharedRuleManager {{
+        // Global shared cache for millions of executions
+        private static final ConcurrentHashMap<String, WeakReference<Object>> globalCache = new ConcurrentHashMap<>();
+        private static final ConcurrentHashMap<String, AtomicLong> executionCounters = new ConcurrentHashMap<>();
+        private static final ConcurrentHashMap<String, Map<String, Object>> ruleMetrics = new ConcurrentHashMap<>();
+
+        // React-like state subscription system
+        private static final ConcurrentHashMap<String, List<WeakReference<RuleStateListener>>> stateListeners = new ConcurrentHashMap<>();
+
+        // Background cleanup service
+        private static final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor();
+
+        static {{
+            // Auto-cleanup weak references every 60 seconds
+            cleanupExecutor.scheduleAtFixedRate(() -> {{
+                globalCache.entrySet().removeIf(entry -> entry.getValue().get() == null);
+                stateListeners.forEach((key, listeners) -> listeners.removeIf(ref -> ref.get() == null));
+            }}, 60, 60, java.util.concurrent.TimeUnit.SECONDS);
+        }}
+
+        // React-like state management
+        public static void setState(String key, Object value) {{
+            globalCache.put(key, new WeakReference<>(value));
+            notifyStateListeners(key, value);
+            incrementCounter("state_updates");
+        }}
+
+        public static Object getState(String key) {{
+            WeakReference<Object> ref = globalCache.get(key);
+            return ref != null ? ref.get() : null;
+        }}
+
+        public static void subscribeToState(String key, RuleStateListener listener) {{
+            stateListeners.computeIfAbsent(key, k -> new ArrayList<>()).add(new WeakReference<>(listener));
+        }}
+
+        private static void notifyStateListeners(String key, Object newValue) {{
+            List<WeakReference<RuleStateListener>> listeners = stateListeners.get(key);
+            if (listeners != null) {{
+                listeners.forEach(ref -> {{
+                    RuleStateListener listener = ref.get();
+                    if (listener != null) listener.onStateChange(key, newValue);
+                }});
+            }}
+        }}
+
+        // Performance metrics for millions of executions
+        public static void incrementCounter(String metric) {{
+            executionCounters.computeIfAbsent(metric, k -> new AtomicLong(0)).incrementAndGet();
+        }}
+
+        public static long getCounter(String metric) {{
+            AtomicLong counter = executionCounters.get(metric);
+            return counter != null ? counter.get() : 0;
+        }}
+
+        public static void recordRuleMetric(String ruleId, String metric, Object value) {{
+            ruleMetrics.computeIfAbsent(ruleId, k -> new ConcurrentHashMap<>()).put(metric, value);
+        }}
+
+        public static Map<String, Object> getRuleMetrics(String ruleId) {{
+            return ruleMetrics.getOrDefault(ruleId, Collections.emptyMap());
+        }}
+
+        // Memory-efficient batch processing
+        public static <T> List<T> processBatch(List<Map<String, Object>> inputs, java.util.function.Function<Map<String, Object>, T> processor) {{
+            return inputs.parallelStream()
+                        .map(processor)
+                        .collect(java.util.stream.Collectors.toList());
+        }}
+
+        // Hot-path optimization for frequent operations
+        public static Object getOrCompute(String key, java.util.function.Supplier<Object> supplier) {{
+            Object cached = getState(key);
+            if (cached == null) {{
+                cached = supplier.get();
+                setState(key, cached);
+            }}
+            return cached;
+        }}
+    }}
+
+    // State change listener interface for reactive updates
+    public interface RuleStateListener {{
+        void onStateChange(String key, Object newValue);
+    }}
+
+    public static class RuleContext {{
+        // Universal core (React-like immutable state)
+        private final Map<String, Object> entities;
+        private final List<String> executionTrace;
+
+        // Conditional capabilities
+{chr(10).join(context_fields)}
+
+        public RuleContext({', '.join(constructor_params)}) {{
+{chr(10).join(constructor_init)}
+        }}
+
+        // Universal methods (React-like patterns)
+        public Object getValue(String path) {{
+            String[] parts = path.split("\\.");
+            Object current = entities.get(parts[0]);
+            for (int i = 1; i < parts.length && current != null; i++) {{
+                if (current instanceof Map) {{
+                    current = ((Map<String, Object>) current).get(parts[i]);
+                }}
+            }}
+            return current;
+        }}
+
+        public void addExecutionStep(String step) {{
+            executionTrace.add(step);
+        }}
+
+        // React-like immutable update pattern with shared state integration
+        public RuleContext withUpdate(String key, Object value) {{
+            Map<String, Object> newEntities = new HashMap<>(entities);
+            newEntities.put(key, value);
+            addExecutionStep("UPDATE: " + key + " = " + value);
+
+            // Integrate with SharedRuleManager for global state visibility
+            SharedRuleManager.setState("rule.context." + key, value);
+            SharedRuleManager.incrementCounter("context_updates");
+
+            return new RuleContext(newEntities{', baseCurrency' if is_monetary else ''});
+        }}
+
+        // High-performance batch update for multiple values
+        public RuleContext withBatchUpdate(Map<String, Object> updates) {{
+            Map<String, Object> newEntities = new HashMap<>(entities);
+            updates.forEach((key, value) -> {{
+                newEntities.put(key, value);
+                addExecutionStep("BATCH_UPDATE: " + key + " = " + value);
+                SharedRuleManager.setState("rule.context." + key, value);
+            }});
+            SharedRuleManager.incrementCounter("batch_updates");
+            return new RuleContext(newEntities{', baseCurrency' if is_monetary else ''});
+        }}
+
+        // Subscribe to global state changes for reactive rules
+        public void subscribeToGlobalState(String key, RuleStateListener listener) {{
+            SharedRuleManager.subscribeToState(key, listener);
+        }}
+
+        // Get cached or computed value for hot-path optimization
+        public Object getOrCompute(String key, java.util.function.Supplier<Object> supplier) {{
+            return SharedRuleManager.getOrCompute("rule.computed." + key, supplier);
+        }}
+{''.join(conditional_methods)}
+    }}
+{result_class}
+
+    {eval_method} {{
+        // High-performance execution tracking
+        long startTime = System.nanoTime();
+        String ruleId = "{rule_name}";
+        SharedRuleManager.incrementCounter("rule_executions");
+        SharedRuleManager.incrementCounter("rule_" + ruleId + "_executions");
+
+        {eval_context}
+        List<String> actions = new ArrayList<>();
+
+        try {{
+            // Generated rule logic with performance monitoring
+            {java_code}
+
+            // Record successful execution metrics
+            long executionTime = System.nanoTime() - startTime;
+            SharedRuleManager.recordRuleMetric(ruleId, "last_execution_ns", executionTime);
+            SharedRuleManager.recordRuleMetric(ruleId, "last_execution_ms", executionTime / 1_000_000.0);
+            SharedRuleManager.incrementCounter("successful_executions");
+
+            {eval_return}
+        }} catch (Exception e) {{
+            // Record failure metrics
+            SharedRuleManager.incrementCounter("failed_executions");
+            SharedRuleManager.recordRuleMetric(ruleId, "last_error", e.getMessage());
+            throw e;
+        }}
+    }}{eval_overload}
+}}'''
+
+    def _generate_standard_rule_template(self, package_name: str, class_name: str, java_code: str,
+                                       rule_name: str, rule_content: str) -> str:
+        """Generate standard rule template with basic condition/action logic."""
+        return f'''package {package_name};
+
+import java.util.*;
+import java.time.LocalDateTime;
+
+/**
+ * Standard Rule: {rule_name}
+ * Generated from rule content at {LocalDateTime.now()}
+ */
+public class {class_name} {{
+
+    public static class RuleContext {{
+        private final Map<String, Object> entities;
+        private final List<String> executionPath;
+
+        public RuleContext(Map<String, Object> entities) {{
+            this.entities = new HashMap<>(entities);
+            this.executionPath = new ArrayList<>();
+        }}
+
+        public Object getValue(String path) {{
+            String[] parts = path.split("\\.");
+            Object current = entities.get(parts[0]);
+            for (int i = 1; i < parts.length && current != null; i++) {{
+                if (current instanceof Map) {{
+                    current = ((Map<String, Object>) current).get(parts[i]);
+                }}
+            }}
+            return current;
+        }}
+
+        public void addExecutionStep(String step) {{
+            executionPath.add(step);
+        }}
+    }}
+
+    public static class RuleResult {{
+        private final boolean matched;
+        private final List<String> actions;
+        private final List<String> executionPath;
+
+        public RuleResult(boolean matched, List<String> actions, List<String> executionPath) {{
+            this.matched = matched;
+            this.actions = actions;
+            this.executionPath = executionPath;
+        }}
+
+        public boolean isMatched() {{ return matched; }}
+        public List<String> getActions() {{ return actions; }}
+        public List<String> getExecutionPath() {{ return executionPath; }}
+    }}
+
+    public static RuleResult evaluate(Map<String, Object> input) {{
+        RuleContext context = new RuleContext(input);
+        List<String> actions = new ArrayList<>();
+
+        // Generated rule logic
+        {java_code}
+
+        return new RuleResult(true, actions, context.executionPath);
+    }}
+}}'''
+
+    def _generate_actionset_template(self, package_name: str, class_name: str, java_code: str,
+                                   rule_name: str, rule_content: str) -> str:
+        """Generate ActionSet template with sequential action execution."""
+        return f'''package {package_name};
+
+import java.util.*;
+import java.time.LocalDateTime;
+
+/**
+ * ActionSet: {rule_name}
+ * Sequential action execution with shared context
+ * Generated at {datetime.now()}
+ */
+public class {class_name} {{
+
+    public static class ActionContext {{
+        private final Map<String, Object> entities;
+        private final Map<String, Object> sharedState;
+        private final List<String> executionTrace;
+
+        public ActionContext(Map<String, Object> entities) {{
+            this.entities = new HashMap<>(entities);
+            this.sharedState = new HashMap<>();
+            this.executionTrace = new ArrayList<>();
+        }}
+
+        public Object getValue(String path) {{
+            String[] parts = path.split("\\.");
+            Object current = entities.get(parts[0]);
+            for (int i = 1; i < parts.length && current != null; i++) {{
+                if (current instanceof Map) {{
+                    current = ((Map<String, Object>) current).get(parts[i]);
+                }}
+            }}
+            return current;
+        }}
+
+        public void setSharedValue(String key, Object value) {{
+            sharedState.put(key, value);
+            executionTrace.add("SET: " + key + " = " + value);
+        }}
+
+        public Object getSharedValue(String key) {{
+            return sharedState.get(key);
+        }}
+
+        public void addTrace(String action) {{
+            executionTrace.add(action);
+        }}
+    }}
+
+    public static class ActionSetResult {{
+        private final boolean completed;
+        private final List<String> executedActions;
+        private final Map<String, Object> finalState;
+        private final List<String> executionTrace;
+
+        public ActionSetResult(boolean completed, List<String> executedActions,
+                             Map<String, Object> finalState, List<String> executionTrace) {{
+            this.completed = completed;
+            this.executedActions = executedActions;
+            this.finalState = finalState;
+            this.executionTrace = executionTrace;
+        }}
+
+        public boolean isCompleted() {{ return completed; }}
+        public List<String> getExecutedActions() {{ return executedActions; }}
+        public Map<String, Object> getFinalState() {{ return finalState; }}
+        public List<String> getExecutionTrace() {{ return executionTrace; }}
+    }}
+
+    public static ActionSetResult execute(Map<String, Object> input) {{
+        ActionContext context = new ActionContext(input);
+        List<String> executedActions = new ArrayList<>();
+
+        // Generated action set logic
+        {java_code}
+
+        return new ActionSetResult(true, executedActions, context.sharedState, context.executionTrace);
+    }}
+}}'''
+
+    def _generate_monetary_rule_template(self, package_name: str, class_name: str, java_code: str,
+                                       rule_name: str, rule_content: str) -> str:
+        """Generate Monetary Rule template with BigDecimal precision and audit trail."""
+        return f'''package {package_name};
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
+import java.time.LocalDateTime;
+
+/**
+ * Monetary Rule: {rule_name}
+ * High-precision financial calculations with audit trail
+ * Generated at {datetime.now()}
+ */
+public class {class_name} {{
+
+    public static class MonetaryContext {{
+        private final Map<String, Object> entities;
+        private final Map<String, BigDecimal> monetaryCalculations;
+        private final List<String> auditTrail;
+        private final String baseCurrency;
+
+        public MonetaryContext(Map<String, Object> entities, String baseCurrency) {{
+            this.entities = new HashMap<>(entities);
+            this.monetaryCalculations = new HashMap<>();
+            this.auditTrail = new ArrayList<>();
+            this.baseCurrency = baseCurrency != null ? baseCurrency : "USD";
+        }}
+
+        public BigDecimal getMonetaryValue(String path) {{
+            Object value = getValue(path);
+            if (value instanceof Number) {{
+                auditTrail.add("RETRIEVE: " + path + " = " + value);
+                return new BigDecimal(value.toString()).setScale(2, RoundingMode.HALF_UP);
+            }}
+            return BigDecimal.ZERO;
+        }}
+
+        public void setCalculation(String key, BigDecimal value) {{
+            monetaryCalculations.put(key, value.setScale(2, RoundingMode.HALF_UP));
+            auditTrail.add("CALCULATE: " + key + " = " + value);
+        }}
+
+        public BigDecimal getCalculation(String key) {{
+            return monetaryCalculations.getOrDefault(key, BigDecimal.ZERO);
+        }}
+
+        private Object getValue(String path) {{
+            String[] parts = path.split("\\.");
+            Object current = entities.get(parts[0]);
+            for (int i = 1; i < parts.length && current != null; i++) {{
+                if (current instanceof Map) {{
+                    current = ((Map<String, Object>) current).get(parts[i]);
+                }}
+            }}
+            return current;
+        }}
+
+        public void addAuditEntry(String entry) {{
+            auditTrail.add(LocalDateTime.now() + ": " + entry);
+        }}
+    }}
+
+    public static class MonetaryResult {{
+        private final boolean approved;
+        private final Map<String, BigDecimal> calculations;
+        private final List<String> actions;
+        private final List<String> auditTrail;
+        private final String currency;
+
+        public MonetaryResult(boolean approved, Map<String, BigDecimal> calculations,
+                            List<String> actions, List<String> auditTrail, String currency) {{
+            this.approved = approved;
+            this.calculations = calculations;
+            this.actions = actions;
+            this.auditTrail = auditTrail;
+            this.currency = currency;
+        }}
+
+        public boolean isApproved() {{ return approved; }}
+        public Map<String, BigDecimal> getCalculations() {{ return calculations; }}
+        public List<String> getActions() {{ return actions; }}
+        public List<String> getAuditTrail() {{ return auditTrail; }}
+        public String getCurrency() {{ return currency; }}
+    }}
+
+    public static MonetaryResult evaluate(Map<String, Object> input, String currency) {{
+        MonetaryContext context = new MonetaryContext(input, currency);
+        List<String> actions = new ArrayList<>();
+
+        // Generated monetary rule logic
+        {java_code}
+
+        return new MonetaryResult(true, context.monetaryCalculations, actions,
+                                context.auditTrail, context.baseCurrency);
+    }}
+
+    public static MonetaryResult evaluate(Map<String, Object> input) {{
+        return evaluate(input, "USD");
+    }}
+}}'''
+
+    def _generate_non_monetary_rule_template(self, package_name: str, class_name: str, java_code: str,
+                                           rule_name: str, rule_content: str) -> str:
+        """Generate Non-Monetary Rule template with data transformation and validation."""
+        return f'''package {package_name};
+
+import java.util.*;
+import java.time.LocalDateTime;
+import java.util.regex.Pattern;
+
+/**
+ * Non-Monetary Rule: {rule_name}
+ * Data transformation, validation, and enrichment
+ * Generated at {datetime.now()}
+ */
+public class {class_name} {{
+
+    public static class DataContext {{
+        private final Map<String, Object> entities;
+        private final Map<String, Object> transformedData;
+        private final List<String> validationErrors;
+        private final List<String> transformationLog;
+
+        public DataContext(Map<String, Object> entities) {{
+            this.entities = new HashMap<>(entities);
+            this.transformedData = new HashMap<>();
+            this.validationErrors = new ArrayList<>();
+            this.transformationLog = new ArrayList<>();
+        }}
+
+        public Object getValue(String path) {{
+            String[] parts = path.split("\\.");
+            Object current = entities.get(parts[0]);
+            for (int i = 1; i < parts.length && current != null; i++) {{
+                if (current instanceof Map) {{
+                    current = ((Map<String, Object>) current).get(parts[i]);
+                }}
+            }}
+            return current;
+        }}
+
+        public void transform(String key, Object value) {{
+            transformedData.put(key, value);
+            transformationLog.add("TRANSFORM: " + key + " = " + value);
+        }}
+
+        public boolean validate(String field, String pattern, String errorMessage) {{
+            Object value = getValue(field);
+            if (value != null && Pattern.matches(pattern, value.toString())) {{
+                transformationLog.add("VALIDATE: " + field + " - PASSED");
+                return true;
+            }} else {{
+                validationErrors.add(errorMessage);
+                transformationLog.add("VALIDATE: " + field + " - FAILED: " + errorMessage);
+                return false;
+            }}
+        }}
+
+        public void enrichData(String key, Object enrichedValue) {{
+            transformedData.put(key, enrichedValue);
+            transformationLog.add("ENRICH: " + key + " = " + enrichedValue);
+        }}
+
+        public Object getTransformed(String key) {{
+            return transformedData.get(key);
+        }}
+    }}
+
+    public static class DataResult {{
+        private final boolean valid;
+        private final Map<String, Object> transformedData;
+        private final List<String> validationErrors;
+        private final List<String> actions;
+        private final List<String> transformationLog;
+
+        public DataResult(boolean valid, Map<String, Object> transformedData,
+                        List<String> validationErrors, List<String> actions,
+                        List<String> transformationLog) {{
+            this.valid = valid;
+            this.transformedData = transformedData;
+            this.validationErrors = validationErrors;
+            this.actions = actions;
+            this.transformationLog = transformationLog;
+        }}
+
+        public boolean isValid() {{ return valid; }}
+        public Map<String, Object> getTransformedData() {{ return transformedData; }}
+        public List<String> getValidationErrors() {{ return validationErrors; }}
+        public List<String> getActions() {{ return actions; }}
+        public List<String> getTransformationLog() {{ return transformationLog; }}
+    }}
+
+    public static DataResult process(Map<String, Object> input) {{
+        DataContext context = new DataContext(input);
+        List<String> actions = new ArrayList<>();
+
+        // Generated non-monetary rule logic
+        {java_code}
+
+        boolean isValid = context.validationErrors.isEmpty();
+        return new DataResult(isValid, context.transformedData, context.validationErrors,
+                            actions, context.transformationLog);
+    }}
+}}'''
+
+    def build_rule_code(self, rule_id: int) -> dict:
+        """Build the generated Java code using Maven."""
+        try:
+            rule_dir = os.path.join(self.generated_rules_dir, f"rule-{rule_id}")
+
+            if not os.path.exists(rule_dir):
+                return {
+                    'success': False,
+                    'error': f'Generated code directory not found for rule {rule_id}',
+                    'build_log': ''
+                }
+
+            # Change to rule directory and run maven build
+            import subprocess
+            import time
+
+            start_time = time.time()
+
+            try:
+                result = subprocess.run(
+                    ['mvn', 'clean', 'compile'],
+                    cwd=rule_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=60  # 60 second timeout
+                )
+
+                build_time = time.time() - start_time
+
+                return {
+                    'success': result.returncode == 0,
+                    'build_log': result.stdout + result.stderr,
+                    'return_code': result.returncode,
+                    'build_time_ms': round(build_time * 1000, 2),
+                    'rule_directory': rule_dir
+                }
+
+            except subprocess.TimeoutExpired:
+                return {
+                    'success': False,
+                    'error': 'Build timeout after 60 seconds',
+                    'build_log': 'Build process exceeded time limit',
+                    'build_time_ms': 60000
+                }
+            except FileNotFoundError:
+                return {
+                    'success': False,
+                    'error': 'Maven not found. Please ensure Maven is installed and in PATH',
+                    'build_log': 'mvn command not found'
+                }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Build failed: {str(e)}',
+                'build_log': f'Exception during build: {str(e)}'
+            }
+
+    def test_rule_code(self, rule_id: int, test_data: dict = None) -> dict:
+        """Test the generated and compiled Java code using Maven."""
+        try:
+            rule_dir = os.path.join(self.generated_rules_dir, f"rule-{rule_id}")
+
+            if not os.path.exists(rule_dir):
+                return {
+                    'success': False,
+                    'error': f'Generated code directory not found for rule {rule_id}',
+                    'test_log': ''
+                }
+
+            # First ensure code is compiled
+            build_result = self.build_rule_code(rule_id)
+            if not build_result['success']:
+                return {
+                    'success': False,
+                    'error': 'Build failed before testing',
+                    'test_log': build_result['build_log'],
+                    'build_result': build_result
+                }
+
+            import subprocess
+            import time
+
+            start_time = time.time()
+
+            try:
+                # Run maven test
+                result = subprocess.run(
+                    ['mvn', 'test'],
+                    cwd=rule_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=90  # 90 second timeout for tests
+                )
+
+                test_time = time.time() - start_time
+
+                # Parse test results if available
+                test_summary = self._parse_maven_test_output(result.stdout)
+
+                return {
+                    'success': result.returncode == 0,
+                    'test_log': result.stdout + result.stderr,
+                    'return_code': result.returncode,
+                    'test_time_ms': round(test_time * 1000, 2),
+                    'test_summary': test_summary,
+                    'rule_directory': rule_dir,
+                    'build_result': build_result
+                }
+
+            except subprocess.TimeoutExpired:
+                return {
+                    'success': False,
+                    'error': 'Test timeout after 90 seconds',
+                    'test_log': 'Test process exceeded time limit',
+                    'test_time_ms': 90000
+                }
+            except FileNotFoundError:
+                return {
+                    'success': False,
+                    'error': 'Maven not found. Please ensure Maven is installed and in PATH',
+                    'test_log': 'mvn command not found'
+                }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Test failed: {str(e)}',
+                'test_log': f'Exception during test: {str(e)}'
+            }
+
+    def _parse_maven_test_output(self, output: str) -> dict:
+        """Parse Maven test output to extract test summary."""
+        summary = {
+            'tests_run': 0,
+            'failures': 0,
+            'errors': 0,
+            'skipped': 0,
+            'time_seconds': 0.0
+        }
+
+        try:
+            lines = output.split('\n')
+            for line in lines:
+                if 'Tests run:' in line:
+                    # Example: "Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.123 sec"
+                    parts = line.split(',')
+                    for part in parts:
+                        part = part.strip()
+                        if part.startswith('Tests run:'):
+                            summary['tests_run'] = int(part.split(':')[1].strip())
+                        elif part.startswith('Failures:'):
+                            summary['failures'] = int(part.split(':')[1].strip())
+                        elif part.startswith('Errors:'):
+                            summary['errors'] = int(part.split(':')[1].strip())
+                        elif part.startswith('Skipped:'):
+                            summary['skipped'] = int(part.split(':')[1].strip())
+                        elif part.startswith('Time elapsed:'):
+                            time_str = part.split(':')[1].strip().split()[0]
+                            summary['time_seconds'] = float(time_str)
+        except (ValueError, IndexError):
+            # If parsing fails, return default values
+            pass
+
+        return summary
+
+    def execute_rule_code(self, rule_id: int, input_data: dict) -> dict:
+        """Execute the compiled Java rule with provided input data."""
+        try:
+            rule_dir = os.path.join(self.generated_rules_dir, f"rule-{rule_id}")
+
+            if not os.path.exists(rule_dir):
+                return {
+                    'success': False,
+                    'error': f'Generated code directory not found for rule {rule_id}',
+                    'execution_log': ''
+                }
+
+            # First ensure code is compiled
+            build_result = self.build_rule_code(rule_id)
+            if not build_result['success']:
+                return {
+                    'success': False,
+                    'error': 'Build failed before execution',
+                    'execution_log': build_result['build_log'],
+                    'build_result': build_result
+                }
+
+            import subprocess
+            import time
+            import json
+            import tempfile
+
+            # Create temporary file for input data
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump(input_data, f)
+                input_file = f.name
+
+            start_time = time.time()
+
+            try:
+                # Execute using maven exec plugin with input data
+                result = subprocess.run(
+                    ['mvn', 'exec:java', f'-Dexec.args={input_file}'],
+                    cwd=rule_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=30  # 30 second timeout for execution
+                )
+
+                execution_time = time.time() - start_time
+
+                # Parse execution output
+                execution_result = self._parse_execution_output(result.stdout)
+
+                return {
+                    'success': result.returncode == 0,
+                    'execution_log': result.stdout + result.stderr,
+                    'return_code': result.returncode,
+                    'execution_time_ms': round(execution_time * 1000, 3),
+                    'execution_result': execution_result,
+                    'rule_directory': rule_dir,
+                    'input_data': input_data
+                }
+
+            except subprocess.TimeoutExpired:
+                return {
+                    'success': False,
+                    'error': 'Execution timeout after 30 seconds',
+                    'execution_log': 'Execution process exceeded time limit',
+                    'execution_time_ms': 30000
+                }
+            finally:
+                # Clean up temporary file
+                try:
+                    os.unlink(input_file)
+                except:
+                    pass
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Execution failed: {str(e)}',
+                'execution_log': f'Exception during execution: {str(e)}'
+            }
+
+    def _parse_execution_output(self, output: str) -> dict:
+        """Parse execution output to extract rule result."""
+        result = {
+            'matched': False,
+            'actions': [],
+            'execution_path': [],
+            'raw_output': output
+        }
+
+        try:
+            lines = output.split('\n')
+            for line in lines:
+                line = line.strip()
+                if line.startswith('RULE_RESULT:'):
+                    # Parse JSON result from Java output
+                    json_str = line.replace('RULE_RESULT:', '').strip()
+                    parsed = json.loads(json_str)
+                    result.update(parsed)
+                    break
+        except (ValueError, json.JSONDecodeError):
+            # If parsing fails, return default values with raw output
+            pass
+
+        return result

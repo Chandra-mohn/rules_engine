@@ -16,15 +16,13 @@ import {
   Modal,
 } from 'antd';
 import {
-  SaveOutlined,
-  PlayCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ArrowLeftOutlined,
+  CloudDownloadOutlined,
+  ToolOutlined,
   InfoCircleOutlined,
   DatabaseOutlined,
-  ThunderboltOutlined,
-  CloudDownloadOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import { rulesApi } from '../services/api';
@@ -130,40 +128,59 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             endColumn: position.column,
           });
 
-          // Get suggestions from cache (fast) or fallback to API (slow)
+          // Get context-aware suggestions from backend ANTLR analysis
           let allSuggestions = [];
-          
+
           try {
-            // Try to get suggestions from cache first
-            allSuggestions = suggestionCache.getSuggestions(textUntilPosition, textUntilPosition.length);
-            
-            // If cache is empty or not loaded, fall back to API
-            if (!allSuggestions || allSuggestions.length === 0) {
-              // Cache not available, falling back to API
-              
-              try {
-                const [attributesResponse, actionsResponse] = await Promise.all([
-                  fetch(`/api/schema/${selectedSchema}/attributes`),
-                  fetch(`/api/schema/${selectedSchema}/actions`)
-                ]);
-                
-                if (attributesResponse.ok && actionsResponse.ok) {
-                  const attributesData = await attributesResponse.json();
-                  const actionsData = await actionsResponse.json();
-                  
-                  allSuggestions = [
-                    ...attributesData.attributes,
-                    ...actionsData.actions
-                  ];
+            // Use backend autocomplete API for intelligent context analysis
+            const autocompleteResponse = await fetch('/api/rules/autocomplete', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                context: textUntilPosition,
+                position: textUntilPosition.length
+              })
+            });
+
+            if (autocompleteResponse.ok) {
+              const autocompleteData = await autocompleteResponse.json();
+              allSuggestions = autocompleteData.suggestions || [];
+
+              // Log context info for debugging
+              console.log('Autocomplete context:', autocompleteData.context_type, autocompleteData.cursor_info);
+            } else {
+              // Fallback to cache if API fails
+              allSuggestions = suggestionCache.getSuggestions(textUntilPosition, textUntilPosition.length);
+
+              // If still empty, fallback to basic schema API
+              if (!allSuggestions || allSuggestions.length === 0) {
+                try {
+                  const [attributesResponse, actionsResponse] = await Promise.all([
+                    fetch(`/api/schema/${selectedSchema}/attributes`),
+                    fetch(`/api/schema/${selectedSchema}/actions`)
+                  ]);
+
+                  if (attributesResponse.ok && actionsResponse.ok) {
+                    const attributesData = await attributesResponse.json();
+                    const actionsData = await actionsResponse.json();
+
+                    allSuggestions = [
+                      ...attributesData.attributes,
+                      ...actionsData.actions
+                    ];
+                  }
+                } catch (fallbackError) {
+                  console.error('Fallback API error:', fallbackError);
+                  allSuggestions = [];
                 }
-              } catch (apiError) {
-                // API fallback failed, using empty suggestions
-                allSuggestions = [];
               }
             }
-          } catch (cacheError) {
-            console.error('Error getting cached suggestions:', cacheError);
-            allSuggestions = [];
+          } catch (error) {
+            console.error('Error getting autocomplete suggestions:', error);
+            // Final fallback to cache
+            allSuggestions = suggestionCache.getSuggestions(textUntilPosition, textUntilPosition.length) || [];
           }
           
           // Filter based on current context
@@ -242,102 +259,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     validateContent(editorContent);
   };
 
-  // Handle execute rule using subprocess compilation
-  const handleExecute = async () => {
-    if (!rule || !isExecutableStatus(rule.status)) {
-      message.error('Rule execution is only allowed for VALID, PEND, SCHD, or PROD status rules');
-      return;
-    }
-
-    try {
-      if (!editorContent.trim()) {
-        message.error('Please enter rule content before executing');
-        return;
-      }
-
-      // Get saved sample data or use defaults
-      const savedSampleData = localStorage.getItem('sampleTestData');
-      let testData;
-
-      if (savedSampleData) {
-        const parsedSampleData = JSON.parse(savedSampleData);
-        testData = {
-          applicant: JSON.parse(parsedSampleData.applicant),
-          transaction: JSON.parse(parsedSampleData.transaction),
-          account: JSON.parse(parsedSampleData.account),
-          metadata: {
-            business_date: new Date().toISOString().split('T')[0],
-            test_timestamp: new Date().toISOString()
-          }
-        };
-      } else {
-        // Use default test data (aligned with sample rules)
-        testData = {
-          applicant: {
-            creditScore: 750,    // > 700 to trigger approve actions
-            age: 28,             // >= 18 to trigger approve actions
-            annualIncome: 75000,
-            monthlyIncome: 6250,
-            employmentStatus: "employed",
-            employmentYears: 3,
-            applicationDate: "2024-01-15",
-            birthDate: "1995-03-22",
-            requestedLimit: 5000,
-            existingDebt: 12000,
-            bankruptcyHistory: false,
-            ssn: "123-45-6789"
-          },
-          transaction: {
-            amount: 150.00,
-            timestamp: "2024-01-15T14:30:00Z",
-            merchantCategory: "5411",
-            location: "US-CA-San Francisco",
-            type: "purchase",
-            isOnline: false
-          },
-          account: {
-            currentBalance: 1250.00,
-            creditLimit: 5000,
-            availableCredit: 3750.00,
-            paymentHistory: "excellent",
-            accountAge: 24
-          },
-          metadata: {
-            business_date: new Date().toISOString().split('T')[0],
-            test_timestamp: new Date().toISOString()
-          }
-        };
-      }
-
-      setLoading(true);
-      message.loading('Executing rule...', 0.5);
-
-      // Call test API (uses subprocess compilation backend)
-      const response = await rulesApi.testRuleContent(editorContent, testData);
-      
-      // Show results with execution-specific styling
-      const backendResult = response.data.result || response.data;
-
-      // Transform backend response to match frontend expectations
-      const testResult = {
-        success: backendResult.matched || false,
-        ruleName: parsedRuleName || 'Unnamed Rule',
-        executedActions: backendResult.actions || [],
-        executedActionsCount: (backendResult.actions || []).length,
-        totalAvailableActions: (backendResult.actions || []).length,
-        conditions: [], // We don't have detailed condition info from subprocess
-        timestamp: new Date().toISOString(),
-        performance: response.data.performance || {}
-      };
-
-      showExecutionResults(testResult);
-      
-    } catch (error) {
-      message.error('Execution failed: ' + (error.response?.data?.error || error.message));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Handle generate production code
   const handleGenerateProductionCode = async () => {
@@ -363,7 +284,8 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         ruleId: ruleId,
         ruleName: parsedRuleName || rule.name || ruleId,
         ruleContent: editorContent,
-        packageName: `com.rules.${ruleId.toString().toLowerCase().replace(/[^a-zA-Z0-9]/g, '')}`
+        packageName: `com.rules.${ruleId.toString().toLowerCase().replace(/[^a-zA-Z0-9]/g, '')}`,
+        itemType: rule.item_type || 'rule'
       });
 
       if (response.data.success) {
@@ -426,6 +348,219 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       ),
       okText: 'Done',
     });
+  };
+
+  // Handle test code - build and test generated Java code using Maven
+  const handleTestCode = async () => {
+    if (!rule || !rule.id) {
+      message.error('Please save the rule first before testing generated code');
+      return;
+    }
+
+    if (!isExecutableStatus(rule.status)) {
+      message.error('Code testing is only allowed for VALID, PEND, SCHD, or PROD status rules');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const ruleId = rule.id || rule.rule_id;
+
+      // Step 1: Build the code
+      message.loading('Building Java code with Maven...', 0);
+
+      try {
+        const buildResponse = await rulesApi.buildRuleCode(ruleId);
+
+        if (!buildResponse.data.success) {
+          message.destroy();
+          showTestCodeResults({
+            success: false,
+            phase: 'build',
+            error: buildResponse.data.error,
+            buildLog: buildResponse.data.build_log,
+            buildTime: buildResponse.data.build_time_ms
+          });
+          return;
+        }
+
+        // Step 2: Run tests
+        message.loading('Running Maven tests...', 0);
+
+        const testResponse = await rulesApi.testRuleCode(ruleId);
+
+        message.destroy();
+        showTestCodeResults({
+          success: testResponse.data.success,
+          phase: testResponse.data.success ? 'complete' : 'test',
+          buildResult: buildResponse.data,
+          testResult: testResponse.data,
+          error: testResponse.data.error
+        });
+
+      } catch (apiError) {
+        message.destroy();
+        console.error('Maven test error:', apiError);
+        showTestCodeResults({
+          success: false,
+          phase: 'api',
+          error: apiError.response?.data?.error || apiError.message,
+          buildLog: apiError.response?.data?.build_log || '',
+          testLog: apiError.response?.data?.test_log || ''
+        });
+      }
+
+    } catch (error) {
+      message.destroy();
+      console.error('Test code error:', error);
+      message.error('Failed to test generated code: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show test code results
+  const showTestCodeResults = (data) => {
+    const { success, phase, buildResult, testResult, error, buildLog, testLog } = data;
+
+    const getStatusIcon = () => {
+      if (success) return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+      return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
+    };
+
+    const getPhaseMessage = () => {
+      switch (phase) {
+        case 'build': return 'Build Failed';
+        case 'test': return 'Tests Failed';
+        case 'complete': return 'Build and Tests Passed';
+        case 'api': return 'API Error';
+        default: return 'Test Incomplete';
+      }
+    };
+
+    Modal.info({
+      title: `Code Test Results: ${getPhaseMessage()}`,
+      width: '700px',
+      icon: getStatusIcon(),
+      content: (
+        <div>
+          {/* Status Summary */}
+          <div style={{
+            marginBottom: '20px',
+            padding: '16px',
+            backgroundColor: success ? '#f6ffed' : '#fff2f0',
+            border: `1px solid ${success ? '#b7eb8f' : '#ffccc7'}`,
+            borderRadius: '6px'
+          }}>
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{
+                color: success ? '#389e0d' : '#cf1322',
+                fontSize: '16px'
+              }}>
+                {success ? '✅ All Tests Passed!' : '❌ ' + getPhaseMessage()}
+              </strong>
+            </div>
+
+            {/* Build Results */}
+            {buildResult && (
+              <div style={{ marginBottom: '8px' }}>
+                <strong>Build:</strong> {buildResult.success ? '✅ Success' : '❌ Failed'}
+                {buildResult.build_time_ms && ` (${buildResult.build_time_ms}ms)`}
+              </div>
+            )}
+
+            {/* Test Results */}
+            {testResult && (
+              <div style={{ marginBottom: '8px' }}>
+                <strong>Tests:</strong> {testResult.success ? '✅ All Passed' : '❌ Failed'}
+                {testResult.test_time_ms && ` (${testResult.test_time_ms}ms)`}
+              </div>
+            )}
+
+            {/* Test Summary */}
+            {testResult?.test_summary && (
+              <div style={{ marginBottom: '8px', fontSize: '13px' }}>
+                <strong>Summary:</strong> {testResult.test_summary.tests_run} tests,
+                {testResult.test_summary.failures} failures,
+                {testResult.test_summary.errors} errors
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div style={{
+                marginTop: '12px',
+                padding: '8px',
+                backgroundColor: '#fff2f0',
+                border: '1px solid #ffccc7',
+                borderRadius: '4px',
+                fontSize: '13px',
+                color: '#cf1322'
+              }}>
+                <strong>Error:</strong> {error}
+              </div>
+            )}
+          </div>
+
+          {/* Build/Test Logs */}
+          {(buildLog || testLog || buildResult?.build_log || testResult?.test_log) && (
+            <div>
+              <h4>Log Output:</h4>
+              <div style={{
+                maxHeight: '300px',
+                overflow: 'auto',
+                padding: '12px',
+                backgroundColor: '#f5f5f5',
+                border: '1px solid #d9d9d9',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-line'
+              }}>
+                {buildResult?.build_log || buildLog || ''}
+                {testResult?.test_log || testLog || ''}
+              </div>
+            </div>
+          )}
+
+          {/* Directory Info */}
+          {(buildResult?.rule_directory || testResult?.rule_directory) && (
+            <div style={{ marginTop: '16px', fontSize: '13px', color: '#666' }}>
+              <strong>📂 Directory:</strong> {buildResult?.rule_directory || testResult?.rule_directory}
+            </div>
+          )}
+        </div>
+      ),
+      okText: 'Done',
+    });
+  };
+
+  // Handle sample data
+  const handleSampleData = () => {
+    setSampleDataVisible(true);
+  };
+
+  // Handle test with sample data
+  const handleTestWithSampleData = async (testData) => {
+    try {
+      if (!editorContent.trim()) {
+        message.error('Please enter rule content before testing');
+        return;
+      }
+
+      // Call test API
+      const response = await rulesApi.testRuleContent(editorContent, testData);
+
+      // Show results - extract from nested result structure
+      const testResult = response.data.result || response.data;
+      showTestResults(testResult);
+
+      // Close the sample data modal
+      setSampleDataVisible(false);
+    } catch (error) {
+      message.error('Test failed: ' + (error.response?.data?.error || error.message));
+    }
   };
 
   // Enhanced test rule with validation-first workflow
@@ -635,10 +770,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     };
   };
 
-  // Handle sample data
-  const handleSampleData = () => {
-    setSampleDataVisible(true);
-  };
 
   // Detect schema from rule content
   const detectSchemaFromContent = (content) => {
@@ -672,28 +803,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       }
     }
   }, [editorContent, selectedSchema, rule]);
-
-  // Handle test with sample data
-  const handleTestWithSampleData = async (testData) => {
-    try {
-      if (!editorContent.trim()) {
-        message.error('Please enter rule content before testing');
-        return;
-      }
-
-      // Call test API
-      const response = await rulesApi.testRuleContent(editorContent, testData);
-      
-      // Show results - extract from nested result structure
-      const testResult = response.data.result || response.data;
-      showTestResults(testResult);
-      
-      // Close the sample data modal
-      setSampleDataVisible(false);
-    } catch (error) {
-      message.error('Test failed: ' + (error.response?.data?.error || error.message));
-    }
-  };
 
   // Show execution results in a modal (similar to test but with execution styling)
   const showExecutionResults = (testResult) => {
@@ -1142,7 +1251,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                         fontFamily: 'monospace'
                       }}
                     >
-                      {error}
+                      {typeof error === 'string' ? error : error.message || JSON.stringify(error)}
                     </div>
                   ))}
                 </div>
@@ -1328,6 +1437,23 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     }
   };
 
+  // Helper function to generate dynamic title based on item type
+  const getContentTitle = () => {
+    const itemType = rule?.item_type || 'rule';
+
+    switch (itemType) {
+      case 'actionset':
+        return 'ActionSet Content';
+      case 'non_mon_rule':
+        return 'Non-Monetary Rule Content';
+      case 'mon_rule':
+        return 'Monetary Rule Content';
+      case 'rule':
+      default:
+        return 'Rule Content';
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -1338,63 +1464,133 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
           </Button>
           <h2>{rule ? `Edit Rule: ${parsedRuleName || rule.name}` : 'Create New Rule'}</h2>
         </div>
-        <Space>
-          <Button
-            icon={<InfoCircleOutlined />}
-            onClick={() => setSchemaViewerVisible(true)}
-          >
-            Schema Reference
-          </Button>
-          <Button
-            icon={<CheckCircleOutlined />}
-            onClick={handleValidate}
-            loading={validating}
-          >
-            Validate
-          </Button>
-          <Button
-            icon={<PlayCircleOutlined />}
-            onClick={handleTest}
-          >
-            Test
-          </Button>
-          <Button
-            icon={<ThunderboltOutlined />}
-            onClick={handleExecute}
-            disabled={!rule || !isExecutableStatus(rule.status)}
-            type={rule && isExecutableStatus(rule.status) ? 'primary' : 'default'}
-            style={{
-              opacity: rule && isExecutableStatus(rule.status) ? 1 : 0.6
-            }}
-          >
-            Execute {(!rule || !isExecutableStatus(rule.status)) && '(VALID+ Only)'}
-          </Button>
-          <Button
-            icon={<CloudDownloadOutlined />}
-            onClick={handleGenerateProductionCode}
-            disabled={!rule || !isExecutableStatus(rule.status)}
-            loading={loading}
-            style={{
-              opacity: rule && isExecutableStatus(rule.status) ? 1 : 0.6
-            }}
-          >
-            Generate Code {(!rule || !isExecutableStatus(rule.status)) && '(VALID+ Only)'}
-          </Button>
-          <Button
-            icon={<DatabaseOutlined />}
-            onClick={handleSampleData}
-          >
-            Sample Data
-          </Button>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSave}
-            loading={loading}
-          >
-            Save Rule
-          </Button>
-        </Space>
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+          {/* Main Workflow Buttons */}
+          <Space size="large">
+            <Button
+              icon={<CheckCircleOutlined />}
+              onClick={handleValidate}
+              loading={validating}
+              size="large"
+              style={{
+                backgroundColor: '#f6ffed',
+                borderColor: '#52c41a',
+                color: '#52c41a',
+                fontWeight: 500
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#52c41a';
+                e.target.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#f6ffed';
+                e.target.style.color = '#52c41a';
+              }}
+            >
+              Validate
+            </Button>
+            <Button
+              icon={<CloudDownloadOutlined />}
+              onClick={handleGenerateProductionCode}
+              disabled={!rule || !isExecutableStatus(rule.status)}
+              loading={loading}
+              size="large"
+              style={{
+                backgroundColor: rule && isExecutableStatus(rule.status) ? '#f5f7fa' : '#f5f5f5',
+                borderColor: rule && isExecutableStatus(rule.status) ? '#4a90b8' : '#d9d9d9',
+                color: rule && isExecutableStatus(rule.status) ? '#4a90b8' : '#8c8c8c',
+                fontWeight: 500,
+                opacity: rule && isExecutableStatus(rule.status) ? 1 : 0.6
+              }}
+              onMouseEnter={(e) => {
+                if (rule && isExecutableStatus(rule.status)) {
+                  e.target.style.backgroundColor = '#4a90b8';
+                  e.target.style.color = 'white';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (rule && isExecutableStatus(rule.status)) {
+                  e.target.style.backgroundColor = '#f5f7fa';
+                  e.target.style.color = '#4a90b8';
+                }
+              }}
+            >
+              Generate Code {(!rule || !isExecutableStatus(rule.status)) && '(VALID+ Only)'}
+            </Button>
+            <Button
+              icon={<ToolOutlined />}
+              onClick={handleTestCode}
+              disabled={!rule || !isExecutableStatus(rule.status)}
+              loading={loading}
+              size="large"
+              style={{
+                backgroundColor: rule && isExecutableStatus(rule.status) ? '#fff7e6' : '#f5f5f5',
+                borderColor: rule && isExecutableStatus(rule.status) ? '#fa8c16' : '#d9d9d9',
+                color: rule && isExecutableStatus(rule.status) ? '#fa8c16' : '#8c8c8c',
+                fontWeight: 500,
+                opacity: rule && isExecutableStatus(rule.status) ? 1 : 0.6
+              }}
+              onMouseEnter={(e) => {
+                if (rule && isExecutableStatus(rule.status)) {
+                  e.target.style.backgroundColor = '#fa8c16';
+                  e.target.style.color = 'white';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (rule && isExecutableStatus(rule.status)) {
+                  e.target.style.backgroundColor = '#fff7e6';
+                  e.target.style.color = '#fa8c16';
+                }
+              }}
+            >
+              Test Code {(!rule || !isExecutableStatus(rule.status)) && '(VALID+ Only)'}
+            </Button>
+          </Space>
+
+          {/* Utility Buttons */}
+          <Space>
+            <Button
+              icon={<InfoCircleOutlined />}
+              onClick={() => setSchemaViewerVisible(true)}
+              style={{
+                backgroundColor: '#f8f6fa',
+                borderColor: '#8b5d99',
+                color: '#8b5d99',
+                fontWeight: 500
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#8b5d99';
+                e.target.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#f8f6fa';
+                e.target.style.color = '#8b5d99';
+              }}
+            >
+              Schema Reference
+            </Button>
+            <Button
+              icon={<DatabaseOutlined />}
+              onClick={handleSampleData}
+              style={{
+                backgroundColor: '#faf7f2',
+                borderColor: '#b8956a',
+                color: '#b8956a',
+                fontWeight: 500
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#b8956a';
+                e.target.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#faf7f2';
+                e.target.style.color = '#b8956a';
+              }}
+            >
+              Sample Data
+            </Button>
+          </Space>
+        </div>
       </div>
 
       <Row gutter={24}>
@@ -1458,7 +1654,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                           {validation.errors && validation.errors.length > 0 && (
                             <ul style={{ marginTop: 8, marginBottom: 0 }}>
                               {validation.errors.map((error, index) => (
-                                <li key={index}>{error}</li>
+                                <li key={index}>{typeof error === 'string' ? error : error.message || JSON.stringify(error)}</li>
                               ))}
                             </ul>
                           )}
@@ -1502,7 +1698,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
         {/* Rule Editor */}
         <Col span={16}>
-          <Card title="Rule Content" size="small">
+          <Card title={getContentTitle()} size="small">
             <div style={{ height: 600, border: '1px solid #d9d9d9', borderRadius: 6 }}>
               <Editor
                 height="calc(100% - 24px)"
@@ -1573,6 +1769,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         onTest={handleTestWithSampleData}
         currentRuleContent={editorContent}
       />
+
     </div>
   );
 };

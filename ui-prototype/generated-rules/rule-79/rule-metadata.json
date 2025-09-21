@@ -1,0 +1,9 @@
+{
+  "ruleId": 79,
+  "ruleName": "Complex_Risk_Assessment_1758340635_3455",
+  "ruleContent": "rule \"Complex_Risk_Assessment_1758340635_3455\":\nif applicant.creditScore >= 700 and applicant.annualIncome >= 75000 then approve_application\nelse if applicant.creditScore >= 650 and applicant.debtToIncome < 0.4 then manual_review\nelse reject_application",
+  "generatedAt": "2025-09-20T03:57:16.786942Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: Complex_Risk_Assessment_1758340635_3455"
+}

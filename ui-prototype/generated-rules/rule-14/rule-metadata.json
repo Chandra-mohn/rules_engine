@@ -1,0 +1,9 @@
+{
+  "ruleId": "14",
+  "ruleName": "Standard Application Workflow",
+  "ruleContent": "rule \"Standard Application Workflow\":\n    validateApplicantInfo\n    if applicant.creditScore >= 700 then approveApplication, sendWelcomeEmail\n    if applicant.creditScore < 600 then rejectApplication, sendRejectionLetter\n    else conditionalApproval, requestDocumentation\n    updateCustomerRecord",
+  "generatedAt": "2025-09-20T17:42:08.491548Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: Standard Application Workflow"
+}

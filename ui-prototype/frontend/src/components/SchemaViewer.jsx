@@ -71,17 +71,17 @@ const SchemaViewer = ({ visible, onClose, schemaVersion = 'modern' }) => {
                 <Space>
                   <DatabaseOutlined />
                   <strong>{entityName}</strong>
-                  <Text type="secondary">({Object.keys(entityData.properties).length} attributes)</Text>
+                  <Text type="secondary">({Object.keys(entityData.properties || {}).length} attributes)</Text>
                 </Space>
               }
             >
               <Paragraph type="secondary">{entityData.description}</Paragraph>
               
               <List
-                dataSource={Object.entries(entityData.properties).filter(([propName, propData]) =>
+                dataSource={Object.entries(entityData.properties || {}).filter(([propName, propData]) =>
                   !searchTerm || 
                   propName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  propData.description.toLowerCase().includes(searchTerm.toLowerCase())
+                  (propData.description || '').toLowerCase().includes(searchTerm.toLowerCase())
                 )}
                 renderItem={([propName, propData]) => (
                   <List.Item>

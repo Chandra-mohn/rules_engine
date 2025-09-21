@@ -1,0 +1,9 @@
+{
+  "ruleId": 80,
+  "ruleName": "Edge_Case_Handling_1758340635_3455",
+  "ruleContent": "rule \"Edge_Case_Handling_1758340635_3455\":\nif applicant.age is_null then reject_application\nelse if transaction.amount in [100, 200, 500] then approve_application\nelse manual_review",
+  "generatedAt": "2025-09-20T03:57:16.801817Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: Edge_Case_Handling_1758340635_3455"
+}

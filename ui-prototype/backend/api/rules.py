@@ -314,25 +314,75 @@ def generate_production_code():
     """Generate production code artifacts for a rule."""
     try:
         data = request.get_json()
-        
+
         # Validate required fields
         required_fields = ['ruleId', 'ruleName', 'ruleContent', 'packageName']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
-        
+
         # Generate production artifacts
         result = rule_service.generate_production_artifacts(
             rule_id=data['ruleId'],
-            rule_name=data['ruleName'], 
+            rule_name=data['ruleName'],
             rule_content=data['ruleContent'],
-            package_name=data['packageName']
+            package_name=data['packageName'],
+            item_type=data.get('itemType', 'rule')
         )
-        
+
         if result['success']:
             return jsonify(result)
         else:
             return jsonify(result), 500
-            
+
+    except Exception as e:
+        return jsonify({'error': str(e), 'success': False}), 500
+
+@rules_bp.route('/rules/<int:rule_id>/build', methods=['POST'])
+def build_rule_code(rule_id):
+    """Build the generated Java code using Maven."""
+    try:
+        build_result = rule_service.build_rule_code(rule_id)
+
+        if build_result['success']:
+            return jsonify(build_result)
+        else:
+            return jsonify(build_result), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e), 'success': False}), 500
+
+@rules_bp.route('/rules/<int:rule_id>/test', methods=['POST'])
+def test_rule_code(rule_id):
+    """Test the generated and compiled Java code using Maven."""
+    try:
+        data = request.get_json() or {}
+        test_data = data.get('test_data')
+
+        test_result = rule_service.test_rule_code(rule_id, test_data)
+
+        if test_result['success']:
+            return jsonify(test_result)
+        else:
+            return jsonify(test_result), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e), 'success': False}), 500
+
+@rules_bp.route('/rules/<int:rule_id>/execute', methods=['POST'])
+def execute_rule_code(rule_id):
+    """Execute the compiled Java rule with provided input data."""
+    try:
+        data = request.get_json()
+        if not data or 'input_data' not in data:
+            return jsonify({'error': 'Input data is required'}), 400
+
+        execution_result = rule_service.execute_rule_code(rule_id, data['input_data'])
+
+        if execution_result['success']:
+            return jsonify(execution_result)
+        else:
+            return jsonify(execution_result), 500
+
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500

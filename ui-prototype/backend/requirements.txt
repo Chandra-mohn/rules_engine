@@ -6,3 +6,4 @@ python-dotenv==1.0.0
 marshmallow==3.20.1
 marshmallow-sqlalchemy==0.29.0
 requests==2.31.0
+antlr4-python3-runtime==4.13.2

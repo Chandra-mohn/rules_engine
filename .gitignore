@@ -313,3 +313,4 @@ dist
 # Generated code
 backend/src/main/java/com/rules/generated/
 ui-prototype/java-bridge/classes/
+.context_snapshots/

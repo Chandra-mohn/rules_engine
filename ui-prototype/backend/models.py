@@ -126,7 +126,7 @@ class Rule(db.Model):
     validation_message = db.Column(db.Text)  # Keep for validation error messages
     version = db.Column(db.Integer, default=1)
     schema_version = db.Column(db.String(20), default='modern')  # modern, legacy
-    item_type = db.Column(db.String(10), default='rule')  # 'rule' or 'actionset'
+    item_type = db.Column(db.String(15), default='rule')  # 'rule', 'actionset', 'mon_rule', 'non_mon_rule'
     
     # Relationships
     history = db.relationship('RuleHistory', backref='rule', lazy=True, cascade='all, delete-orphan')
@@ -171,6 +171,14 @@ class Rule(db.Model):
     @property
     def is_rule(self):
         return self.item_type == 'rule'
+
+    @property
+    def is_monetary_rule(self):
+        return self.item_type == 'mon_rule'
+
+    @property
+    def is_non_monetary_rule(self):
+        return self.item_type == 'non_mon_rule'
 
 # ActionSet model removed - now unified into Rule model with item_type='actionset'
 

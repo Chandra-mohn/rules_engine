@@ -1,0 +1,9 @@
+{
+  "ruleId": 81,
+  "ruleName": "Credit Actions",
+  "ruleContent": "rule \"Credit Actions\":\napprove_application,\nmanual_review,\nreject_application",
+  "generatedAt": "2025-09-20T04:09:00.295534Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: Credit Actions"
+}

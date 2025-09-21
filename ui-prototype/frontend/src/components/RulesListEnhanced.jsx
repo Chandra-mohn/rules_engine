@@ -55,6 +55,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
   const [selectedTreeKeys, setSelectedTreeKeys] = useState([]);
   const [currentHierarchy, setCurrentHierarchy] = useState(null);
   const [showCacheDebugger, setShowCacheDebugger] = useState(false);
+  const [showSpecialButtons, setShowSpecialButtons] = useState(true);
 
   // Load rules data
   const loadRules = async (page = 1, pageSize = 10, filterParams = {}) => {
@@ -93,18 +94,22 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
     });
   }, []);
 
-  // Keyboard listener for Ctrl+D to toggle cache debugger
+  // Keyboard listeners for Ctrl+D (cache debugger) and Ctrl+M (special buttons)
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (event.ctrlKey && event.key === 'd') {
         event.preventDefault();
         setShowCacheDebugger(prev => !prev);
       }
+      if (event.ctrlKey && event.key === 'm') {
+        event.preventDefault();
+        setShowSpecialButtons(prev => !prev);
+      }
     };
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [showCacheDebugger]);
+  }, [showCacheDebugger, showSpecialButtons]);
 
   // Handle pagination change
   const handleTableChange = (paginationInfo) => {
@@ -328,7 +333,10 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
               display: 'inline-block',
               width: '16px',
               height: '16px',
-              backgroundColor: record.item_type === 'actionset' ? '#1890ff' : '#000',
+              backgroundColor:
+                record.item_type === 'actionset' ? '#1890ff' :
+                record.item_type === 'mon_rule' ? '#faad14' :
+                record.item_type === 'non_mon_rule' ? '#722ed1' : '#000',
               color: 'white',
               fontSize: '10px',
               textAlign: 'center',
@@ -336,7 +344,9 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
               marginRight: '8px',
               fontWeight: 'bold'
             }}>
-              {record.item_type === 'actionset' ? 'A' : 'R'}
+              {record.item_type === 'actionset' ? 'A' :
+               record.item_type === 'mon_rule' ? 'M' :
+               record.item_type === 'non_mon_rule' ? 'N' : 'R'}
             </span>
             {text}
           </div>
@@ -356,11 +366,20 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
       dataIndex: 'item_type',
       key: 'item_type',
       width: 100,
-      render: (type) => (
-        <Tag color={type === 'actionset' ? 'blue' : 'green'}>
-          {type === 'actionset' ? 'ActionSet' : 'Rule'}
-        </Tag>
-      ),
+      render: (type) => {
+        const typeMap = {
+          'rule': { label: 'Rule', color: 'green' },
+          'actionset': { label: 'ActionSet', color: 'blue' },
+          'mon_rule': { label: 'Monetary', color: 'gold' },
+          'non_mon_rule': { label: 'Non-Monetary', color: 'purple' }
+        };
+        const typeInfo = typeMap[type] || { label: 'Unknown', color: 'gray' };
+        return (
+          <Tag color={typeInfo.color}>
+            {typeInfo.label}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Status',
@@ -478,19 +497,89 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
             </div>
             <Space>
               <Button
-                type="primary"
                 icon={<PlusOutlined />}
-                onClick={onCreateRule}
+                onClick={() => onCreateRule('rule')}
+                style={{
+                  backgroundColor: '#f5f7fa',
+                  borderColor: '#4a90b8',
+                  color: '#4a90b8',
+                  fontWeight: 500
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#4a90b8';
+                  e.target.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#f5f7fa';
+                  e.target.style.color = '#4a90b8';
+                }}
               >
-                New Rule/ActionSet
+                New Rule
               </Button>
               <Button
-                type="default"
                 icon={<PlusOutlined />}
-                onClick={() => message.info('Not yet implemented')}
+                onClick={() => onCreateRule('actionset')}
+                style={{
+                  backgroundColor: '#f8f6fa',
+                  borderColor: '#8b5d99',
+                  color: '#8b5d99',
+                  fontWeight: 500
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#8b5d99';
+                  e.target.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#f8f6fa';
+                  e.target.style.color = '#8b5d99';
+                }}
               >
-                + New Non-Mon
+                New ActionSet
               </Button>
+              {showSpecialButtons && (
+                <>
+                  <Button
+                    icon={<PlusOutlined />}
+                    onClick={() => onCreateRule('non_mon_rule')}
+                    style={{
+                      backgroundColor: '#faf7f2',
+                      borderColor: '#b8956a',
+                      color: '#b8956a',
+                      fontWeight: 500
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#b8956a';
+                      e.target.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#faf7f2';
+                      e.target.style.color = '#b8956a';
+                    }}
+                  >
+                    New Non-Monetary
+                  </Button>
+                  <Button
+                    icon={<PlusOutlined />}
+                    onClick={() => onCreateRule('mon_rule')}
+                    style={{
+                      backgroundColor: '#f2f8f5',
+                      borderColor: '#5a8a6b',
+                      color: '#5a8a6b',
+                      fontWeight: 500
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#5a8a6b';
+                      e.target.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#f2f8f5';
+                      e.target.style.color = '#5a8a6b';
+                    }}
+                  >
+                    New Monetary
+                  </Button>
+                </>
+              )}
             </Space>
           </div>
 
