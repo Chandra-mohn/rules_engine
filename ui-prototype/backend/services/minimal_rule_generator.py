@@ -45,7 +45,7 @@ class MinimalRuleGenerator:
     - RouterRegistry for client initialization
 
     NOT generated (hard-coded):
-    - UniversalTransactionRouter
+    - TransactionRouter
     - TransactionContext
     - PerformanceMetrics
     - Caching infrastructure
@@ -111,7 +111,7 @@ class MinimalRuleGenerator:
 
         return f"""package {package_name}.executors;
 
-import com.rules.engine.core.*;
+import com.rules.orchestration.core.*;
 
 /**
  * HOT PATH EXECUTOR - Fully inlined for maximum performance
@@ -141,7 +141,7 @@ public final class {executor_class} implements RuleExecutor {{
 
         return f"""package {package_name}.executors;
 
-import com.rules.engine.core.*;
+import com.rules.orchestration.core.*;
 
 /**
  * COLD PATH EXECUTOR - Method-based execution for complex rules
@@ -182,7 +182,7 @@ public final class {executor_class} implements RuleExecutor {{
 
         return f"""package {package_name};
 
-import com.rules.engine.core.*;
+import com.rules.orchestration.core.*;
 import {package_name}.executors.*;
 import java.util.Map;
 import java.util.Set;
@@ -241,7 +241,7 @@ public final class {client_class} implements ClientRuleMap {{
 
         return f"""package {package_name};
 
-import com.rules.engine.core.UniversalTransactionRouter;
+import com.rules.orchestration.core.TransactionRouter;
 
 /**
  * Router registry for {client_rules.client_id}
@@ -257,7 +257,7 @@ public final class RouterRegistry {{
         {client_class} clientRouter = new {client_class}();
 
         // Register with universal router
-        UniversalTransactionRouter.registerClient("{client_rules.client_id}", clientRouter);
+        TransactionRouter.registerClient("{client_rules.client_id}", clientRouter);
 
         // Perform JIT warmup
         clientRouter.warmUp();

@@ -21,13 +21,13 @@ class PerformanceFoundationGenerator:
     """
 
     def __init__(self):
-        self.foundation_package = "com.rules.engine.core"
+        self.foundation_package = "com.rules.orchestration.core"
 
     def generate_complete_foundation(self) -> Dict[str, str]:
         """Generate all hard-coded foundation classes."""
         return {
             # Core routing infrastructure
-            f"{self.foundation_package.replace('.', '/')}/UniversalTransactionRouter.java": self._universal_router(),
+            f"{self.foundation_package.replace('.', '/')}/TransactionRouter.java": self._universal_router(),
             f"{self.foundation_package.replace('.', '/')}/ClientRuleMap.java": self._client_rule_map_interface(),
             f"{self.foundation_package.replace('.', '/')}/RuleExecutor.java": self._rule_executor_interface(),
 
@@ -62,7 +62,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * This class NEVER changes - all customization happens in generated ClientRuleMap implementations
  */
-public final class UniversalTransactionRouter {{
+public final class TransactionRouter {{
 
     // Registry of client-specific rule maps (populated at startup)
     private static final Map<String, ClientRuleMap> CLIENT_ROUTERS = new ConcurrentHashMap<>(256);

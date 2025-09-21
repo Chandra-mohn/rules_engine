@@ -47,7 +47,13 @@ class HybridRulesIntegrator:
     - O(1) routing with zero reflection at runtime
     """
 
-    def __init__(self, output_dir: str = "/tmp/hybrid-rules-system"):
+    def __init__(self, output_dir: str = None):
+        # Default to project-relative path for git-committable code
+        if output_dir is None:
+            # Get project root (4 levels up from this file)
+            project_root = Path(__file__).parent.parent.parent
+            output_dir = project_root / "orchestration"
+
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
