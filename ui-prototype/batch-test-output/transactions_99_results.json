@@ -1,0 +1,7 @@
+[
+  {"transactionId":"txn-001","clientId":"CLIENT_001","executionTime":0.0045,"status":"UNKNOWN_CLIENT","transactionCode":"APPLICATION","result":"Unknown client: CLIENT_001","timestamp":1758478850511},
+  {"transactionId":"txn-002","clientId":"CLIENT_002","executionTime":0.005541,"status":"UNKNOWN_CLIENT","transactionCode":"APPLICATION","result":"Unknown client: CLIENT_002","timestamp":1758478850511},
+  {"transactionId":"txn-003","clientId":"CLIENT_001","executionTime":0.003959,"status":"UNKNOWN_CLIENT","transactionCode":"TRANSACTION","result":"Unknown client: CLIENT_001","timestamp":1758478850511},
+  {"transactionId":"txn-004","clientId":"CLIENT_003","executionTime":0.003083,"status":"UNKNOWN_CLIENT","transactionCode":"APPLICATION","result":"Unknown client: CLIENT_003","timestamp":1758478850511},
+  {"transactionId":"txn-005","clientId":"CLIENT_002","executionTime":0.006708,"status":"UNKNOWN_CLIENT","transactionCode":"TRANSACTION","result":"Unknown client: CLIENT_002","timestamp":1758478850512}
+]
