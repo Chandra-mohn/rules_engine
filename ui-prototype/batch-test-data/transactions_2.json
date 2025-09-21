@@ -1,5 +1,0 @@
-{"transactionId": "txn-001", "clientId": "CLIENT_001", "transactionCode": "APPLICATION", "creditScore": 750, "income": 85000, "amount": 15000}
-{"transactionId": "txn-002", "clientId": "CLIENT_002", "transactionCode": "APPLICATION", "creditScore": 680, "income": 65000, "amount": 12000}
-{"transactionId": "txn-003", "clientId": "CLIENT_001", "transactionCode": "TRANSACTION", "creditScore": 750, "income": 85000, "amount": 500}
-{"transactionId": "txn-004", "clientId": "CLIENT_003", "transactionCode": "APPLICATION", "creditScore": 620, "income": 45000, "amount": 8000}
-{"transactionId": "txn-005", "clientId": "CLIENT_002", "transactionCode": "TRANSACTION", "creditScore": 680, "income": 65000, "amount": 2500}
