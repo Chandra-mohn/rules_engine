@@ -302,7 +302,6 @@ dist
 .pnp.*
 
 # Database files
-*.db
 *.sqlite
 *.sqlite3
 
