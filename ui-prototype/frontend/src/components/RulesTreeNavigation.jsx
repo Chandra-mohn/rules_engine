@@ -290,8 +290,8 @@ const RulesTreeNavigation = ({ onNodeSelect, selectedKeys = [], onBreadcrumbClic
   }
 
   return (
-    <Card 
-      size="small" 
+    <Card
+      size="small"
       title={
         <Space>
           <AppstoreOutlined />
@@ -299,7 +299,7 @@ const RulesTreeNavigation = ({ onNodeSelect, selectedKeys = [], onBreadcrumbClic
         </Space>
       }
       style={{ height: '100%' }}
-      bodyStyle={{ padding: 12, height: 'calc(100vh - 120px)', overflowY: 'auto' }}
+      styles={{ body: { padding: 12, height: 'calc(100vh - 120px)', overflowY: 'auto' } }}
     >
       {/* Search */}
       <Search

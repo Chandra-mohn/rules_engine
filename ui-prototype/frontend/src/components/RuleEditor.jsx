@@ -46,6 +46,8 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const [selectedSchema, setSelectedSchema] = useState('modern');
   const [parsedRuleName, setParsedRuleName] = useState('');
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const [processAreas, setProcessAreas] = useState([]);
+  const [loadingProcessAreas, setLoadingProcessAreas] = useState(false);
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
 
@@ -75,12 +77,27 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     return ['VALID', 'PEND', 'SCHD', 'PROD'].includes(status);
   };
 
+  // Load process areas for the dropdown
+  const loadProcessAreas = async () => {
+    setLoadingProcessAreas(true);
+    try {
+      const response = await rulesApi.getAllProcessAreas();
+      setProcessAreas(response.data.process_areas || []);
+    } catch (error) {
+      console.error('Failed to load process areas:', error);
+      message.error('Failed to load process areas');
+    } finally {
+      setLoadingProcessAreas(false);
+    }
+  };
+
   // Initialize form and editor
   useEffect(() => {
     if (rule) {
       form.setFieldsValue({
         description: rule.description,
         status: rule.status,
+        process_area_id: rule.process_area_id,
       });
       setEditorContent(rule.content);
       setValidation({
@@ -97,6 +114,11 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       setEditorContent('rule newRule:\n    if condition then action');
     }
   }, [rule, form]);
+
+  // Load process areas on component mount
+  useEffect(() => {
+    loadProcessAreas();
+  }, []);
 
   // Handle Monaco editor mount
   const handleEditorDidMount = (editor, monaco) => {
@@ -1394,6 +1416,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         name: parsedRuleName, // Use parsed name instead of form field
         content: editorContent,
         schema_version: selectedSchema,
+        process_area_id: values.process_area_id,
       };
 
       // Only include status if it was explicitly set by user (different from initial rule status)
@@ -1405,13 +1428,13 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       }
 
       let savedRule;
-      if (rule) {
-        // Update existing rule
+      if (rule && rule.id) {
+        // Update existing rule (must have valid ID)
         const response = await rulesApi.updateRule(rule.id, ruleData);
         savedRule = response.data;
         message.success('Rule updated successfully');
       } else {
-        // Create new rule
+        // Create new rule (no rule or no valid ID)
         const response = await rulesApi.createRule(ruleData);
         savedRule = response.data;
         message.success('Rule created successfully');
@@ -1499,7 +1522,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                 justifyContent: 'center'
               }}
             >
-              {rule ? 'Update Rule' : 'Save Rule'}
+              {rule && rule.id ? 'Update Rule' : 'Save Rule'}
             </Button>
             <Button
               icon={<CheckCircleOutlined />}
@@ -1684,6 +1707,27 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                   rows={3}
                   placeholder="Enter rule description"
                 />
+              </Form.Item>
+
+              <Form.Item
+                name="process_area_id"
+                label="Process Area"
+                rules={[{ required: true, message: 'Please select a process area' }]}
+              >
+                <Select
+                  placeholder="Select a process area"
+                  loading={loadingProcessAreas}
+                  showSearch
+                  filterOption={(input, option) =>
+                    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                  }
+                >
+                  {processAreas.map(area => (
+                    <Option key={area.id} value={area.id}>
+                      {area.name}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
 
               <Form.Item name="status" label="Status">
