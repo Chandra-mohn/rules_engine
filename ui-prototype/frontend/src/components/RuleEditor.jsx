@@ -1459,7 +1459,19 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       {/* Header */}
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Button icon={<ArrowLeftOutlined />} onClick={onBack}>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={onBack}
+            className="action-button action-button-back"
+            style={{
+              height: '40px',
+              minWidth: '120px',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
             Back to Rules
           </Button>
           <h2>{rule ? `Edit Rule: ${parsedRuleName || rule.name}` : 'Create New Rule'}</h2>
@@ -1471,12 +1483,18 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               icon={<CheckCircleOutlined />}
               onClick={handleValidate}
               loading={validating}
-              size="large"
+              className="action-button action-button-validate"
               style={{
+                height: '40px',
+                minWidth: '120px',
                 backgroundColor: '#f6ffed',
                 borderColor: '#52c41a',
                 color: '#52c41a',
-                fontWeight: 500
+                fontWeight: 500,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
               onMouseEnter={(e) => {
                 e.target.style.backgroundColor = '#52c41a';
@@ -1494,12 +1512,18 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               onClick={handleGenerateProductionCode}
               disabled={!rule || !isExecutableStatus(rule.status)}
               loading={loading}
-              size="large"
+              className="action-button action-button-generate"
               style={{
+                height: '40px',
+                minWidth: '180px',
                 backgroundColor: rule && isExecutableStatus(rule.status) ? '#f5f7fa' : '#f5f5f5',
                 borderColor: rule && isExecutableStatus(rule.status) ? '#4a90b8' : '#d9d9d9',
                 color: rule && isExecutableStatus(rule.status) ? '#4a90b8' : '#8c8c8c',
                 fontWeight: 500,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 opacity: rule && isExecutableStatus(rule.status) ? 1 : 0.6
               }}
               onMouseEnter={(e) => {
@@ -1522,12 +1546,18 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               onClick={handleTestCode}
               disabled={!rule || !isExecutableStatus(rule.status)}
               loading={loading}
-              size="large"
+              className="action-button action-button-test"
               style={{
+                height: '40px',
+                minWidth: '160px',
                 backgroundColor: rule && isExecutableStatus(rule.status) ? '#fff7e6' : '#f5f5f5',
                 borderColor: rule && isExecutableStatus(rule.status) ? '#fa8c16' : '#d9d9d9',
                 color: rule && isExecutableStatus(rule.status) ? '#fa8c16' : '#8c8c8c',
                 fontWeight: 500,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 opacity: rule && isExecutableStatus(rule.status) ? 1 : 0.6
               }}
               onMouseEnter={(e) => {
@@ -1552,11 +1582,18 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             <Button
               icon={<InfoCircleOutlined />}
               onClick={() => setSchemaViewerVisible(true)}
+              className="action-button action-button-schema"
               style={{
+                height: '40px',
+                minWidth: '140px',
                 backgroundColor: '#f8f6fa',
                 borderColor: '#8b5d99',
                 color: '#8b5d99',
-                fontWeight: 500
+                fontWeight: 500,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
               onMouseEnter={(e) => {
                 e.target.style.backgroundColor = '#8b5d99';
@@ -1572,19 +1609,26 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             <Button
               icon={<DatabaseOutlined />}
               onClick={handleSampleData}
+              className="action-button action-button-sample"
               style={{
+                height: '40px',
+                minWidth: '120px',
                 backgroundColor: '#faf7f2',
-                borderColor: '#b8956a',
-                color: '#b8956a',
-                fontWeight: 500
+                borderColor: '#a67c5a',
+                color: '#8b6f47',
+                fontWeight: 500,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
               onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#b8956a';
+                e.target.style.backgroundColor = '#a67c5a';
                 e.target.style.color = 'white';
               }}
               onMouseLeave={(e) => {
                 e.target.style.backgroundColor = '#faf7f2';
-                e.target.style.color = '#b8956a';
+                e.target.style.color = '#8b6f47';
               }}
             >
               Sample Data

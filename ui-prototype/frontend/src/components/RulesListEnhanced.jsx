@@ -499,11 +499,18 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
               <Button
                 icon={<PlusOutlined />}
                 onClick={() => onCreateRule('rule')}
+                className="action-button action-button-rule"
                 style={{
+                  height: '36px',
+                  minWidth: '140px',
                   backgroundColor: '#f5f7fa',
                   borderColor: '#4a90b8',
                   color: '#4a90b8',
-                  fontWeight: 500
+                  fontWeight: 500,
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
                 onMouseEnter={(e) => {
                   e.target.style.backgroundColor = '#4a90b8';
@@ -519,11 +526,18 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
               <Button
                 icon={<PlusOutlined />}
                 onClick={() => onCreateRule('actionset')}
+                className="action-button action-button-actionset"
                 style={{
+                  height: '36px',
+                  minWidth: '140px',
                   backgroundColor: '#f8f6fa',
                   borderColor: '#8b5d99',
                   color: '#8b5d99',
-                  fontWeight: 500
+                  fontWeight: 500,
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
                 onMouseEnter={(e) => {
                   e.target.style.backgroundColor = '#8b5d99';
@@ -541,19 +555,26 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
                   <Button
                     icon={<PlusOutlined />}
                     onClick={() => onCreateRule('non_mon_rule')}
+                    className="action-button action-button-non-monetary"
                     style={{
+                      height: '36px',
+                      minWidth: '140px',
                       backgroundColor: '#faf7f2',
-                      borderColor: '#b8956a',
-                      color: '#b8956a',
-                      fontWeight: 500
+                      borderColor: '#a67c5a',
+                      color: '#8b6f47',
+                      fontWeight: 500,
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#b8956a';
+                      e.target.style.backgroundColor = '#a67c5a';
                       e.target.style.color = 'white';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = '#faf7f2';
-                      e.target.style.color = '#b8956a';
+                      e.target.style.color = '#8b6f47';
                     }}
                   >
                     New Non-Monetary
@@ -561,11 +582,18 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
                   <Button
                     icon={<PlusOutlined />}
                     onClick={() => onCreateRule('mon_rule')}
+                    className="action-button action-button-monetary"
                     style={{
+                      height: '36px',
+                      minWidth: '140px',
                       backgroundColor: '#f2f8f5',
                       borderColor: '#5a8a6b',
                       color: '#5a8a6b',
-                      fontWeight: 500
+                      fontWeight: 500,
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.backgroundColor = '#5a8a6b';
