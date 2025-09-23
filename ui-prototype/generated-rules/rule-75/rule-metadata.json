@@ -1,0 +1,9 @@
+{
+  "ruleId": 75,
+  "ruleName": "Credit Score Check",
+  "ruleContent": "rule \"Credit Score Check\":\nif applicant.creditScore >= 750 then approve_application",
+  "generatedAt": "2025-09-23T15:54:52.683875Z",
+  "deploymentType": "library",
+  "version": "1.0.0",
+  "description": "Production library JAR for rule: Credit Score Check"
+}
