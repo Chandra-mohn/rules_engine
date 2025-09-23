@@ -23,6 +23,7 @@ import {
   ToolOutlined,
   InfoCircleOutlined,
   DatabaseOutlined,
+  SaveOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import { rulesApi } from '../services/api';
@@ -1479,6 +1480,27 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
           {/* Main Workflow Buttons */}
           <Space size="large">
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              onClick={handleSave}
+              loading={loading}
+              className="action-button action-button-save"
+              style={{
+                height: '40px',
+                minWidth: '120px',
+                backgroundColor: '#1890ff',
+                borderColor: '#1890ff',
+                color: 'white',
+                fontWeight: 500,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {rule ? 'Update Rule' : 'Save Rule'}
+            </Button>
             <Button
               icon={<CheckCircleOutlined />}
               onClick={handleValidate}
