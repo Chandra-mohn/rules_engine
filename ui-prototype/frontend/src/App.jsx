@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { Layout } from 'antd';
 import RulesListEnhanced from './components/RulesListEnhanced';
 import RuleEditor from './components/RuleEditor';
+import GapAnalysis from './components/GapAnalysis';
 import './App.css';
 
 const { Header, Content } = Layout;
 
 function App() {
-  const [currentView, setCurrentView] = useState('list'); // 'list' or 'editor'
+  const [currentView, setCurrentView] = useState('list'); // 'list', 'editor', or 'gap-analysis'
   const [selectedRule, setSelectedRule] = useState(null);
 
   // Handle create new rule
@@ -28,12 +29,17 @@ function App() {
     setCurrentView('list');
   };
 
+  // Handle gap analysis
+  const handleGapAnalysis = () => {
+    setCurrentView('gap-analysis');
+  };
+
   // Handle save rule
   const handleSaveRule = (savedRule) => {
     // Optionally stay in editor or go back to list
     // For now, let's stay in editor to show the updated rule
     setSelectedRule(savedRule);
-    
+
     // Could also go back to list:
     // handleBackToList();
   };
@@ -53,7 +59,10 @@ function App() {
             <RulesListEnhanced
               onCreateRule={handleCreateRule}
               onEditRule={handleEditRule}
+              onGapAnalysis={handleGapAnalysis}
             />
+          ) : currentView === 'gap-analysis' ? (
+            <GapAnalysis onBack={handleBackToList} />
           ) : (
             <RuleEditor
               rule={selectedRule}

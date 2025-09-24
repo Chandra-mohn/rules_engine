@@ -23,6 +23,8 @@ api.interceptors.request.use(
   (config) => {
     // Add user ID header (in a real app, this would come from authentication)
     config.headers['X-User-ID'] = 'demo-user';
+
+
     return config;
   },
   (error) => {

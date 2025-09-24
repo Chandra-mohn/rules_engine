@@ -2,11 +2,13 @@ from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
 from models import Rule, RuleSchema, db, ProcessArea
 from services.rule_service import RuleService
+from services.gap_analysis_service import GapAnalysisService
 from config import Config
 import math
 
 rules_bp = Blueprint('rules', __name__)
 rule_service = RuleService()
+gap_analysis_service = GapAnalysisService()
 rule_schema = RuleSchema()
 rules_schema = RuleSchema(many=True)
 
@@ -23,7 +25,7 @@ def get_rules():
         client_id = request.args.get('client_id', type=int)
         process_group_id = request.args.get('process_group_id', type=int)
         process_area_id = request.args.get('process_area_id', type=int)
-        item_type = request.args.get('item_type')  # 'rule', 'actionset', 'action', or None for both rules and actionsets
+        item_type = request.args.get('item_type')  # 'rule', 'actionset', 'action', or None for all types
 
         # Get rules from service with new filters including item_type
         rules, total = rule_service.get_rules(
@@ -36,7 +38,7 @@ def get_rules():
         # Calculate pagination info
         pages = math.ceil(total / limit) if total > 0 else 1
         
-        # Always use 'rules' key for consistency (rules and ActionSets are both rule items)
+        # Always use 'rules' key for consistency across all item types
         return jsonify({
             'rules': [rule.to_dict() for rule in rules],
             'total': total,
@@ -386,3 +388,34 @@ def execute_rule_code(rule_id):
 
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500
+
+@rules_bp.route('/rules/gap-analysis', methods=['GET'])
+def get_gap_analysis():
+    """Generate comprehensive gap analysis report with pagination and filtering."""
+    try:
+        # Parse query parameters
+        page = request.args.get('page', 1, type=int)
+        limit = min(request.args.get('limit', 20, type=int), 100)  # Max 100 items per page
+        filters = request.args.getlist('filter')  # Multiple filters supported
+
+        # Generate gap analysis
+        analysis_result = gap_analysis_service.generate_gap_analysis(
+            page=page,
+            limit=limit,
+            filters=filters
+        )
+
+        if analysis_result['success']:
+            return jsonify(analysis_result)
+        else:
+            return jsonify(analysis_result), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'aggregates': {},
+            'results': [],
+            'pagination': {},
+            'applied_filters': []
+        }), 500

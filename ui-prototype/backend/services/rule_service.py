@@ -60,7 +60,7 @@ class RuleService:
             client_id: Filter by client (optional)
             process_group_id: Filter by process group (optional)
             process_area_id: Filter by process area (optional)
-            item_type: Filter by item type - 'rule', 'actionset', 'action', or None for rules+actionsets (default: None)
+            item_type: Filter by item type - 'rule', 'actionset', 'action', or None for all types (default: None)
 
         Returns:
             Tuple of (rules_list, total_count)
@@ -471,14 +471,14 @@ class RuleService:
             # Extract actions from rule content
             actions = self._extract_actions_from_rule(content)
 
-            # Get known actions and ActionSets from rules table
+            # Get known actions and actionsets from rules table
             known_items = self._get_known_actions_and_actionsets()
 
             # Validate each action
             errors = []
             for action in actions:
                 if action not in known_items:
-                    errors.append(f"Unknown action/ActionSet: '{action}'. Available items: {', '.join(sorted(known_items.keys()))}")
+                    errors.append(f"Unknown action/actionset: '{action}'. Available items: {', '.join(sorted(known_items.keys()))}")
 
             return {
                 'valid': len(errors) == 0,
@@ -542,7 +542,7 @@ class RuleService:
         return action_text
 
     def _get_known_actions_and_actionsets(self) -> Dict[str, str]:
-        """Get all known actions and ActionSets from rules table.
+        """Get all known actions and actionsets from rules table.
 
         Returns empty dict if database is unavailable - this will cause
         validation warnings which is the correct behavior when actions
@@ -1440,7 +1440,7 @@ public class GeneratedRule implements Rule {{
                 Rule.item_type == 'action'
             ).all()
 
-            # Also get ActionSets which can be called as actions
+            # Also get actionsets which can be called as actions
             actionsets = db.session.query(Rule.name).filter(
                 Rule.item_type == 'actionset'
             ).all()
@@ -2000,14 +2000,14 @@ public class {class_name} {{
 
     def _generate_actionset_template(self, package_name: str, class_name: str, java_code: str,
                                    rule_name: str, rule_content: str) -> str:
-        """Generate ActionSet template with sequential action execution."""
+        """Generate actionset template with sequential action execution."""
         return f'''package {package_name};
 
 import java.util.*;
 import java.time.LocalDateTime;
 
 /**
- * ActionSet: {rule_name}
+ * Actionset: {rule_name}
  * Sequential action execution with shared context
  * Generated at {datetime.now()}
  */

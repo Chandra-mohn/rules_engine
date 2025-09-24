@@ -76,7 +76,6 @@ class ProcessArea(db.Model):
     
     # Relationships
     rules = db.relationship('Rule', backref='process_area', lazy=True, cascade='all, delete-orphan')
-    # Note: actionsets relationship removed - they're now stored in rules table with item_type='actionset'
     
     # Unique constraint
     __table_args__ = (db.UniqueConstraint('process_group_id', 'code', name='uq_process_group_area'),)
@@ -121,8 +120,7 @@ class Rule(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.String(50), default='system')
     updated_by = db.Column(db.String(50), default='system')
-    # Note: validation_status column exists in DB but is not exposed in model
-    # It has been consolidated into the status field for the application
+    # validation_status column exists in DB but consolidated into status field
     validation_message = db.Column(db.Text)  # Keep for validation error messages
     version = db.Column(db.Integer, default=1)
     schema_version = db.Column(db.String(20), default='modern')  # modern, legacy
@@ -148,7 +146,6 @@ class Rule(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': self.created_by,
             'updated_by': self.updated_by,
-            # 'validation_status': removed - consolidated into status field,
             'validation_message': self.validation_message,
             'version': self.version,
             'schema_version': self.schema_version,
@@ -180,7 +177,6 @@ class Rule(db.Model):
     def is_non_monetary_rule(self):
         return self.item_type == 'non_mon_rule'
 
-# ActionSet model removed - now unified into Rule model with item_type='actionset'
 
 class RuleHistory(db.Model):
     __tablename__ = 'rule_history'
@@ -195,7 +191,6 @@ class RuleHistory(db.Model):
     created_by = db.Column(db.String(50), default='system')
     change_reason = db.Column(db.Text)
 
-# ActionSetHistory model removed - now using unified RuleHistory for both rules and actionsets
 
 class RuleList(db.Model):
     __tablename__ = 'rule_lists'
@@ -271,7 +266,6 @@ class RuleHistorySchema(SQLAlchemyAutoSchema):
 
     created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
 
-# ActionSet schemas removed - now using unified Rule schema for both rules and actionsets
 
 # Schema Management Tables
 class SchemaEntity(db.Model):

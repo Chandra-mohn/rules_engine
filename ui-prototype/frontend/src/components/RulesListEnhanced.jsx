@@ -24,6 +24,7 @@ import {
   HistoryOutlined,
   ThunderboltOutlined,
   ArrowUpOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { rulesApi } from '../services/api';
 import SchemaSelector from './SchemaSelector';
@@ -35,7 +36,7 @@ const { Search } = Input;
 const { Option } = Select;
 const { Title } = Typography;
 
-const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
+const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -608,6 +609,33 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule }) => {
                   </Button>
                 </>
               )}
+              <Button
+                icon={<BarChartOutlined />}
+                onClick={onGapAnalysis}
+                className="action-button gap-analysis-button"
+                style={{
+                  height: '36px',
+                  minWidth: '140px',
+                  backgroundColor: '#fff7e6',
+                  borderColor: '#d48806',
+                  color: '#d48806',
+                  fontWeight: 500,
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#d48806';
+                  e.target.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#fff7e6';
+                  e.target.style.color = '#d48806';
+                }}
+              >
+                Gap Analysis
+              </Button>
             </Space>
           </div>
 

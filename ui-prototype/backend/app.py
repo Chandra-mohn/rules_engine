@@ -23,7 +23,6 @@ def create_app():
     app.register_blueprint(lists_bp, url_prefix='/api')
     app.register_blueprint(hierarchy_bp, url_prefix='/api')
 
-    # ActionSets are now unified into rules API - no separate endpoint needed
     
     # Create database tables
     with app.app_context():
@@ -208,10 +207,9 @@ def create_app():
             
             db.session.commit()
 
-        # Create sample ActionSets as Rules with item_type='actionset'
+        # Create sample rules with item_type='actionset'
         actionset_count = Rule.query.filter_by(item_type='actionset').count()
         if actionset_count == 0:
-            # Create credit card-focused ActionSets as Rules with item_type='actionset'
             sample_actionsets = [
                 # Demo Bank - Standard Card Application Approval ActionSets
                 Rule(
@@ -280,7 +278,7 @@ def create_app():
                 db.session.add(actionset_rule)
 
             db.session.commit()
-            print(f"✅ Created {len(sample_actionsets)} sample ActionSets as Rules")
+            print(f"✅ Created {len(sample_actionsets)} sample rules with item_type='actionset'")
 
         # Create sample Monetary and Non-Monetary rules
         monetary_rules_count = Rule.query.filter_by(item_type='mon_rule').count()
