@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 from grammar_parser import RulesEngineParser, RuleValidator
-from grammar_parser.unified_java_generator import UnifiedJavaCodeGenerator
+from grammar_parser.advanced_java_generator import AdvancedJavaCodeGenerator
 
 
 class PythonRulesEngine:
@@ -23,7 +23,7 @@ class PythonRulesEngine:
 
     def __init__(self):
         self.parser = RulesEngineParser()
-        self.code_generator = UnifiedJavaCodeGenerator(mode='auto')
+        self.code_generator = AdvancedJavaCodeGenerator()
         self.validator = RuleValidator()
 
         # Cache for compiled rules

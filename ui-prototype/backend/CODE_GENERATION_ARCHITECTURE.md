@@ -203,15 +203,12 @@ public class CreditScoreCheckRule {
 
 ## Detailed Component Analysis
 
-### 1. Unified Generator Architecture
+### 1. Direct Generator Architecture
 
-The system uses a unified architecture that consolidates previously separate simple and advanced generators:
+The system uses a direct architecture with the AdvancedJavaCodeGenerator as the single implementation:
 
 ```
-UnifiedJavaCodeGenerator (Facade)
-           │
-           ▼
-AdvancedJavaCodeGenerator (Implementation)
+AdvancedJavaCodeGenerator (Direct Implementation)
            │
            ├── PerformanceAnalyzer
            ├── CodeGenStrategy
@@ -219,10 +216,10 @@ AdvancedJavaCodeGenerator (Implementation)
 ```
 
 **Key Features:**
-- **Single Source of Truth**: All generation goes through AdvancedJavaCodeGenerator
-- **Backward Compatibility**: Maintains existing API contracts
-- **Performance Optimization**: Auto-selects best generation strategy
-- **Mode Selection**: Auto/Simple/Advanced modes for different use cases
+- **Single Source of Truth**: AdvancedJavaCodeGenerator handles all generation
+- **Direct Usage**: No facade layers, optimal performance
+- **Performance Optimization**: Built-in complexity analysis and strategy selection
+- **ANTLR Integration**: Full DSL parsing and code generation pipeline
 
 ### 2. ANTLR Integration
 
