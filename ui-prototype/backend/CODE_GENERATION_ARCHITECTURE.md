@@ -24,10 +24,13 @@ The Rules Engine implements a sophisticated multi-tier code generation system th
                     HTTP/REST API ──────────┐
                                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CODE GENERATION PIPELINE                      │
+│                  STREAMLINED GENERATION PIPELINE               │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  DSL Input ──► Parse ──► Validate ──► Generate ──► Compile     │
+│  DSL Input ──► ANTLR Parse ──► Analyze ──► Generate ──► Compile│
+│                     │             │           │                 │
+│                     ▼             ▼           ▼                 │
+│              AdvancedJavaCodeGenerator (Direct)                 │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -111,38 +114,38 @@ rule "Credit Score Check":
 - **Warm Path** (Score 4-7): Moderate complexity, some nesting
 - **Cold Path** (Score 8-10): Complex logic, heavy computation
 
-### Phase 3: Java Code Generation
+### Phase 3: Direct Code Generation
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  PHASE 3: CODE GENERATION                      │
+│                     PHASE 3: DIRECT GENERATION                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  Optimization            Code                   Java            │
-│  Strategy               Generator               Output          │
+│  Performance            AdvancedJavaCodeGenerator     Java      │
+│  Analysis                    (Direct)                Output     │
 │  ┌───────────┐          ┌─────────────┐        ┌─────────────┐  │
-│  │ Hot/Warm  │          │ Template    │        │ Optimized   │  │
-│  │ Cold      │ ──────►  │ Engine      │ ────►  │ Java Class  │  │
-│  │           │          │             │        │             │  │
-│  │ - Direct  │          │ - Visitor   │        │ - Methods   │  │
-│  │ - Cache   │          │ - Pattern   │        │ - Logic     │  │
-│  │ - Batch   │          │ - Templates │        │ - Imports   │  │
+│  │ Hot Path  │          │ ANTLR       │        │ Optimized   │  │
+│  │ Warm Path │ ──────►  │ Visitor     │ ────►  │ Java Class  │  │
+│  │ Cold Path │          │ Templates   │        │             │  │
+│  │           │          │             │        │ - Efficient │  │
+│  │ - Score   │          │ - Parse     │        │ - Readable  │  │
+│  │ - Hints   │          │ - Generate  │        │ - Typed     │  │
 │  └───────────┘          └─────────────┘        └─────────────┘  │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Components Involved:**
+**Current Implementation:**
 
-1. **UnifiedJavaCodeGenerator** (`unified_java_generator.py:11-17`)
-   - Facade providing backward compatibility
-   - Mode selection (auto/simple/advanced)
-   - Single source of truth architecture
+1. **AdvancedJavaCodeGenerator** (`advanced_java_generator.py`)
+   - Direct ANTLR-based generation with integrated performance analysis
+   - Built-in complexity scoring and hot/warm/cold path optimization
+   - Visitor pattern implementation with template engine
 
-2. **AdvancedJavaCodeGenerator** (`advanced_java_generator.py`)
-   - Core generation engine
-   - ANTLR visitor pattern implementation
-   - Template-based code generation
+2. **PythonRulesEngine** (`services/python_rules_engine.py:15-26`)
+   - Direct instantiation: `self.code_generator = AdvancedJavaCodeGenerator()`
+   - Streamlined orchestration without abstraction layers
+   - Optimized validation and compilation pipeline
 
 **Generated Java Structure:**
 ```java
@@ -203,23 +206,27 @@ public class CreditScoreCheckRule {
 
 ## Detailed Component Analysis
 
-### 1. Direct Generator Architecture
+### 1. Streamlined Generator Architecture
 
-The system uses a direct architecture with the AdvancedJavaCodeGenerator as the single implementation:
+The system uses a direct, streamlined architecture with AdvancedJavaCodeGenerator as the sole implementation:
 
 ```
-AdvancedJavaCodeGenerator (Direct Implementation)
-           │
-           ├── PerformanceAnalyzer
-           ├── CodeGenStrategy
-           └── TemplateEngine
+PythonRulesEngine
+       │
+       ▼
+AdvancedJavaCodeGenerator
+       │
+       ├── PerformanceAnalyzer
+       ├── CodeGenStrategy
+       ├── TemplateEngine
+       └── ANTLR Integration
 ```
 
-**Key Features:**
-- **Single Source of Truth**: AdvancedJavaCodeGenerator handles all generation
-- **Direct Usage**: No facade layers, optimal performance
-- **Performance Optimization**: Built-in complexity analysis and strategy selection
-- **ANTLR Integration**: Full DSL parsing and code generation pipeline
+**Current Architecture Benefits:**
+- **Direct Implementation**: No abstraction layers, optimal performance
+- **Integrated Analysis**: Built-in complexity scoring and optimization
+- **ANTLR Native**: Full DSL parsing with visitor pattern implementation
+- **Performance Optimized**: Hot/warm/cold path categorization
 
 ### 2. ANTLR Integration
 
@@ -390,42 +397,47 @@ The code generation system achieves high performance through several optimizatio
 
 ## Integration Points
 
-The code generation system integrates with multiple system components:
+The current streamlined code generation system integrates efficiently across components:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    INTEGRATION MAP                          │
+│                    CURRENT INTEGRATION                     │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Frontend ◄─────► Backend ◄─────► Code Generator           │
-│     │                 │               │                    │
-│     │                 │               ▼                    │
-│     │                 │         Java Runtime               │
-│     │                 │               │                    │
-│     │                 │               ▼                    │
-│     │                 └─────► Database Storage              │
-│     │                               │                      │
-│     │                               ▼                      │
-│     └─────────────────────► Generated Rules                │
+│  Frontend ◄─────► Backend ◄─────► AdvancedJavaCodeGenerator │
+│     │                 │                    │                │
+│     │                 │                    ▼                │
+│     │                 │              Java Compilation      │
+│     │                 │                    │                │
+│     │                 │                    ▼                │
+│     │                 └─────► Database ◄── Generated Rules  │
+│     │                                                        │
+│     └─────────────────────► Rule Execution Results         │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**API Endpoints:**
-- `POST /api/rules/validate`: Rule validation
-- `POST /api/rules/compile`: Rule compilation
-- `POST /api/rules/test`: Rule execution testing
-- `GET /api/rules`: Rule retrieval
+**Current API Integration:**
+- `POST /api/rules/validate`: Direct ANTLR validation via AdvancedJavaCodeGenerator
+- `POST /api/rules/compile`: Streamlined compilation pipeline
+- `POST /api/rules/test`: Optimized rule execution testing
+- `GET /api/rules`: Efficient rule retrieval and metadata
 
-## Future Enhancements
+## Current Capabilities & Roadmap
 
-The architecture is designed for extensibility:
+The streamlined architecture provides:
 
-1. **Grammar Extensions**: Easy addition of new DSL constructs
-2. **Optimization Strategies**: Additional performance optimization patterns
-3. **Target Languages**: Support for generating code in multiple languages
-4. **Advanced Analytics**: Enhanced performance profiling and optimization
-5. **Distributed Compilation**: Horizontal scaling for large rule sets
+**Current Capabilities:**
+- **ANTLR-Native Parsing**: Full DSL support with robust error handling
+- **Performance Analysis**: Automatic complexity scoring and optimization
+- **Hot Path Optimization**: Sub-millisecond rule execution (0.67ms average)
+- **Scalable Architecture**: 80K+ TPS target performance
+
+**Enhancement Opportunities:**
+1. **Grammar Extensions**: Additional DSL constructs and operators
+2. **Advanced Optimizations**: Machine learning-based performance tuning
+3. **Multi-Language Generation**: Python, C#, or Rust code generation
+4. **Distributed Processing**: Horizontal scaling for enterprise rule sets
 
 ---
 
