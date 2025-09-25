@@ -1,31 +1,51 @@
 {
-  "timestamp": "2025-09-18T11:41:15.645333",
+  "timestamp": "2025-09-25T14:43:01.907817",
   "success": true,
   "issues": [
     {
-      "timestamp": "2025-09-18T11:41:15.624947",
+      "timestamp": "2025-09-25T14:43:01.882448",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule ageTest"
+      "message": "Missing effective_date for active rule test1"
     },
     {
-      "timestamp": "2025-09-18T11:41:15.624953",
+      "timestamp": "2025-09-25T14:43:01.882456",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule creditScoreTest"
+      "message": "Missing effective_date for active rule Credit Score Check"
     },
     {
-      "timestamp": "2025-09-18T11:41:15.624954",
+      "timestamp": "2025-09-25T14:43:01.882458",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule test"
+      "message": "Missing effective_date for active rule assign concierge services"
     },
     {
-      "timestamp": "2025-09-18T11:41:15.624956",
+      "timestamp": "2025-09-25T14:43:01.882459",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule testRule"
+      "message": "Missing effective_date for active rule suggest premium alternative"
     },
     {
-      "timestamp": "2025-09-18T11:41:15.624957",
+      "timestamp": "2025-09-25T14:43:01.882461",
       "severity": "MEDIUM",
-      "message": "Missing effective_date for active rule testValidRule"
+      "message": "Missing effective_date for active rule 5% cashback tier"
+    },
+    {
+      "timestamp": "2025-09-25T14:43:01.882462",
+      "severity": "MEDIUM",
+      "message": "Missing effective_date for active rule 1% cashback with bonus categories"
+    },
+    {
+      "timestamp": "2025-09-25T14:43:01.882463",
+      "severity": "MEDIUM",
+      "message": "Missing effective_date for active rule platinumApproval"
+    },
+    {
+      "timestamp": "2025-09-25T14:43:01.882465",
+      "severity": "MEDIUM",
+      "message": "Missing effective_date for active rule conditionalPlatinum"
+    },
+    {
+      "timestamp": "2025-09-25T14:43:01.882466",
+      "severity": "MEDIUM",
+      "message": "Missing effective_date for active rule rejectPlatinum"
     }
   ]
 }

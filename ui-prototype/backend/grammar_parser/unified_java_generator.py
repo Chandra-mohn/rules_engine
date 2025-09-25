@@ -42,20 +42,13 @@ class UnifiedJavaCodeGenerator:
             str: Generated Java code
         """
         if self.mode == 'simple':
-            # Use AdvancedJavaCodeGenerator's simple mode (integrated from SimpleJavaCodeGenerator)
             return self.advanced_generator.generate(rule_content, rule_name)
         elif self.mode == 'advanced':
-            # For backward compatibility in the 'generate' method, still return complete class
-            # but we could potentially add optimizations to the simple mode generation
             return self.advanced_generator.generate(rule_content, rule_name)
         else:  # auto mode
-            # Auto-detect based on rule complexity and use the appropriate approach
             if self._should_use_simple_mode(rule_content):
-                # Use integrated simple mode in AdvancedJavaCodeGenerator
                 return self.advanced_generator.generate(rule_content, rule_name)
             else:
-                # For complex rules in auto mode, still use simple mode for backward compatibility
-                # The generate_advanced method provides access to the optimized executor code
                 return self.advanced_generator.generate(rule_content, rule_name)
 
     def generate_advanced(self, rule_content: str, rule_name: str,
@@ -90,14 +83,11 @@ class UnifiedJavaCodeGenerator:
         Returns:
             bool: True if simple mode should be used
         """
-        # Simple heuristics for now - can be enhanced
         lines = rule_content.strip().split('\n')
 
-        # Use simple mode for basic rules
         if len(lines) <= 10 and 'nested' not in rule_content.lower():
             return True
 
-        # Use advanced mode for complex rules
         return False
 
     def get_generation_stats(self) -> Dict[str, Any]:

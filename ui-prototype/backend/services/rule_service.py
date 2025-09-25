@@ -724,7 +724,6 @@ class RuleService:
         rule.name = history_entry.name
         rule.content = history_entry.content
         rule.updated_by = reverted_by
-        # Consolidated: status now handles both validation and lifecycle
         if not validation_result['valid']:
             rule.status = 'DRAFT'  # Invalid syntax goes back to DRAFT
         rule.validation_message = validation_result['message']

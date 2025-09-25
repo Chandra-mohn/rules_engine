@@ -91,7 +91,6 @@ def create_app():
                     description='Basic credit score validation for standard cards',
                     content='rule creditScoreCheck:\n    if applicant.creditScore >= 700 then approveApplication\n    if applicant.creditScore < 600 then rejectApplication',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=std_approval.id
                 ),
                 Rule(
@@ -99,7 +98,6 @@ def create_app():
                     description='Minimum age requirement for credit cards',
                     content='rule ageVerification:\n    if applicant.age < 18 then rejectApplication\n    if applicant.age >= 18 then approveApplication',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=std_approval.id
                 ),
                 Rule(
@@ -107,7 +105,6 @@ def create_app():
                     description='Annual income threshold for standard cards',
                     content='rule incomeVerification:\n    if applicant.annualIncome >= 50000 then approveApplication\n    if applicant.annualIncome < 25000 then rejectApplication\n    if applicant.annualIncome >= 25000 and applicant.annualIncome < 50000 then conditionalApproval',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=std_approval.id
                 ),
                 
@@ -117,7 +114,6 @@ def create_app():
                     description='Business date validation for fraud prevention',
                     content='rule businessDateCheck:\n    if applicant.applicationDate after business_date then conditionalApproval\n    if applicant.applicationDate before business_date then rejectApplication',
                     status='DRAFT',
-                    # validation_status removed - consolidated into status field
                     process_area_id=std_fraud.id
                 ),
                 Rule(
@@ -125,7 +121,6 @@ def create_app():
                     description='Combined risk factor assessment for fraud detection',
                     content='rule riskAssessment:\n    if applicant.creditScore < 600 and applicant.annualIncome < 30000 then rejectApplication\n    if applicant.age < 21 and applicant.employmentYears < 1 then rejectApplication\n    if applicant.creditScore >= 650 and applicant.employmentYears >= 3 then approveApplication',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=std_fraud.id
                 ),
                 Rule(
@@ -133,7 +128,6 @@ def create_app():
                     description='Monthly income validation for fraud detection',
                     content='rule monthlyIncomeCheck:\n    if applicant.monthlyIncome >= 4000 then approveApplication\n    if applicant.monthlyIncome < 2000 then rejectApplication\n    if applicant.monthlyIncome >= 2000 and applicant.creditScore >= 650 then conditionalApproval',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=std_fraud.id
                 ),
                 
@@ -143,7 +137,6 @@ def create_app():
                     description='Premium card eligibility requirements',
                     content='rule premiumEligibilityCheck:\n    if applicant.creditScore >= 750 and applicant.annualIncome >= 80000 and applicant.employmentYears >= 5 then premiumApproval\n    if applicant.creditScore >= 720 and applicant.annualIncome >= 60000 then approveApplication\n    if applicant.creditScore < 700 then rejectApplication',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=prem_approval.id
                 ),
                 Rule(
@@ -151,7 +144,6 @@ def create_app():
                     description='Employment status validation for premium cards',
                     content='rule employmentStatusCheck:\n    if applicant.employmentStatus == "unemployed" then rejectApplication\n    if applicant.employmentStatus == "employed" then approveApplication\n    if applicant.employmentStatus == "self-employed" then conditionalApproval',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=prem_approval.id
                 ),
                 
@@ -161,7 +153,6 @@ def create_app():
                     description='High credit limit for qualified applicants',
                     content='rule highValueApplicant:\n    if applicant.creditScore >= 800 and applicant.annualIncome >= 100000 then fastTrackApproval\n    if applicant.creditScore >= 750 and applicant.annualIncome >= 75000 then approveApplication',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=prem_limits.id
                 ),
                 Rule(
@@ -169,7 +160,6 @@ def create_app():
                     description='Employment stability for credit limit determination',
                     content='rule employmentYearsCheck:\n    if applicant.employmentYears >= 2 then approveApplication\n    if applicant.employmentYears < 1 then rejectApplication\n    if applicant.employmentYears >= 1 and applicant.employmentYears < 2 then conditionalApproval',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=prem_limits.id
                 ),
                 
@@ -179,7 +169,6 @@ def create_app():
                     description='High income requirement for platinum cards',
                     content='rule platinumIncomeCheck:\n    if applicant.annualIncome >= 150000 then approveApplication\n    if applicant.annualIncome < 100000 then rejectApplication\n    if applicant.annualIncome >= 100000 and applicant.creditScore >= 750 then conditionalApproval',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=platinum_eligibility.id
                 ),
                 
@@ -189,7 +178,6 @@ def create_app():
                     description='Cashback rewards card approval criteria',
                     content='rule rewardsCashbackRule:\n    if applicant.creditScore >= 680 and applicant.monthlyIncome >= 3000 then approveApplication\n    if applicant.creditScore < 650 then rejectApplication\n    if applicant.employmentStatus == "student" and applicant.age >= 21 then conditionalApproval',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=rewards_approval.id
                 ),
                 Rule(
@@ -197,7 +185,6 @@ def create_app():
                     description='Points-based rewards card approval for high spenders',
                     content='rule rewardsPointsRule:\n    if applicant.creditScore >= 700 and applicant.annualIncome >= 60000 then approveApplication\n    if applicant.employmentStatus == "employed" and applicant.employmentYears >= 3 then approveApplication\n    if applicant.creditScore < 680 then rejectApplication',
                     status='VALID',
-                    # validation_status removed - consolidated into status field
                     process_area_id=rewards_approval.id
                 )
             ]

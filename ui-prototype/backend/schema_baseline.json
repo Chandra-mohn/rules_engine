@@ -1,0 +1,524 @@
+{
+  "clients": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "code": {
+      "type": "VARCHAR(10)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "name": {
+      "type": "VARCHAR(100)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "description": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "is_active": {
+      "type": "BOOLEAN",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  },
+  "rule_lists": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "name": {
+      "type": "VARCHAR(100)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "description": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "data_type": {
+      "type": "VARCHAR(20)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "list_values": {
+      "type": "TEXT",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "schema_version": {
+      "type": "VARCHAR(20)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_by": {
+      "type": "VARCHAR(50)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_by": {
+      "type": "VARCHAR(50)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  },
+  "process_groups": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "client_id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "code": {
+      "type": "VARCHAR(20)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "name": {
+      "type": "VARCHAR(100)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "description": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "is_active": {
+      "type": "BOOLEAN",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  },
+  "schema_entities": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "name": {
+      "type": "VARCHAR(50)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "description": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "client_id": {
+      "type": "INTEGER",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "is_active": {
+      "type": "BOOLEAN",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "version": {
+      "type": "INTEGER",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  },
+  "schema_versions": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "client_id": {
+      "type": "INTEGER",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "version": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "changes": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_by": {
+      "type": "VARCHAR(50)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  },
+  "process_areas": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "process_group_id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "code": {
+      "type": "VARCHAR(20)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "name": {
+      "type": "VARCHAR(100)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "description": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "is_active": {
+      "type": "BOOLEAN",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  },
+  "schema_attributes": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "entity_id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "name": {
+      "type": "VARCHAR(50)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "data_type": {
+      "type": "VARCHAR(20)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "java_type": {
+      "type": "VARCHAR(50)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "min_value": {
+      "type": "NUMERIC(20, 6)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "max_value": {
+      "type": "NUMERIC(20, 6)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "allowed_values": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "is_required": {
+      "type": "BOOLEAN",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "description": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  },
+  "rules": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "process_area_id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "name": {
+      "type": "VARCHAR(100)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "description": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "content": {
+      "type": "TEXT",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "status": {
+      "type": "VARCHAR(10)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "effective_date": {
+      "type": "DATE",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "expiry_date": {
+      "type": "DATE",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_by": {
+      "type": "VARCHAR(50)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "updated_by": {
+      "type": "VARCHAR(50)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "validation_message": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "version": {
+      "type": "INTEGER",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "schema_version": {
+      "type": "VARCHAR(20)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "item_type": {
+      "type": "VARCHAR(10)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  },
+  "rule_history": {
+    "id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": true
+    },
+    "rule_id": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "process_area_id": {
+      "type": "INTEGER",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "name": {
+      "type": "VARCHAR(100)",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "content": {
+      "type": "TEXT",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "version": {
+      "type": "INTEGER",
+      "not_null": true,
+      "default": null,
+      "primary_key": false
+    },
+    "created_at": {
+      "type": "DATETIME",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "created_by": {
+      "type": "VARCHAR(50)",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    },
+    "change_reason": {
+      "type": "TEXT",
+      "not_null": false,
+      "default": null,
+      "primary_key": false
+    }
+  }
+}
