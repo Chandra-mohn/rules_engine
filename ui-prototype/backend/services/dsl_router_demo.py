@@ -230,7 +230,8 @@ def demonstrate_dsl_integration():
         for i, line in enumerate(lines, 1):
             print(f"{i:2d}: {line}")
         if len(sample_code.split('\n')) > 20:
-            print(f"    ... ({len(sample_code.split('\n')) - 20} more lines)")
+            line_count = len(sample_code.split('\n')) - 20
+            print(f"    ... ({line_count} more lines)")
         print("```")
 
     print("\n🎯 Performance Characteristics")

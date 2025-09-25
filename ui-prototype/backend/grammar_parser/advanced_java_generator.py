@@ -4,6 +4,7 @@ Integrates with ANTLR parser and static router generator for 80K+ TPS performanc
 """
 
 import sys
+import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
@@ -302,6 +303,7 @@ class AdvancedJavaCodeGenerator:
     """
     Advanced Java code generator that produces optimized code for different performance categories.
     Integrates with the static router generator to replace TODO comments with actual rule logic.
+    Also provides simple mode for backward compatibility with SimpleJavaCodeGenerator.
     """
 
     def __init__(self):
@@ -313,6 +315,10 @@ class AdvancedJavaCodeGenerator:
         self.inline_threshold = 3
         self.hot_path_optimizations = True
         self.cold_path_method_extraction = True
+
+        # Simple mode settings for backward compatibility
+        self.simple_mode = False
+        self.rule_name = "UnknownRule"
 
     def generate_optimized_executor_code(self, rule_content: str, rule_name: str,
                                        executor_type: str = 'auto') -> OptimizedJavaCode:
@@ -352,6 +358,293 @@ class AdvancedJavaCodeGenerator:
             complexity_score=analysis.complexity_score,
             optimization_applied=optimizations
         )
+
+    def generate(self, rule_content: str, rule_name: str = None) -> str:
+        """
+        Simple compatibility method that matches SimpleJavaCodeGenerator API.
+        Generates basic Java code using regex parsing for backward compatibility.
+
+        Args:
+            rule_content: Rule content string
+            rule_name: Optional rule name
+
+        Returns:
+            str: Generated Java code (simple style)
+        """
+        if rule_name:
+            self.rule_name = rule_name
+        else:
+            # Extract rule name from content
+            name_match = re.search(r'rule\s+(?:"([^"]+)"|(\w+))\s*:', rule_content)
+            if name_match:
+                self.rule_name = name_match.group(1) or name_match.group(2)
+
+        # Parse rule structure using simple regex approach
+        rule_info = self._parse_rule_structure_simple(rule_content)
+
+        # Generate Java class using simple approach
+        return self._generate_java_class_simple(rule_info)
+
+    def _parse_rule_structure_simple(self, rule_content: str) -> Dict[str, Any]:
+        """Parse rule content into structured information using simple regex approach."""
+        lines = rule_content.strip().split('\n')
+
+        rule_info = {
+            'name': self.rule_name,
+            'conditions': [],
+            'actions': [],
+            'entities_used': set()
+        }
+
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#') or line.startswith('rule'):
+                continue
+
+            # Find entity references
+            entity_refs = re.findall(r'(\w+)\.(\w+)', line)
+            for entity, field in entity_refs:
+                rule_info['entities_used'].add(entity)
+
+            # Parse if-then-else structure
+            if line.lower().startswith('if '):
+                # Extract condition
+                condition_match = re.search(r'if\s+(.+?)\s+then\s+(.+)', line, re.IGNORECASE)
+                if condition_match:
+                    condition = condition_match.group(1)
+                    action = condition_match.group(2)
+                    rule_info['conditions'].append({
+                        'condition': condition,
+                        'then_actions': self._parse_actions_simple(action),
+                        'else_actions': []
+                    })
+                else:
+                    # Just condition, action on next line
+                    condition = re.sub(r'if\s+', '', line, flags=re.IGNORECASE).strip()
+                    rule_info['conditions'].append({
+                        'condition': condition,
+                        'then_actions': [],
+                        'else_actions': []
+                    })
+
+            elif line.lower().startswith('then '):
+                # Actions for the last condition
+                action_text = re.sub(r'then\s+', '', line, flags=re.IGNORECASE).strip()
+                if rule_info['conditions']:
+                    rule_info['conditions'][-1]['then_actions'] = self._parse_actions_simple(action_text)
+
+            elif line.lower().startswith('else '):
+                # Else actions
+                action_text = re.sub(r'else\s+', '', line, flags=re.IGNORECASE).strip()
+                if rule_info['conditions']:
+                    rule_info['conditions'][-1]['else_actions'] = self._parse_actions_simple(action_text)
+
+            elif not any(keyword in line.lower() for keyword in ['if ', 'then ', 'else ', 'rule ']):
+                # Standalone action
+                rule_info['actions'].extend(self._parse_actions_simple(line))
+
+        return rule_info
+
+    def _parse_actions_simple(self, action_text: str) -> list:
+        """Parse action text into list of actions."""
+        if not action_text:
+            return []
+
+        # Split by comma and clean up
+        actions = []
+        for action in action_text.split(','):
+            action = action.strip()
+            if action:
+                actions.append(action)
+
+        return actions
+
+    def _generate_java_class_simple(self, rule_info: Dict[str, Any]) -> str:
+        """Generate complete Java class using simple approach."""
+        class_name = self._to_class_name_simple(rule_info['name'])
+
+        java_code = f'''package com.rules;
+
+import java.util.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+public class {class_name}Rule {{
+
+    public static class RuleResult {{
+        private boolean matched;
+        private List<String> actions;
+        private String finalAction;
+
+        public RuleResult(boolean matched, List<String> actions, String finalAction) {{
+            this.matched = matched;
+            this.actions = actions;
+            this.finalAction = finalAction;
+        }}
+
+        public boolean isMatched() {{ return matched; }}
+        public List<String> getActions() {{ return actions; }}
+        public String getFinalAction() {{ return finalAction; }}
+    }}
+
+    public static RuleResult evaluate(Map<String, Object> context) {{
+        List<String> actions = new ArrayList<>();
+        String finalAction = null;
+        boolean matched = false;
+
+{self._generate_entity_declarations_simple(rule_info['entities_used'])}
+
+{self._generate_rule_logic_simple(rule_info)}
+
+        return new RuleResult(matched, actions, finalAction);
+    }}
+
+{self._generate_helper_methods_simple()}
+}}'''
+
+        return java_code
+
+    def _generate_entity_declarations_simple(self, entities_used: set) -> str:
+        """Generate entity variable declarations."""
+        if not entities_used:
+            return ""
+
+        declarations = []
+        for entity in sorted(entities_used):
+            declarations.append(f'        Map<String, Object> {entity} = (Map<String, Object>) context.get("{entity}");')
+
+        return '\n'.join(declarations) + '\n'
+
+    def _generate_rule_logic_simple(self, rule_info: Dict[str, Any]) -> str:
+        """Generate main rule logic."""
+        logic_lines = []
+
+        # Generate conditions
+        for condition_info in rule_info['conditions']:
+            condition_java = self._convert_condition_to_java_simple(condition_info['condition'])
+
+            logic_lines.append(f'        if ({condition_java}) {{')
+            logic_lines.append('            matched = true;')
+
+            # Generate then actions
+            for action in condition_info['then_actions']:
+                action_java = self._convert_action_to_java_simple(action)
+                logic_lines.append(f'            {action_java}')
+
+            logic_lines.append('        }')
+
+            # Generate else actions if present
+            if condition_info['else_actions']:
+                logic_lines.append('        else {')
+                for action in condition_info['else_actions']:
+                    action_java = self._convert_action_to_java_simple(action)
+                    logic_lines.append(f'            {action_java}')
+                logic_lines.append('        }')
+
+        # Generate standalone actions
+        if rule_info['actions']:
+            logic_lines.append('        matched = true;')
+            for action in rule_info['actions']:
+                action_java = self._convert_action_to_java_simple(action)
+                logic_lines.append(f'        {action_java}')
+
+        return '\n'.join(logic_lines)
+
+    def _convert_condition_to_java_simple(self, condition: str) -> str:
+        """Convert rule condition to Java code."""
+        # Clean up the condition string
+        java_condition = condition.strip()
+
+        # Remove 'then' if it appears at the end
+        java_condition = re.sub(r'\s+then\s*$', '', java_condition, flags=re.IGNORECASE)
+
+        # Convert operators
+        java_condition = java_condition.replace(' and ', ' && ')
+        java_condition = java_condition.replace(' or ', ' || ')
+        java_condition = java_condition.replace(' not ', ' !')
+
+        # Convert attribute references to method calls
+        java_condition = re.sub(
+            r'(\w+)\.(\w+)',
+            r'_getFieldValue(\1, "\2")',
+            java_condition
+        )
+
+        # Convert comparisons to use helper methods
+        java_condition = re.sub(
+            r'(_getFieldValue\([^)]+\))\s*>\s*(\d+)',
+            r'_compareTo(\1, \2) > 0',
+            java_condition
+        )
+
+        java_condition = re.sub(
+            r'(_getFieldValue\([^)]+\))\s*>=\s*(\d+)',
+            r'_compareTo(\1, \2) >= 0',
+            java_condition
+        )
+
+        java_condition = re.sub(
+            r'(_getFieldValue\([^)]+\))\s*<\s*(\d+)',
+            r'_compareTo(\1, \2) < 0',
+            java_condition
+        )
+
+        java_condition = re.sub(
+            r'(_getFieldValue\([^)]+\))\s*<=\s*(\d+)',
+            r'_compareTo(\1, \2) <= 0',
+            java_condition
+        )
+
+        return java_condition
+
+    def _convert_action_to_java_simple(self, action: str) -> str:
+        """Convert rule action to Java code."""
+        action = action.strip()
+
+        # Check if action has parameters
+        param_match = re.match(r'(\w+)\s*\(([^)]*)\)', action)
+        if param_match:
+            action_name = param_match.group(1)
+            params = param_match.group(2)
+            return f'actions.add("{action_name}({params})");'
+        else:
+            # Simple action name
+            return f'actions.add("{action}");'
+
+    def _generate_helper_methods_simple(self) -> str:
+        """Generate helper methods for field access."""
+        return '''
+    private static Object _getFieldValue(Map<String, Object> entity, String fieldName) {
+        return entity != null ? entity.get(fieldName) : null;
+    }
+
+    private static boolean _equals(Object a, Object b) {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        return a.toString().equals(b.toString());
+    }
+
+    private static int _compareTo(Object a, Object b) {
+        if (a == null || b == null) return 0;
+        try {
+            if (a instanceof Number && b instanceof Number) {
+                return Double.compare(((Number)a).doubleValue(), ((Number)b).doubleValue());
+            }
+            return a.toString().compareTo(b.toString());
+        } catch (Exception e) {
+            return 0;
+        }
+    }'''
+
+    def _to_class_name_simple(self, name: str) -> str:
+        """Convert rule name to valid Java class name."""
+        # Remove quotes and special characters
+        name = re.sub(r'[^a-zA-Z0-9_]', '', name)
+        # Capitalize first letter
+        if name:
+            return name[0].upper() + name[1:]
+        return "DefaultRule"
 
     def _generate_hot_path_code(self, analysis: RuleAnalysis, rule_content: str) -> str:
         """Generate highly optimized hot path code with full inlining."""

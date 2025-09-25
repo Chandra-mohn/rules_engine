@@ -33,14 +33,14 @@ class EnhancedRegressionSuite:
         self.schema_baseline = self._load_schema_baseline()
 
     def _get_default_db_path(self) -> str:
-        \"\"\"Get default database path based on project structure\"\"\"
+        """Get default database path based on project structure"""
         # Look for database in common locations
         possible_paths = [
-            \"database/rules.db\",
-            \"../database/rules.db\",
-            \"./rules.db\",
-            os.path.join(os.getcwd(), \"database/rules.db\"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), \"../database/rules.db\")
+            "database/rules.db",
+            "../database/rules.db",
+            "./rules.db",
+            os.path.join(os.getcwd(), "database/rules.db"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "../database/rules.db")
         ]
 
         for path in possible_paths:
@@ -48,7 +48,7 @@ class EnhancedRegressionSuite:
                 return path
 
         # Default fallback
-        return \"database/rules.db\"
+        return "database/rules.db"
 
     def log_issue(self, severity: str, message: str, details: Optional[Dict] = None):
         """Log a regression issue with enhanced metadata"""

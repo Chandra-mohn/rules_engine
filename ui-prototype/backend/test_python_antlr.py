@@ -13,7 +13,7 @@ backend_path = Path(__file__).parent
 sys.path.insert(0, str(backend_path))
 
 from grammar_parser import RulesEngineParser, RuleValidator
-from grammar_parser.simple_java_generator import SimpleJavaCodeGenerator
+from grammar_parser.advanced_java_generator import AdvancedJavaCodeGenerator
 from services.python_rules_engine import PythonRulesEngine
 
 
@@ -47,7 +47,7 @@ def test_java_code_generation():
     print("\n🏗️ Testing Java code generation...")
 
     parser = RulesEngineParser()
-    generator = SimpleJavaCodeGenerator()
+    generator = AdvancedJavaCodeGenerator()
 
     test_rule = '''
 rule "SimpleRule":
