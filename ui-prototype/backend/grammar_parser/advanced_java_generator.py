@@ -20,6 +20,7 @@ from com.rules.grammar.RulesParser import RulesParser
 from com.rules.grammar.RulesListener import RulesListener
 
 from .rules_parser import RulesEngineParser
+from .function_registry import function_registry
 
 
 @dataclass
@@ -559,6 +560,9 @@ public class {class_name}Rule {{
         # Remove 'then' if it appears at the end
         java_condition = re.sub(r'\s+then\s*$', '', java_condition, flags=re.IGNORECASE)
 
+        # Convert function calls first (before other conversions)
+        java_condition = self._convert_function_calls_to_java(java_condition)
+
         # Convert operators
         java_condition = java_condition.replace(' and ', ' && ')
         java_condition = java_condition.replace(' or ', ' || ')
@@ -601,6 +605,9 @@ public class {class_name}Rule {{
     def _convert_action_to_java_simple(self, action: str) -> str:
         """Convert rule action to Java code."""
         action = action.strip()
+
+        # Convert function calls in actions
+        action = self._convert_function_calls_to_java(action)
 
         # Check if action has parameters
         param_match = re.match(r'(\w+)\s*\(([^)]*)\)', action)
@@ -645,6 +652,49 @@ public class {class_name}Rule {{
         if name:
             return name[0].upper() + name[1:]
         return "DefaultRule"
+
+    def _convert_function_calls_to_java(self, text: str) -> str:
+        """Convert function calls in text to Java implementations."""
+        # Pattern to match function calls: functionName(param1, param2, ...)
+        function_pattern = r'(\w+)\(([^)]+)\)'
+
+        def replace_function(match):
+            function_name = match.group(1)
+            params_str = match.group(2)
+
+            # Check if function is registered
+            if not function_registry.is_function_registered(function_name):
+                return match.group(0)  # Return original if not a registered function
+
+            # Parse parameters
+            params = [p.strip() for p in params_str.split(',')]
+
+            # Convert parameters to Java expressions
+            java_params = []
+            for param in params:
+                if param.startswith('"') and param.endswith('"'):
+                    # String literal
+                    java_params.append(param)
+                elif param.replace('.', '').replace('-', '').isdigit():
+                    # Numeric literal
+                    java_params.append(param)
+                elif '.' in param:
+                    # Attribute reference
+                    entity, field = param.split('.', 1)
+                    java_params.append(f'_getFieldValue({entity}, "{field}")')
+                else:
+                    # Simple identifier - assume it's a variable
+                    java_params.append(param)
+
+            # Get Java implementation from registry
+            try:
+                java_implementation = function_registry.get_java_implementation(function_name, java_params)
+                return java_implementation
+            except ValueError:
+                # Return original if function not found (shouldn't happen due to check above)
+                return match.group(0)
+
+        return re.sub(function_pattern, replace_function, text)
 
     def _generate_hot_path_code(self, analysis: RuleAnalysis, rule_content: str) -> str:
         """Generate highly optimized hot path code with full inlining."""

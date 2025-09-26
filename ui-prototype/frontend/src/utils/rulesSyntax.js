@@ -41,6 +41,11 @@ export const rulesLanguageDefinition = {
       'in', 'is_weekend', 'is_weekday', 'is_holiday',
     ],
 
+    // MVP Core Functions (string, number processing)
+    mvpFunctions: [
+      'substring', 'length', 'round', 'percent'
+    ],
+
     dateTimeFunctions: [
       'now', 'today', 'business_date',
       'year_of', 'month_of', 'day_of', 'hour_of', 'minute_of', 'second_of',
@@ -69,6 +74,7 @@ export const rulesLanguageDefinition = {
         [/[a-zA-Z_$][\w$]*/, {
           cases: {
             '@keywords': 'keyword',
+            '@mvpFunctions': 'function.mvp',
             '@dateTimeFunctions': 'function',
             '@actions': 'function.action',
             '@default': 'identifier'
@@ -135,6 +141,7 @@ export const rulesLanguageDefinition = {
     inherit: true,
     rules: [
       { token: 'keyword', foreground: '0000ff', fontStyle: 'bold' },
+      { token: 'function.mvp', foreground: 'e91e63', fontStyle: 'bold' },
       { token: 'function', foreground: '795e26' },
       { token: 'function.action', foreground: '008000', fontStyle: 'bold' },
       { token: 'identifier.quoted', foreground: '000000' },
@@ -174,6 +181,39 @@ export const rulesLanguageDefinition = {
           insertText: 'if ${1:condition} then ${2:action}',
           insertTextRules: 4,
           documentation: 'Conditional statement'
+        },
+        // MVP Functions
+        {
+          label: 'substring',
+          kind: 3, // monaco.languages.CompletionItemKind.Function
+          // eslint-disable-next-line no-template-curly-in-string
+          insertText: 'substring(${1:text}, ${2:start}, ${3:length})',
+          insertTextRules: 4,
+          documentation: 'Extract substring from text starting at position with specified length'
+        },
+        {
+          label: 'length',
+          kind: 3,
+          // eslint-disable-next-line no-template-curly-in-string
+          insertText: 'length(${1:text})',
+          insertTextRules: 4,
+          documentation: 'Get length of text string'
+        },
+        {
+          label: 'round',
+          kind: 3,
+          // eslint-disable-next-line no-template-curly-in-string
+          insertText: 'round(${1:number}, ${2:decimals})',
+          insertTextRules: 4,
+          documentation: 'Round number to specified decimal places'
+        },
+        {
+          label: 'percent',
+          kind: 3,
+          // eslint-disable-next-line no-template-curly-in-string
+          insertText: 'percent(${1:part}, ${2:whole})',
+          insertTextRules: 4,
+          documentation: 'Calculate percentage of part relative to whole'
         },
         // More suggestions will be loaded dynamically from the server
       ];

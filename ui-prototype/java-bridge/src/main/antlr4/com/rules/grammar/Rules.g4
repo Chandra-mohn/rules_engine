@@ -1,158 +1,90 @@
 grammar Rules;
 
-// Parser Rules
-ruleSet
-    : definition+ EOF
-    ;
+// Parser rules
+ruleSet: definition+ EOF;
+definition: unifiedRule;
 
-definition
-    : unifiedRule
-    ;
+unifiedRule: RULE ruleName COLON ruleStep+;
+ruleName: STRING | IDENTIFIER;
 
-unifiedRule
-    : RULE ruleName COLON ruleStep+
-    ;
+ruleStep:
+    IF condition THEN actionList (ELSE actionList)?
+    | actionList;
 
-ruleName
-    : IDENTIFIER
-    | STRING
-    ;
+actionList: action (',' action)*;
 
-ruleStep
-    : IF condition THEN actionList (ELSE actionList)?
-    | actionList
-    ;
+condition: orExpression;
 
-actionList
-    : action (COMMA action)*
-    ;
+orExpression: andExpression (OR andExpression)*;
+andExpression: notExpression (AND notExpression)*;
+notExpression: NOT? primaryExpression;
 
-condition
-    : orExpression
-    ;
+primaryExpression:
+    comparison
+    | '(' orExpression ')';
 
-orExpression
-    : andExpression (OR andExpression)*
-    ;
+comparison: operand operator operand;
+operand: attribute | value | functionCall;
 
-andExpression
-    : notExpression (AND notExpression)*
-    ;
+attribute: attributeIdentifier ('.' attributeIdentifier)*;
+attributeIdentifier: STRING | IDENTIFIER;
 
-notExpression
-    : NOT? primaryExpression
-    ;
+// Function call support (NEW)
+functionCall: IDENTIFIER '(' functionArgs? ')';
+functionArgs: operand (',' operand)*;
 
-primaryExpression
-    : comparison
-    | LPAREN orExpression RPAREN
-    ;
+operator: (IN | NOT_IN | IS_NULL | IS_NOT_NULL | CONTAINS |
+          STARTS_WITH | ENDS_WITH | MATCHES | EQ | NE | LT | LE | GT | GE);
 
-comparison
-    : attribute operator operand
-    ;
+value: STRING | NUMBER | BOOLEAN | NULL | list;
+list: '[' (value (',' value)*)? ']';
 
-operand
-    : attribute
-    | value
-    ;
+action:
+    IDENTIFIER ('(' parameterList? ')')?
+    | STRING ('(' parameterList? ')')?;
 
-attribute
-    : attributeIdentifier (DOT attributeIdentifier)*
-    ;
+parameterList: parameter (',' parameter)*;
+parameter: value | attribute;
 
-attributeIdentifier
-    : IDENTIFIER
-    | STRING
-    ;
+// Lexer rules
+RULE: 'rule';
+IF: 'if';
+THEN: 'then';
+ELSE: 'else';
+AND: 'and';
+OR: 'or';
+NOT: 'not';
+IN: 'in';
+NOT_IN: 'not_in';
+IS_NULL: 'is_null';
+IS_NOT_NULL: 'is_not_null';
+CONTAINS: 'contains';
+STARTS_WITH: 'starts_with';
+ENDS_WITH: 'ends_with';
+MATCHES: 'matches';
 
-operator
-    : EQ | NE | LT | LE | GT | GE 
-    | CONTAINS | STARTS_WITH | ENDS_WITH
-    | IN | NOT_IN
-    | IS_NULL | IS_NOT_NULL
-    | MATCHES
-    ;
+NULL: 'null';
+EQ: '==' | '=' | 'equals';
+NE: '!=' | '<>' | 'not_equals';
+LT: '<';
+LE: '<=';
+GT: '>';
+GE: '>=';
 
-value
-    : STRING
-    | NUMBER
-    | BOOLEAN
-    | NULL
-    | list
-    ;
+LPAREN: '(';
+RPAREN: ')';
+LBRACKET: '[';
+RBRACKET: ']';
+DOT: '.';
+COMMA: ',';
+COLON: ':';
 
-list
-    : LBRACKET (value (COMMA value)*)? RBRACKET
-    ;
+BOOLEAN: 'true' | 'false';
+NUMBER: [0-9]+ ('.' [0-9]+)?;
+STRING: '"' (~["\r\n])* '"' | '\'' (~['\r\n])* '\'';
+IDENTIFIER: [a-zA-Z_][a-zA-Z0-9_]*;
 
-action
-    : IDENTIFIER (LPAREN parameterList? RPAREN)?
-    | STRING (LPAREN parameterList? RPAREN)?
-    ;
-
-parameterList
-    : parameter (COMMA parameter)*
-    ;
-
-parameter
-    : value
-    | attribute
-    ;
-
-// Lexer Rules
-
-// Keywords
-RULE        : 'rule' | 'RULE';
-IF          : 'if' | 'IF';
-THEN        : 'then' | 'THEN';
-ELSE        : 'else' | 'ELSE';
-AND         : 'and' | 'AND' | '&&';
-OR          : 'or' | 'OR' | '||';
-NOT         : 'not' | 'NOT' | '!';
-IN          : 'in' | 'IN';
-NOT_IN      : 'not_in' | 'NOT_IN';
-IS_NULL     : 'is_null' | 'IS_NULL';
-IS_NOT_NULL : 'is_not_null' | 'IS_NOT_NULL';
-CONTAINS    : 'contains' | 'CONTAINS';
-STARTS_WITH : 'starts_with' | 'STARTS_WITH';
-ENDS_WITH   : 'ends_with' | 'ENDS_WITH';
-MATCHES     : 'matches' | 'MATCHES';
-NULL        : 'null' | 'NULL';
-
-// Operators
-EQ          : '=' | '==';
-NE          : '!=' | '<>';
-LT          : '<';
-LE          : '<=';
-GT          : '>';
-GE          : '>=';
-
-// Punctuation
-LPAREN      : '(';
-RPAREN      : ')';
-LBRACKET    : '[';
-RBRACKET    : ']';
-DOT         : '.';
-COMMA       : ',';
-COLON       : ':';
-
-// Literals
-BOOLEAN     : 'true' | 'false' | 'TRUE' | 'FALSE';
-
-NUMBER      : '-'? DIGIT+ ('.' DIGIT+)? ([eE] [+-]? DIGIT+)?;
-
-STRING      : '"' (~["\r\n] | '""')* '"'
-            | '\'' (~['\r\n] | '\'\'')* '\''
-            ;
-
-IDENTIFIER  : [a-zA-Z_] [a-zA-Z0-9_]*;
-
-// Whitespace and Comments
-WS          : [ \t\r\n]+ -> skip;
+WS: [ \t\r\n]+ -> skip;
 LINE_COMMENT: '//' ~[\r\n]* -> skip;
 BLOCK_COMMENT: '/*' .*? '*/' -> skip;
 HASH_COMMENT: '#' ~[\r\n]* -> skip;
-
-// Fragments
-fragment DIGIT : [0-9];
