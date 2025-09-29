@@ -31,6 +31,7 @@ import { rulesLanguageDefinition, getMonacoCompletionKind } from '../utils/rules
 import suggestionCache from '../services/suggestionCache';
 import SchemaViewer from './SchemaViewer';
 import SampleDataEditor from './SampleDataEditor';
+import { getRuleContext, getActionJavaSource, getAttributeSchema, determineContextType } from '../services/contextApi';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -48,6 +49,9 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [processAreas, setProcessAreas] = useState([]);
   const [loadingProcessAreas, setLoadingProcessAreas] = useState(false);
+  const [panelMode, setPanelMode] = useState('validation'); // 'validation' or 'context'
+  const [contextInfo, setContextInfo] = useState(null);
+  const [loadingContext, setLoadingContext] = useState(false);
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
 
@@ -120,6 +124,170 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     loadProcessAreas();
   }, []);
 
+  // Load context information for a word
+  const loadContextInfo = async (word, position, editorContent) => {
+    try {
+      console.log('🎯 loadContextInfo called with word:', word);
+      setLoadingContext(true);
+      setPanelMode('context');
+
+      // Determine context type using the context API service
+      const contextType = await determineContextType(word, position, editorContent);
+      console.log('🔎 contextType determined:', contextType);
+
+      let contextData = null;
+
+      switch (contextType.type) {
+        case 'action':
+        case 'actionset':
+          // Get rule context
+          contextData = await getRuleContext(word);
+
+          // If it's an action, also get the Java source
+          if (contextData.item_type === 'action' && contextData.java_file_path) {
+            try {
+              const javaSource = await getActionJavaSource(word);
+              contextData.javaSource = javaSource;
+            } catch (error) {
+              console.warn('Could not load Java source for action:', word, error);
+            }
+          }
+          break;
+
+        case 'attribute':
+          // Get attribute schema
+          contextData = await getAttributeSchema(word);
+          break;
+
+        default:
+          contextData = {
+            type: 'unknown',
+            name: word,
+            message: `No context information available for "${word}"`
+          };
+      }
+
+      setContextInfo(contextData);
+
+    } catch (error) {
+      console.error('Failed to load context info:', error);
+      setContextInfo({
+        type: 'error',
+        name: word,
+        message: 'Failed to load context information',
+        error: error.message
+      });
+    } finally {
+      setLoadingContext(false);
+    }
+  };
+
+  // Extract complete context word (handles compound identifiers and quoted strings)
+  const extractContextWord = (model, position) => {
+    const lineContent = model.getLineContent(position.lineNumber);
+    const column = position.column;
+
+    console.log('🔍 extractContextWord DEBUG:', { lineContent, column });
+
+    // Check if we're in a quoted string first
+    const quotedString = extractQuotedString(lineContent, column);
+    if (quotedString) {
+      console.log('✅ Found quoted string:', quotedString);
+      return quotedString;
+    }
+
+    // Always try our compound identifier extraction first (handles camelCase, snake_case, dot notation)
+    const compoundIdentifier = extractCompoundIdentifier(lineContent, column);
+    if (compoundIdentifier) {
+      console.log('✅ Found compound identifier:', compoundIdentifier);
+      return compoundIdentifier;
+    }
+
+    // Only fall back to Monaco if our extraction found nothing
+    const word = model.getWordAtPosition(position);
+    const monacoWord = word ? word.word : null;
+    console.log('⚠️ Falling back to Monaco word:', monacoWord);
+    return monacoWord;
+  };
+
+  // Extract quoted strings (handles both single and double quotes)
+  const extractQuotedString = (line, column) => {
+    // Check for quoted strings with various quote types
+    const quotePatterns = [
+      { start: '"', end: '"' },
+      { start: "'", end: "'" },
+      { start: '`', end: '`' }
+    ];
+
+    for (const pattern of quotePatterns) {
+      // Find the start quote before the cursor
+      let startQuote = -1;
+      for (let i = column - 1; i >= 0; i--) {
+        if (line[i] === pattern.start) {
+          startQuote = i;
+          break;
+        }
+        // If we hit another quote type or newline, break
+        if (line[i] === pattern.end && i < column - 1) break;
+      }
+
+      if (startQuote >= 0) {
+        // Find the end quote after the cursor
+        let endQuote = -1;
+        for (let i = column; i < line.length; i++) {
+          if (line[i] === pattern.end) {
+            endQuote = i;
+            break;
+          }
+        }
+
+        if (endQuote > startQuote) {
+          // Extract the quoted content including quotes
+          return line.substring(startQuote, endQuote + 1);
+        }
+      }
+    }
+
+    return null;
+  };
+
+  // Extract compound identifiers (e.g., applicant.creditScore, business_date, CREDIT_SCORE_THRESHOLD, approveApplication)
+  const extractCompoundIdentifier = (line, column) => {
+    // Define what constitutes a valid identifier character (including camelCase)
+    const isIdentifierChar = (char) => {
+      return /[a-zA-Z0-9_]/.test(char);
+    };
+
+    const isDotChar = (char) => {
+      return char === '.';
+    };
+
+    // Find the start of the identifier
+    let start = column - 1;
+    while (start >= 0 && (isIdentifierChar(line[start]) || isDotChar(line[start]))) {
+      start--;
+    }
+    start++; // Move to first valid character
+
+    // Find the end of the identifier
+    let end = column - 1;
+    while (end < line.length && (isIdentifierChar(line[end]) || isDotChar(line[end]))) {
+      end++;
+    }
+
+    // Extract the identifier
+    if (end > start) {
+      const identifier = line.substring(start, end);
+
+      // Validate it's a reasonable identifier (not just dots, at least one alphanumeric)
+      if (/[a-zA-Z0-9]/.test(identifier) && identifier.length > 0) {
+        return identifier;
+      }
+    }
+
+    return null;
+  };
+
   // Handle Monaco editor mount
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -131,6 +299,21 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         line: e.position.lineNumber,
         column: e.position.column
       });
+    });
+
+    // Add right-click context menu
+    editor.onContextMenu((e) => {
+      // Get word at cursor position
+      const position = e.target.position;
+      if (!position) return;
+
+      const model = editor.getModel();
+      const extractedWord = extractContextWord(model, position);
+
+      if (extractedWord && extractedWord.trim()) {
+        // Load context info for the extracted word
+        loadContextInfo(extractedWord, position, model.getValue());
+      }
     });
 
     // Register custom language
@@ -1741,57 +1924,288 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               </Form.Item>
             </Form>
 
-            {/* Validation Status */}
-            {validation && (
-              <>
-                <Divider />
-                <div>
-                  <h4>Validation Status</h4>
-                  {validation.valid ? (
-                    <Alert
-                      message="Valid"
-                      description={validation.message}
-                      type="success"
-                      showIcon
-                      icon={<CheckCircleOutlined />}
-                    />
-                  ) : (
-                    <Alert
-                      message={validation.message && validation.message.toLowerCase().includes('valid') ? 'Validation Warning' : 'Invalid'}
-                      description={
+            {/* Panel Mode Switching */}
+            <Divider />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <Button
+                size="small"
+                type={panelMode === 'validation' ? 'primary' : 'default'}
+                onClick={() => setPanelMode('validation')}
+              >
+                Validation
+              </Button>
+              <Button
+                size="small"
+                type={panelMode === 'context' ? 'primary' : 'default'}
+                onClick={() => setPanelMode('context')}
+                disabled={!contextInfo}
+              >
+                Context Help
+              </Button>
+            </div>
+
+            {/* Validation Panel */}
+            {panelMode === 'validation' && validation && (
+              <div>
+                <h4>Validation Status</h4>
+                {validation.valid ? (
+                  <Alert
+                    message="Valid"
+                    description={validation.message}
+                    type="success"
+                    showIcon
+                    icon={<CheckCircleOutlined />}
+                  />
+                ) : (
+                  <Alert
+                    message={validation.message && validation.message.toLowerCase().includes('valid') ? 'Validation Warning' : 'Invalid'}
+                    description={
+                      <div>
+                        <div>{validation.message}</div>
+                        {validation.errors && validation.errors.length > 0 && (
+                          <ul style={{ marginTop: 8, marginBottom: 0 }}>
+                            {validation.errors.map((error, index) => (
+                              <li key={index}>{typeof error === 'string' ? error : error.message || JSON.stringify(error)}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    }
+                    type={validation.message && validation.message.toLowerCase().includes('valid') ? 'warning' : 'error'}
+                    showIcon
+                    icon={validation.message && validation.message.toLowerCase().includes('valid') ? <InfoCircleOutlined /> : <CloseCircleOutlined />}
+                  />
+                )}
+                {validation.warnings && validation.warnings.length > 0 && (
+                  <Alert
+                    style={{ marginTop: 8 }}
+                    message="Warnings"
+                    description={
+                      <ul style={{ marginBottom: 0 }}>
+                        {validation.warnings.map((warning, index) => (
+                          <li key={index}>{warning}</li>
+                        ))}
+                      </ul>
+                    }
+                    type="warning"
+                    showIcon
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Context Help Panel */}
+            {panelMode === 'context' && (
+              <div>
+                <h4>Context Information</h4>
+                {loadingContext ? (
+                  <div style={{ textAlign: 'center', padding: 20 }}>
+                    <Spin size="small" />
+                    <span style={{ marginLeft: 8 }}>Loading context...</span>
+                  </div>
+                ) : contextInfo ? (
+                  <div>
+                    {contextInfo.type === 'error' ? (
+                      <Alert
+                        message="Error Loading Context"
+                        description={contextInfo.message}
+                        type="error"
+                        showIcon
+                      />
+                    ) : contextInfo.item_type === 'action' ? (
+                      // Action Context
+                      <div>
+                        <div style={{ marginBottom: 16 }}>
+                          <Tag color="blue">Action</Tag>
+                          <strong style={{ marginLeft: 8 }}>{contextInfo.name}</strong>
+                        </div>
+
+                        {contextInfo.description && (
+                          <div style={{ marginBottom: 12 }}>
+                            <strong>Description:</strong>
+                            <div style={{ marginTop: 4, padding: 8, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+                              {contextInfo.description}
+                            </div>
+                          </div>
+                        )}
+
+                        {contextInfo.javaSource ? (
+                          <div>
+                            <strong>Java Implementation:</strong>
+                            <div style={{
+                              marginTop: 8,
+                              height: 400,
+                              border: '1px solid #d9d9d9',
+                              borderRadius: 6
+                            }}>
+                              <Editor
+                                height="100%"
+                                language="java"
+                                value={contextInfo.javaSource.source_code}
+                                options={{
+                                  readOnly: true,
+                                  minimap: { enabled: false },
+                                  fontSize: 12,
+                                  lineNumbers: 'on',
+                                  roundedSelection: false,
+                                  scrollBeyondLastLine: false,
+                                  automaticLayout: true,
+                                  tabSize: 4,
+                                  wordWrap: 'on',
+                                  theme: 'vs'
+                                }}
+                              />
+                            </div>
+                            <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+                              File: {contextInfo.javaSource.java_file_path} ({contextInfo.javaSource.file_size} characters)
+                            </div>
+                          </div>
+                        ) : (
+                          <Alert
+                            message="No Java Implementation Available"
+                            description="This action does not have an associated Java implementation file."
+                            type="warning"
+                            showIcon
+                            size="small"
+                          />
+                        )}
+                      </div>
+                    ) : contextInfo.item_type === 'actionset' ? (
+                      // ActionSet Context
+                      <div>
+                        <div style={{ marginBottom: 16 }}>
+                          <Tag color="green">ActionSet</Tag>
+                          <strong style={{ marginLeft: 8 }}>{contextInfo.name}</strong>
+                        </div>
+
+                        {contextInfo.description && (
+                          <div style={{ marginBottom: 12 }}>
+                            <strong>Description:</strong>
+                            <div style={{ marginTop: 4, padding: 8, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+                              {contextInfo.description}
+                            </div>
+                          </div>
+                        )}
+
                         <div>
-                          <div>{validation.message}</div>
-                          {validation.errors && validation.errors.length > 0 && (
-                            <ul style={{ marginTop: 8, marginBottom: 0 }}>
-                              {validation.errors.map((error, index) => (
-                                <li key={index}>{typeof error === 'string' ? error : error.message || JSON.stringify(error)}</li>
-                              ))}
-                            </ul>
+                          <strong>Rule Definition:</strong>
+                          <div style={{
+                            marginTop: 8,
+                            maxHeight: 300,
+                            overflow: 'auto',
+                            backgroundColor: '#fafafa',
+                            border: '1px solid #d9d9d9',
+                            padding: 12,
+                            borderRadius: 6,
+                            fontSize: '13px',
+                            fontFamily: 'monospace',
+                            lineHeight: 1.4
+                          }}>
+                            <pre style={{ margin: 0 }}>
+                              {contextInfo.content}
+                            </pre>
+                          </div>
+                        </div>
+                      </div>
+                    ) : contextInfo.item_type === 'attribute' ? (
+                      // Attribute Schema Context
+                      <div>
+                        <div style={{ marginBottom: 16 }}>
+                          <Tag color="orange">Attribute</Tag>
+                          <strong style={{ marginLeft: 8 }}>
+                            {contextInfo.qualified_name || contextInfo.name}
+                          </strong>
+                        </div>
+
+                        {/* Entity Information */}
+                        {contextInfo.entity_name && (
+                          <div style={{ marginBottom: 12, padding: 8, backgroundColor: '#f0f8ff', borderRadius: 4, border: '1px solid #d9e6f2' }}>
+                            <div style={{ fontSize: 12, color: '#1890ff', marginBottom: 4 }}>
+                              <strong>📁 Entity:</strong> {contextInfo.entity_name}
+                            </div>
+                            {contextInfo.entity_description && (
+                              <div style={{ fontSize: 11, color: '#666' }}>
+                                {contextInfo.entity_description}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div>
+                            <strong>Data Type:</strong>
+                            <Tag color="purple" style={{ marginLeft: 8 }}>
+                              {contextInfo.data_type || 'Unknown'}
+                            </Tag>
+                          </div>
+
+                          {contextInfo.description && (
+                            <div>
+                              <strong>Description:</strong>
+                              <div style={{ marginTop: 4, padding: 8, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+                                {contextInfo.description}
+                              </div>
+                            </div>
+                          )}
+
+                          {contextInfo.is_required !== undefined && (
+                            <div>
+                              <strong>Required:</strong>
+                              <Tag color={contextInfo.is_required ? 'red' : 'default'} style={{ marginLeft: 8 }}>
+                                {contextInfo.is_required ? 'Yes' : 'No'}
+                              </Tag>
+                            </div>
+                          )}
+
+                          {contextInfo.default_value && (
+                            <div>
+                              <strong>Default Value:</strong>
+                              <code style={{ marginLeft: 8, padding: '2px 6px', backgroundColor: '#f5f5f5', borderRadius: 3 }}>
+                                {contextInfo.default_value}
+                              </code>
+                            </div>
+                          )}
+
+                          {contextInfo.validation_rules && (
+                            <div>
+                              <strong>Validation Rules:</strong>
+                              <div style={{ marginTop: 4, padding: 8, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+                                {contextInfo.validation_rules}
+                              </div>
+                            </div>
+                          )}
+
+                          {(contextInfo.min_value || contextInfo.max_value) && (
+                            <div>
+                              <strong>Range:</strong>
+                              <span style={{ marginLeft: 8 }}>
+                                {contextInfo.min_value && `Min: ${contextInfo.min_value}`}
+                                {contextInfo.min_value && contextInfo.max_value && ', '}
+                                {contextInfo.max_value && `Max: ${contextInfo.max_value}`}
+                              </span>
+                            </div>
                           )}
                         </div>
-                      }
-                      type={validation.message && validation.message.toLowerCase().includes('valid') ? 'warning' : 'error'}
-                      showIcon
-                      icon={validation.message && validation.message.toLowerCase().includes('valid') ? <InfoCircleOutlined /> : <CloseCircleOutlined />}
-                    />
-                  )}
-                  {validation.warnings && validation.warnings.length > 0 && (
-                    <Alert
-                      style={{ marginTop: 8 }}
-                      message="Warnings"
-                      description={
-                        <ul style={{ marginBottom: 0 }}>
-                          {validation.warnings.map((warning, index) => (
-                            <li key={index}>{warning}</li>
-                          ))}
-                        </ul>
-                      }
-                      type="warning"
-                      showIcon
-                    />
-                  )}
-                </div>
-              </>
+                      </div>
+                    ) : (
+                      // Unknown context type
+                      <Alert
+                        message={contextInfo.message || 'Unknown Context Type'}
+                        description={contextInfo.name ? `Word: "${contextInfo.name}"` : undefined}
+                        type="info"
+                        showIcon
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <Alert
+                    message="No Context Information"
+                    description="Right-click on actions, actionsets, or attributes in the editor to see context information here."
+                    type="info"
+                    showIcon
+                  />
+                )}
+              </div>
             )}
 
             {validating && (

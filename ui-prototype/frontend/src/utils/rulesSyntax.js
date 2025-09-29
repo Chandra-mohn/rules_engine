@@ -41,9 +41,9 @@ export const rulesLanguageDefinition = {
       'in', 'is_weekend', 'is_weekday', 'is_holiday',
     ],
 
-    // MVP Core Functions (string, number processing)
+    // MVP Core Functions (string, number processing, math)
     mvpFunctions: [
-      'substring', 'length', 'round', 'percent'
+      'substring', 'length', 'round', 'percent', 'math'
     ],
 
     dateTimeFunctions: [
@@ -214,6 +214,14 @@ export const rulesLanguageDefinition = {
           insertText: 'percent(${1:part}, ${2:whole})',
           insertTextRules: 4,
           documentation: 'Calculate percentage of part relative to whole'
+        },
+        {
+          label: 'math',
+          kind: 3,
+          // eslint-disable-next-line no-template-curly-in-string
+          insertText: 'math("${1:expression}")',
+          insertTextRules: 4,
+          documentation: 'High-performance math expression evaluation (e.g., "applicant.income * 0.3")'
         },
         // More suggestions will be loaded dynamically from the server
       ];

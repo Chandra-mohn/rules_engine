@@ -125,6 +125,7 @@ class Rule(db.Model):
     version = db.Column(db.Integer, default=1)
     schema_version = db.Column(db.String(20), default='modern')  # modern, legacy
     item_type = db.Column(db.String(15), default='rule')  # 'rule', 'actionset', 'mon_rule', 'non_mon_rule'
+    java_file_path = db.Column(db.String(255))  # Path to Java implementation file (for actions only)
     
     # Relationships
     history = db.relationship('RuleHistory', backref='rule', lazy=True, cascade='all, delete-orphan')
@@ -150,6 +151,7 @@ class Rule(db.Model):
             'version': self.version,
             'schema_version': self.schema_version,
             'item_type': self.item_type,
+            'java_file_path': self.java_file_path,
             # Include hierarchy information
             'process_area_code': self.process_area.code if self.process_area else None,
             'process_area_name': self.process_area.name if self.process_area else None,
