@@ -285,11 +285,11 @@ const SampleDataEditor = ({ visible, onClose, onTest, currentRuleContent }) => {
           <span>Sample Test Data</span>
         </div>
       }
-      visible={visible}
+      open={visible}
       onCancel={onClose}
       width={1200}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ marginBottom: '16px' }}>
         <p style={{ color: '#666', margin: 0 }}>

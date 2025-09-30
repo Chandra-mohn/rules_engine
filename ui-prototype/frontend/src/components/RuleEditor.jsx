@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import { rulesApi } from '../services/api';
-import { rulesLanguageDefinition, getMonacoCompletionKind } from '../utils/rulesSyntax';
+import { rulesLanguageDefinition } from '../utils/rulesSyntax';
 import suggestionCache from '../services/suggestionCache';
 import SchemaViewer from './SchemaViewer';
 import SampleDataEditor from './SampleDataEditor';
@@ -60,8 +60,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     if (!content) return '';
 
     // Match both quoted and unquoted rule names
-    // rule "PROMOTION $5%3 @SEARS":
-    // rule regularRuleName:
     const ruleMatch = content.match(/^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:/m);
     if (ruleMatch) {
       return ruleMatch[1] || ruleMatch[2] || ''; // quoted name or unquoted name
@@ -127,13 +125,11 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   // Load context information for a word
   const loadContextInfo = async (word, position, editorContent) => {
     try {
-      console.log('🎯 loadContextInfo called with word:', word);
       setLoadingContext(true);
       setPanelMode('context');
 
       // Determine context type using the context API service
       const contextType = await determineContextType(word, position, editorContent);
-      console.log('🔎 contextType determined:', contextType);
 
       let contextData = null;
 
@@ -187,27 +183,21 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     const lineContent = model.getLineContent(position.lineNumber);
     const column = position.column;
 
-    console.log('🔍 extractContextWord DEBUG:', { lineContent, column });
-
     // Check if we're in a quoted string first
     const quotedString = extractQuotedString(lineContent, column);
     if (quotedString) {
-      console.log('✅ Found quoted string:', quotedString);
       return quotedString;
     }
 
     // Always try our compound identifier extraction first (handles camelCase, snake_case, dot notation)
     const compoundIdentifier = extractCompoundIdentifier(lineContent, column);
     if (compoundIdentifier) {
-      console.log('✅ Found compound identifier:', compoundIdentifier);
       return compoundIdentifier;
     }
 
     // Only fall back to Monaco if our extraction found nothing
     const word = model.getWordAtPosition(position);
-    const monacoWord = word ? word.word : null;
-    console.log('⚠️ Falling back to Monaco word:', monacoWord);
-    return monacoWord;
+    return word ? word.word : null;
   };
 
   // Extract quoted strings (handles both single and double quotes)
@@ -769,212 +759,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     }
   };
 
-  // Enhanced test rule with validation-first workflow
-  const handleTest = async () => {
-    try {
-      if (!editorContent.trim()) {
-        message.error('Please enter rule content before testing');
-        return;
-      }
 
-      setLoading(true);
-      const testSteps = [];
-      let totalStartTime = performance.now();
-
-      // STEP 1: Validation (Fast - fail fast)
-      message.loading('Step 1/4: Validating rule syntax...', 0);
-      const validationStart = performance.now();
-
-      let validationResult;
-      try {
-        const validationResponse = await rulesApi.validateRule(editorContent);
-        validationResult = validationResponse.data;
-        testSteps.push({
-          step: 'validation',
-          duration: Math.round(performance.now() - validationStart),
-          success: validationResult.valid,
-          data: validationResult
-        });
-      } catch (error) {
-        message.error('Validation failed: ' + error.message);
-        return;
-      }
-
-      // Stop if validation fails
-      if (!validationResult.valid) {
-        setLoading(false);
-        showEnhancedTestResults({
-          success: false,
-          message: 'Rule validation failed',
-          steps: testSteps,
-          validationErrors: validationResult.errors || [validationResult.message],
-          totalTimeMs: Math.round(performance.now() - totalStartTime)
-        });
-        return;
-      }
-
-      // Rules can call ActionSets directly by name - continue with full pipeline
-
-      // STEP 2: Code Generation (Optional preview)
-      message.loading('Step 2/4: Generating Java code...', 0);
-      const codeGenStart = performance.now();
-
-      let generatedCode = null;
-      try {
-        const codeResponse = await rulesApi.generateCode(editorContent);
-        const codeResult = codeResponse.data;
-        generatedCode = codeResult.javaCode;
-        testSteps.push({
-          step: 'codeGeneration',
-          duration: Math.round(performance.now() - codeGenStart),
-          success: codeResult.success,
-          data: { codeLength: generatedCode?.length || 0 }
-        });
-      } catch (error) {
-        testSteps.push({
-          step: 'codeGeneration',
-          duration: Math.round(performance.now() - codeGenStart),
-          success: false,
-          error: error.message
-        });
-      }
-
-      // STEP 3 & 4: Test rule using consolidated Python backend
-      message.loading('Step 3/4: Testing rule with Python backend...', 0);
-      const testStart = performance.now();
-
-      // Get test data
-      const testData = getTestData();
-
-      let testResult;
-      try {
-        const testResponse = await fetch('/api/rules/test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rule_content: editorContent,
-            test_data: testData
-          })
-        });
-
-        if (!testResponse.ok) {
-          throw new Error(`HTTP ${testResponse.status}: ${testResponse.statusText}`);
-        }
-
-        testResult = await testResponse.json();
-
-        testSteps.push({
-          step: 'test',
-          duration: Math.round(performance.now() - testStart),
-          success: testResult.success,
-          data: {
-            testTimeMs: testResult.performance?.testTimeMs || 0,
-            compilationTimeMs: testResult.performance?.compilationTimeMs || 0,
-            executionTimeMs: testResult.performance?.executionTimeMs || 0,
-            result: testResult.result
-          },
-          error: testResult.success ? null : (testResult.message || JSON.stringify(testResult))
-        });
-      } catch (error) {
-        setLoading(false);
-        message.destroy();
-        message.error('Rule testing failed: ' + error.message);
-        return;
-      }
-
-      if (!testResult.success) {
-        setLoading(false);
-        message.destroy();
-        showEnhancedTestResults({
-          success: false,
-          message: 'Rule testing failed',
-          steps: testSteps,
-          compilationError: testResult.message,
-          totalTimeMs: Math.round(performance.now() - totalStartTime)
-        });
-        return;
-      }
-
-      // Skip the separate execution step since it's now combined
-      message.loading('Step 4/4: Finalizing results...', 0);
-
-      let executionResult = testResult;
-
-      // Clear all loading messages and show results
-      message.destroy();
-      const totalTime = Math.round(performance.now() - totalStartTime);
-      message.success(`Test completed in ${totalTime}ms`, 2);
-
-      showEnhancedTestResults({
-        success: true,
-        message: 'Test completed successfully',
-        steps: testSteps,
-        executionResult: executionResult,
-        generatedCode: generatedCode,
-        totalTimeMs: totalTime,
-        ruleName: parsedRuleName
-      });
-
-    } catch (error) {
-      message.error('Test failed: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Helper function to get test data
-  const getTestData = () => {
-    const savedSampleData = localStorage.getItem('sampleTestData');
-    if (savedSampleData) {
-      const parsedSampleData = JSON.parse(savedSampleData);
-      return {
-        applicant: JSON.parse(parsedSampleData.applicant),
-        transaction: JSON.parse(parsedSampleData.transaction),
-        account: JSON.parse(parsedSampleData.account),
-        metadata: {
-          business_date: new Date().toISOString().split('T')[0],
-          test_timestamp: new Date().toISOString()
-        }
-      };
-    }
-
-    // Default test data
-    return {
-      applicant: {
-        creditScore: 750,
-        age: 28,
-        annualIncome: 75000,
-        monthlyIncome: 6250,
-        employmentStatus: "employed",
-        employmentYears: 3,
-        applicationDate: "2024-01-15",
-        birthDate: "1995-03-22",
-        requestedLimit: 5000,
-        existingDebt: 12000,
-        bankruptcyHistory: false,
-        ssn: "123-45-6789"
-      },
-      transaction: {
-        amount: 150.00,
-        timestamp: "2024-01-15T14:30:00Z",
-        merchantCategory: "5411",
-        location: "US-CA-San Francisco",
-        type: "purchase",
-        isOnline: false
-      },
-      account: {
-        currentBalance: 1250.00,
-        creditLimit: 5000,
-        availableCredit: 3750.00,
-        paymentHistory: "excellent",
-        accountAge: 24
-      },
-      metadata: {
-        business_date: new Date().toISOString().split('T')[0],
-        test_timestamp: new Date().toISOString()
-      }
-    };
-  };
 
 
   // Detect schema from rule content
@@ -1010,179 +795,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     }
   }, [editorContent, selectedSchema, rule]);
 
-  // Show execution results in a modal (similar to test but with execution styling)
-  const showExecutionResults = (testResult) => {
-    const { 
-      success, 
-      message: resultMessage, 
-      ruleName, 
-      executedActions = [], 
-      executedActionsCount = 0,
-      totalAvailableActions = 0,
-      conditions = [], 
-      timestamp,
-      performance = {}
-    } = testResult;
-
-    Modal.success({
-      title: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span>⚡ Rule Execution Complete</span>
-          <Tag color="gold" style={{ fontSize: '11px' }}>
-            COMPILED
-          </Tag>
-          {performance.method && (
-            <Tag color="green" style={{ fontSize: '10px' }}>
-              {performance.totalTimeMs}ms total
-            </Tag>
-          )}
-        </div>
-      ),
-      width: 900,
-      content: (
-        <div>
-          {/* Performance Summary */}
-          {performance.method && (
-            <Card 
-              style={{ 
-                marginBottom: '20px',
-                background: 'linear-gradient(90deg, #f6ffed 0%, #fff7e6 100%)',
-                border: '1px solid #52c41a'
-              }}
-            >
-              <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px', color: '#389e0d' }}>
-                  🚀 High-Performance Execution
-                </div>
-                <div style={{ fontSize: '12px', color: '#666' }}>
-                  Compilation: {performance.compilationTimeMs}ms | 
-                  Execution: {performance.executionTimeMs}ms | 
-                  Total: {performance.totalTimeMs}ms
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Executive Summary */}
-          <Card 
-            style={{ 
-              marginBottom: '20px',
-              background: executedActionsCount > 0 ? '#f6ffed' : '#fafafa',
-              border: `1px solid ${executedActionsCount > 0 ? '#b7eb8f' : '#d9d9d9'}`
-            }}
-          >
-            <div style={{ textAlign: 'center', padding: '8px 0' }}>
-              <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                {resultMessage}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666' }}>
-                Rule: <strong>{ruleName || 'Unnamed Rule'}</strong> | 
-                Actions: {executedActionsCount} of {totalAvailableActions} executed
-              </div>
-            </div>
-          </Card>
-
-          {/* Actions Executed */}
-          {executedActions && executedActions.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '18px' }}>⚡</span>
-                Actions Executed ({executedActions.length})
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {executedActions.map((actionItem, index) => (
-                  <Card key={index} size="small" style={{ border: '1px solid #52c41a', background: '#f6ffed' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                          <Tag color="green" style={{ fontSize: '13px', fontWeight: 'bold' }}>
-                            ✓ {actionItem.action}
-                          </Tag>
-                          <span style={{ color: '#52c41a', fontWeight: '500' }}>
-                            {actionItem.description}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#666', marginLeft: '4px' }}>
-                          <strong>Reason:</strong> {actionItem.reason}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* No Actions Message */}
-          {(!executedActions || executedActions.length === 0) && (
-            <div style={{ marginBottom: '20px' }}>
-              <Card style={{ textAlign: 'center', background: '#fff7e6', border: '1px solid #ffd591' }}>
-                <div style={{ padding: '16px' }}>
-                  <div style={{ fontSize: '16px', color: '#d48806', marginBottom: '8px' }}>
-                    ⚠️ No Actions Executed
-                  </div>
-                  <div style={{ color: '#666' }}>
-                    None of the rule conditions were met with the provided data.
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Detailed Condition Breakdown (Collapsible) */}
-          {conditions && conditions.length > 0 && (
-            <details style={{ marginBottom: '16px' }}>
-              <summary style={{ 
-                cursor: 'pointer', 
-                fontSize: '14px', 
-                color: '#666',
-                padding: '8px 0',
-                borderBottom: '1px solid #f0f0f0'
-              }}>
-                <strong>🔍 View Detailed Condition Evaluation ({conditions.length} conditions)</strong>
-              </summary>
-              <div style={{ marginTop: '12px', maxHeight: '200px', overflow: 'auto' }}>
-                {conditions.map((condition, index) => (
-                  <div key={index} style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    background: condition.evaluated ? '#f6ffed' : '#fff2f0',
-                    border: `1px solid ${condition.evaluated ? '#d9f7be' : '#ffccc7'}`,
-                    borderRadius: '4px',
-                    marginBottom: '4px'
-                  }}>
-                    <code style={{ 
-                      fontSize: '12px', 
-                      background: 'rgba(0,0,0,0.06)', 
-                      padding: '2px 6px', 
-                      borderRadius: '3px',
-                      flex: 1
-                    }}>
-                      {condition.condition}
-                    </code>
-                    <div style={{ marginLeft: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Tag color={condition.evaluated ? 'green' : 'red'} size="small">
-                        {condition.evaluated ? '✓ TRUE' : '✗ FALSE'}
-                      </Tag>
-                      {condition.executed && (
-                        <Tag color="blue" size="small">→ {condition.action}</Tag>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-
-          <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f0f0f0' }}>
-            Execution completed at: {new Date(timestamp).toLocaleString()}
-          </div>
-        </div>
-      ),
-    });
-  };
 
   // Show test results in a modal
   const showTestResults = (testResult) => {
@@ -1335,240 +947,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
           <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f0f0f0' }}>
             Test executed at: {new Date(timestamp).toLocaleString()}
-          </div>
-        </div>
-      ),
-    });
-  };
-
-  // Show enhanced test results with step-by-step breakdown
-  const showEnhancedTestResults = (result) => {
-    const {
-      success,
-      message: resultMessage,
-      steps = [],
-      validationErrors = [],
-      compilationError = '',
-      executionResult = {},
-      generatedCode = '',
-      totalTimeMs = 0,
-      ruleName = ''
-    } = result;
-
-    Modal.info({
-      title: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span>🧪 Enhanced Rule Test Results</span>
-          <Tag color={success ? 'green' : 'red'}>
-            {success ? 'SUCCESS' : 'FAILED'}
-          </Tag>
-          <Tag color="blue" style={{ fontSize: '10px' }}>
-            {totalTimeMs}ms total
-          </Tag>
-        </div>
-      ),
-      width: 1000,
-      content: (
-        <div>
-          {/* Executive Summary */}
-          <Card
-            style={{
-              marginBottom: '20px',
-              background: success ? '#f6ffed' : '#fff2f0',
-              border: `1px solid ${success ? '#b7eb8f' : '#ffccc7'}`
-            }}
-          >
-            <div style={{ textAlign: 'center', padding: '8px 0' }}>
-              <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                {resultMessage}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666' }}>
-                Rule: <strong>{ruleName || 'Test Rule'}</strong> |
-                Total Time: {totalTimeMs}ms
-              </div>
-            </div>
-          </Card>
-
-          {/* Step-by-Step Breakdown */}
-          <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ marginBottom: '12px' }}>📊 Execution Pipeline</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {steps.map((step, index) => {
-                const stepNames = {
-                  validation: '1️⃣ Syntax Validation',
-                  codeGeneration: '2️⃣ Code Generation',
-                  compilation: '3️⃣ Compilation',
-                  execution: '4️⃣ Execution'
-                };
-
-                return (
-                  <Card
-                    key={index}
-                    size="small"
-                    style={{
-                      border: `1px solid ${step.success ? '#52c41a' : '#ff7875'}`,
-                      background: step.success ? '#f6ffed' : '#fff2f0'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Tag
-                          color={step.success ? 'green' : 'red'}
-                          style={{ fontSize: '12px', minWidth: '60px' }}
-                        >
-                          {step.success ? '✓ PASS' : '✗ FAIL'}
-                        </Tag>
-                        <span style={{ fontWeight: '500' }}>
-                          {stepNames[step.step] || step.step}
-                        </span>
-                        {step.error && (
-                          <span style={{ color: '#ff4d4f', fontSize: '12px' }}>
-                            - {step.error}
-                          </span>
-                        )}
-                      </div>
-                      <Tag color="blue" size="small">
-                        {step.duration}ms
-                      </Tag>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Validation Errors */}
-          {validationErrors.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <Card style={{ background: '#fff2f0', border: '1px solid #ffccc7' }}>
-                <h4 style={{ color: '#cf1322', marginBottom: '12px' }}>
-                  ❌ Syntax Errors Found
-                </h4>
-                <div style={{ fontSize: '12px' }}>
-                  {validationErrors.map((error, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        padding: '8px 12px',
-                        background: '#ffffff',
-                        border: '1px solid #ffccc7',
-                        borderRadius: '4px',
-                        marginBottom: '8px',
-                        fontFamily: 'monospace'
-                      }}
-                    >
-                      {typeof error === 'string' ? error : error.message || JSON.stringify(error)}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginTop: '12px', padding: '8px', background: '#fff7e6', borderRadius: '4px' }}>
-                  <strong>💡 Quick Fixes:</strong>
-                  <ul style={{ marginTop: '4px', marginBottom: '0', fontSize: '12px' }}>
-                    <li>Use <code>=</code> for equality, not <code>==</code></li>
-                    <li>Use <code>and</code>/<code>or</code> instead of <code>&&</code>/<code>||</code></li>
-                    <li>Ensure proper rule syntax: <code>rule name: if condition then action</code></li>
-                  </ul>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Compilation Error */}
-          {compilationError && (
-            <div style={{ marginBottom: '20px' }}>
-              <Card style={{ background: '#fff2f0', border: '1px solid #ffccc7' }}>
-                <h4 style={{ color: '#cf1322', marginBottom: '12px' }}>
-                  🔧 Compilation Error
-                </h4>
-                <div style={{
-                  fontFamily: 'monospace',
-                  fontSize: '12px',
-                  padding: '12px',
-                  background: '#ffffff',
-                  border: '1px solid #ffccc7',
-                  borderRadius: '4px'
-                }}>
-                  {compilationError}
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Execution Results */}
-          {success && executionResult.success && (
-            <div style={{ marginBottom: '20px' }}>
-              <Card style={{ background: '#f6ffed', border: '1px solid #b7eb8f' }}>
-                <h4 style={{ color: '#389e0d', marginBottom: '12px' }}>
-                  ⚡ Execution Results
-                </h4>
-                <div style={{ marginBottom: '12px' }}>
-                  <div style={{ fontSize: '14px', marginBottom: '8px' }}>
-                    <strong>Rule Matched:</strong> {executionResult.matched ? 'Yes' : 'No'} |
-                    <strong> Actions:</strong> {executionResult.actions?.length || 0} |
-                    <strong> Execution Time:</strong> {executionResult.executionTimeMs || '<1'}ms
-                  </div>
-                  {executionResult.actions && executionResult.actions.length > 0 && (
-                    <div>
-                      <strong>Executed Actions:</strong>
-                      <div style={{ marginTop: '4px' }}>
-                        {executionResult.actions.map((action, index) => (
-                          <Tag key={index} color="green" style={{ margin: '2px' }}>
-                            {action}
-                          </Tag>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Generated Code Preview (Collapsible) */}
-          {generatedCode && (
-            <div style={{ marginBottom: '20px' }}>
-              <details>
-                <summary style={{
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  color: '#1890ff',
-                  padding: '8px 0',
-                  borderBottom: '1px solid #f0f0f0'
-                }}>
-                  📄 View Generated Java Code ({generatedCode.length} characters)
-                </summary>
-                <div style={{
-                  marginTop: '12px',
-                  maxHeight: '300px',
-                  overflow: 'auto',
-                  background: '#fafafa',
-                  border: '1px solid #d9d9d9',
-                  borderRadius: '4px'
-                }}>
-                  <pre style={{
-                    margin: 0,
-                    padding: '16px',
-                    fontSize: '12px',
-                    fontFamily: 'monospace',
-                    lineHeight: '1.4'
-                  }}>
-                    {generatedCode}
-                  </pre>
-                </div>
-              </details>
-            </div>
-          )}
-
-          <div style={{
-            fontSize: '11px',
-            color: '#999',
-            textAlign: 'center',
-            marginTop: '16px',
-            paddingTop: '12px',
-            borderTop: '1px solid #f0f0f0'
-          }}>
-            Enhanced test completed at: {new Date().toLocaleString()}
           </div>
         </div>
       ),
@@ -2281,14 +1659,14 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
       {/* Schema Viewer Modal */}
       <SchemaViewer
-        visible={schemaViewerVisible}
+        open={schemaViewerVisible}
         onClose={() => setSchemaViewerVisible(false)}
         schemaVersion={selectedSchema}
       />
 
       {/* Sample Data Editor Modal */}
       <SampleDataEditor
-        visible={sampleDataVisible}
+        open={sampleDataVisible}
         onClose={() => setSampleDataVisible(false)}
         onTest={handleTestWithSampleData}
         currentRuleContent={editorContent}

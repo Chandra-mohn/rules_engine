@@ -33,8 +33,6 @@ class RuleService:
             return ''
 
         # Match rules with quoted and unquoted names
-        # rule "PROMOTION $5%3 @SEARS":
-        # rule regularRuleName:
         pattern = r'^\s*rule\s+(?:"([^"]+)"|([a-zA-Z_][a-zA-Z0-9_]*))\s*:'
 
         match = re.search(pattern, content, re.MULTILINE)
@@ -74,7 +72,6 @@ class RuleService:
         if item_type:
             query = query.filter(Rule.item_type == item_type)
         else:
-            # Default: show all rule types, but not standalone actions
             query = query.filter(Rule.item_type.in_(['rule', 'actionset', 'mon_rule', 'non_mon_rule']))
 
         # Apply hierarchy filters

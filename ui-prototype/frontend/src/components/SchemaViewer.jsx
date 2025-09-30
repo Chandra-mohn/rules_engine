@@ -290,7 +290,7 @@ const SchemaViewer = ({ visible, onClose, schemaVersion = 'modern' }) => {
           Rules Schema Reference
         </Space>
       }
-      visible={visible}
+      open={visible}
       onCancel={onClose}
       footer={null}
       width={1000}
