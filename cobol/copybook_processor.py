@@ -426,11 +426,10 @@ class HierarchicalRedefinesEnumerator:
             if redefines_at_this_level:
                 hierarchy_map[path] = redefines_at_this_level
 
-            # Recurse into children
+            # Recurse into ALL children to find nested REDEFINES
             for child in node.children:
-                if not child.redefines:  # Don't traverse REDEFINES nodes yet
-                    child_path = f"{path}.{child.name}" if path else child.name
-                    traverse(child, child_path)
+                child_path = f"{path}.{child.name}" if path else child.name
+                traverse(child, child_path)
 
         traverse(self.processed.root, "")
         return hierarchy_map
@@ -481,27 +480,69 @@ class HierarchicalRedefinesEnumerator:
                     # Build variant name
                     new_prefix = f"{variant_prefix}_{variant.name}" if variant_prefix else variant.name
 
-                    # Recurse into this variant's children
-                    variant_path = f"{current_path}.{variant.name}" if current_path else variant.name
-
-                    # Check if there are nested REDEFINES
-                    has_nested = any(p.startswith(variant_path + ".") for p in hierarchy_map.keys())
-
-                    if has_nested:
-                        # Continue enumeration in nested context
-                        yield from self._enumerate_hierarchical(
-                            node=variant_node,
-                            hierarchy_map=hierarchy_map,
-                            current_path=variant_path,
-                            current_depth=current_depth + 1,
-                            variant_prefix=new_prefix
-                        )
-                    else:
-                        # No nested REDEFINES, yield this variant
-                        self.variant_count += 1
-                        yield (new_prefix, variant_node)
+                    # Continue traversing tree to find nested REDEFINES
+                    yield from self._traverse_for_nested_redefines(
+                        node=variant_node,
+                        hierarchy_map=hierarchy_map,
+                        current_depth=current_depth + 1,
+                        variant_prefix=new_prefix
+                    )
         else:
-            # No REDEFINES at this level, yield current state
+            # No REDEFINES at this level, continue traversing for nested REDEFINES
+            yield from self._traverse_for_nested_redefines(
+                node=node,
+                hierarchy_map=hierarchy_map,
+                current_depth=current_depth,
+                variant_prefix=variant_prefix
+            )
+
+    def _traverse_for_nested_redefines(
+        self,
+        node: ASTNode,
+        hierarchy_map: Dict[str, List[RedefinesGroup]],
+        current_depth: int,
+        variant_prefix: str
+    ) -> Generator[Tuple[str, ASTNode], None, None]:
+        """
+        Traverse the tree structure to find and enumerate nested REDEFINES.
+
+        Args:
+            node: Current node
+            hierarchy_map: Map of parent paths to REDEFINES groups
+            current_depth: Current REDEFINES nesting depth
+            variant_prefix: Accumulated variant name prefix
+        """
+        # Check if any child paths have REDEFINES
+        has_nested_redefines = False
+
+        for child in node.children:
+            # Build child path
+            child_path = f"{child.name}"
+
+            # Check all possible nested paths under this child
+            for path_key in hierarchy_map.keys():
+                if path_key.startswith(child_path):
+                    has_nested_redefines = True
+                    break
+
+            if has_nested_redefines:
+                break
+
+        if has_nested_redefines:
+            # Recurse into children to find nested REDEFINES
+            for child in node.children:
+                child_path = child.name
+
+                # Recursively enumerate this child's subtree
+                yield from self._enumerate_hierarchical(
+                    node=child,
+                    hierarchy_map=hierarchy_map,
+                    current_path=child_path,
+                    current_depth=current_depth,
+                    variant_prefix=variant_prefix
+                )
+        else:
+            # No nested REDEFINES found, yield this variant
             variant_name = variant_prefix if variant_prefix else "default"
             self.variant_count += 1
             yield (variant_name, node)
