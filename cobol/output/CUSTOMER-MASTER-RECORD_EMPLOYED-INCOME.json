@@ -1,0 +1,72 @@
+{
+  "schemas": [
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "INCOME-INFO",
+      "type": "object",
+      "properties": {
+        "EMPLOYED-INCOME": {
+          "type": "object",
+          "properties": {
+            "SALARY-AMOUNT": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "SALARY-FREQUENCY": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "BONUS-AMOUNT": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "COMMISSION-AMOUNT": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "OVERTIME-AMOUNT": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "TOTAL-COMP": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "LAST-RAISE-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "LAST-RAISE-PERCENT": {
+              "type": "number",
+              "minimum": -99999,
+              "maximum": 99999
+            }
+          },
+          "required": [
+            "SALARY-AMOUNT",
+            "SALARY-FREQUENCY",
+            "BONUS-AMOUNT",
+            "COMMISSION-AMOUNT",
+            "OVERTIME-AMOUNT",
+            "TOTAL-COMP",
+            "LAST-RAISE-DATE",
+            "LAST-RAISE-PERCENT"
+          ]
+        }
+      },
+      "required": [
+        "EMPLOYED-INCOME"
+      ],
+      "x-variant-name": "EMPLOYED-INCOME"
+    }
+  ],
+  "copybook": "CUSTOMER-MASTER-RECORD",
+  "group": "EMPLOYED-INCOME",
+  "variant_count": 1
+}

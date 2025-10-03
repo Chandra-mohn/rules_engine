@@ -1,0 +1,2417 @@
+{
+  "schemas": [
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CUSTOMER-NUMBER",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CUSTOMER-TYPE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CUSTOMER-STATUS",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LEGACY-ID",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "EXTERNAL-REF-ID",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CUSTOMER-CATEGORY",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ACCOUNT-OPEN-DATE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ACCOUNT-CLOSE-DATE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LAST-ACTIVITY-DATE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CUSTOMER-SINCE-DATE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VIP-STATUS-FLAG",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RISK-RATING",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CREDIT-SCORE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "KYC-STATUS",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "KYC-LAST-UPDATE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "REGULATORY-FLAG",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TAX-ID",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BUSINESS-REG-NUMBER",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PARENT-CUSTOMER-ID",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RELATIONSHIP-TYPE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CONTACT-PREF-SECTION",
+      "type": "object",
+      "properties": {
+        "PREFERRED-LANGUAGE": {
+          "type": "string",
+          "maxLength": 3
+        },
+        "PREFERRED-CHANNEL": {
+          "type": "string",
+          "maxLength": 2
+        },
+        "DO-NOT-CALL-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "DO-NOT-EMAIL-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "DO-NOT-MAIL-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "MARKETING-OPT-IN": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "THIRD-PARTY-SHARE": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "PAPERLESS-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "EMAIL-VERIFIED-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "PHONE-VERIFIED-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        }
+      },
+      "required": [
+        "PREFERRED-LANGUAGE",
+        "PREFERRED-CHANNEL",
+        "DO-NOT-CALL-FLAG",
+        "DO-NOT-EMAIL-FLAG",
+        "DO-NOT-MAIL-FLAG",
+        "MARKETING-OPT-IN",
+        "THIRD-PARTY-SHARE",
+        "PAPERLESS-FLAG",
+        "EMAIL-VERIFIED-FLAG",
+        "PHONE-VERIFIED-FLAG"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ALT-ID-COUNT",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ALTERNATE-IDS",
+      "type": "object",
+      "properties": {
+        "ALT-ID-TYPE": {
+          "type": "string",
+          "maxLength": 3
+        },
+        "ALT-ID-VALUE": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "ALT-ID-COUNTRY": {
+          "type": "string",
+          "maxLength": 3
+        },
+        "ALT-ID-ISSUE-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "ALT-ID-EXPIRY-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        }
+      },
+      "required": [
+        "ALT-ID-TYPE",
+        "ALT-ID-VALUE",
+        "ALT-ID-COUNTRY",
+        "ALT-ID-ISSUE-DATE",
+        "ALT-ID-EXPIRY-DATE"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SEGMENT-FLAGS",
+      "type": "object",
+      "properties": {
+        "RETAIL-SEGMENT": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "CORPORATE-SEGMENT": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "PREMIUM-SEGMENT": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "MASS-MARKET-SEGMENT": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "PRIVATE-BANKING": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "SMALL-BUSINESS": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "INSTITUTIONAL": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "GOVERNMENT": {
+          "type": "string",
+          "maxLength": 1
+        }
+      },
+      "required": [
+        "RETAIL-SEGMENT",
+        "CORPORATE-SEGMENT",
+        "PREMIUM-SEGMENT",
+        "MASS-MARKET-SEGMENT",
+        "PRIVATE-BANKING",
+        "SMALL-BUSINESS",
+        "INSTITUTIONAL",
+        "GOVERNMENT"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ADDRESS-SECTION",
+      "type": "object",
+      "properties": {
+        "PRIMARY-ADDRESS": {
+          "type": "object",
+          "properties": {
+            "ADDR-TYPE": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "ADDR-LINE-1": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "ADDR-LINE-2": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "ADDR-LINE-3": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "CITY": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "STATE-PROVINCE": {
+              "type": "string",
+              "maxLength": 30
+            },
+            "POSTAL-CODE": {
+              "type": "string",
+              "maxLength": 15
+            },
+            "COUNTRY-CODE": {
+              "type": "string",
+              "maxLength": 3
+            },
+            "COUNTY": {
+              "type": "string",
+              "maxLength": 30
+            },
+            "MUNICIPALITY": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "LATITUDE": {
+              "type": "number",
+              "minimum": -999999999,
+              "maximum": 999999999
+            },
+            "LONGITUDE": {
+              "type": "number",
+              "minimum": -999999999,
+              "maximum": 999999999
+            },
+            "ADDR-VALID-FROM": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "ADDR-VALID-TO": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "ADDR-VERIFIED-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "ADDR-VERIFICATION-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "ADDR-SOURCE": {
+              "type": "string",
+              "maxLength": 3
+            },
+            "DWELLING-TYPE": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "OWNERSHIP-STATUS": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "YEARS-AT-ADDRESS": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            }
+          },
+          "required": [
+            "ADDR-TYPE",
+            "ADDR-LINE-1",
+            "ADDR-LINE-2",
+            "ADDR-LINE-3",
+            "CITY",
+            "STATE-PROVINCE",
+            "POSTAL-CODE",
+            "COUNTRY-CODE",
+            "COUNTY",
+            "MUNICIPALITY",
+            "LATITUDE",
+            "LONGITUDE",
+            "ADDR-VALID-FROM",
+            "ADDR-VALID-TO",
+            "ADDR-VERIFIED-FLAG",
+            "ADDR-VERIFICATION-DATE",
+            "ADDR-SOURCE",
+            "DWELLING-TYPE",
+            "OWNERSHIP-STATUS",
+            "YEARS-AT-ADDRESS"
+          ]
+        },
+        "ADDITIONAL-ADDR-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "ADDITIONAL-ADDRESSES": {
+          "type": "object",
+          "properties": {
+            "ADD-ADDR-TYPE": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "ADD-ADDR-LINE-1": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "ADD-ADDR-LINE-2": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "ADD-CITY": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "ADD-STATE-PROVINCE": {
+              "type": "string",
+              "maxLength": 30
+            },
+            "ADD-POSTAL-CODE": {
+              "type": "string",
+              "maxLength": 15
+            },
+            "ADD-COUNTRY-CODE": {
+              "type": "string",
+              "maxLength": 3
+            },
+            "ADD-VALID-FROM": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "ADD-VALID-TO": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "ADD-PRIMARY-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "ADD-SEASONAL-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "ADD-ADDR-TYPE",
+            "ADD-ADDR-LINE-1",
+            "ADD-ADDR-LINE-2",
+            "ADD-CITY",
+            "ADD-STATE-PROVINCE",
+            "ADD-POSTAL-CODE",
+            "ADD-COUNTRY-CODE",
+            "ADD-VALID-FROM",
+            "ADD-VALID-TO",
+            "ADD-PRIMARY-FLAG",
+            "ADD-SEASONAL-FLAG"
+          ]
+        },
+        "GEO-CLASSIFICATIONS": {
+          "type": "object",
+          "properties": {
+            "METRO-AREA-CODE": {
+              "type": "string",
+              "maxLength": 5
+            },
+            "CENSUS-TRACT": {
+              "type": "string",
+              "maxLength": 11
+            },
+            "TIME-ZONE": {
+              "type": "string",
+              "maxLength": 5
+            },
+            "DST-APPLICABLE": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "REGION-CODE": {
+              "type": "string",
+              "maxLength": 3
+            },
+            "DISTRICT-CODE": {
+              "type": "string",
+              "maxLength": 5
+            },
+            "TERRITORY-CODE": {
+              "type": "string",
+              "maxLength": 5
+            },
+            "BRANCH-CODE": {
+              "type": "string",
+              "maxLength": 6
+            }
+          },
+          "required": [
+            "METRO-AREA-CODE",
+            "CENSUS-TRACT",
+            "TIME-ZONE",
+            "DST-APPLICABLE",
+            "REGION-CODE",
+            "DISTRICT-CODE",
+            "TERRITORY-CODE",
+            "BRANCH-CODE"
+          ]
+        }
+      },
+      "required": [
+        "PRIMARY-ADDRESS",
+        "ADDITIONAL-ADDR-COUNT",
+        "ADDITIONAL-ADDRESSES",
+        "GEO-CLASSIFICATIONS"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CONTACT-INFO-SECTION",
+      "type": "object",
+      "properties": {
+        "PHONE-INFO": {
+          "type": "object",
+          "properties": {
+            "PRIMARY-PHONE": {
+              "type": "object",
+              "properties": {
+                "PHONE-TYPE": {
+                  "type": "string",
+                  "maxLength": 2
+                },
+                "COUNTRY-CODE": {
+                  "type": "string",
+                  "maxLength": 5
+                },
+                "AREA-CODE": {
+                  "type": "string",
+                  "maxLength": 5
+                },
+                "PHONE-NUMBER": {
+                  "type": "string",
+                  "maxLength": 15
+                },
+                "EXTENSION": {
+                  "type": "string",
+                  "maxLength": 10
+                },
+                "PHONE-VALID-FROM": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 99999999
+                },
+                "PHONE-VERIFIED": {
+                  "type": "string",
+                  "maxLength": 1
+                },
+                "SMS-CAPABLE": {
+                  "type": "string",
+                  "maxLength": 1
+                },
+                "DO-NOT-CALL": {
+                  "type": "string",
+                  "maxLength": 1
+                }
+              },
+              "required": [
+                "PHONE-TYPE",
+                "COUNTRY-CODE",
+                "AREA-CODE",
+                "PHONE-NUMBER",
+                "EXTENSION",
+                "PHONE-VALID-FROM",
+                "PHONE-VERIFIED",
+                "SMS-CAPABLE",
+                "DO-NOT-CALL"
+              ]
+            },
+            "ADD-PHONE-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99
+            },
+            "ADDITIONAL-PHONES": {
+              "type": "object",
+              "properties": {
+                "ADD-PHONE-TYPE": {
+                  "type": "string",
+                  "maxLength": 2
+                },
+                "ADD-COUNTRY-CODE": {
+                  "type": "string",
+                  "maxLength": 5
+                },
+                "ADD-AREA-CODE": {
+                  "type": "string",
+                  "maxLength": 5
+                },
+                "ADD-PHONE-NUMBER": {
+                  "type": "string",
+                  "maxLength": 15
+                },
+                "ADD-EXTENSION": {
+                  "type": "string",
+                  "maxLength": 10
+                },
+                "ADD-VERIFIED": {
+                  "type": "string",
+                  "maxLength": 1
+                },
+                "ADD-PRIMARY-FLAG": {
+                  "type": "string",
+                  "maxLength": 1
+                }
+              },
+              "required": [
+                "ADD-PHONE-TYPE",
+                "ADD-COUNTRY-CODE",
+                "ADD-AREA-CODE",
+                "ADD-PHONE-NUMBER",
+                "ADD-EXTENSION",
+                "ADD-VERIFIED",
+                "ADD-PRIMARY-FLAG"
+              ]
+            }
+          },
+          "required": [
+            "PRIMARY-PHONE",
+            "ADD-PHONE-COUNT",
+            "ADDITIONAL-PHONES"
+          ]
+        },
+        "EMAIL-INFO": {
+          "type": "object",
+          "properties": {
+            "PRIMARY-EMAIL": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "PRIMARY-EMAIL-VERIFIED": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "EMAIL-BOUNCE-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            },
+            "EMAIL-LAST-SENT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "ADD-EMAIL-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99
+            },
+            "ADDITIONAL-EMAILS": {
+              "type": "object",
+              "properties": {
+                "ADD-EMAIL-ADDRESS": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "ADD-EMAIL-TYPE": {
+                  "type": "string",
+                  "maxLength": 2
+                },
+                "ADD-EMAIL-VERIFIED": {
+                  "type": "string",
+                  "maxLength": 1
+                },
+                "ADD-EMAIL-PRIMARY": {
+                  "type": "string",
+                  "maxLength": 1
+                }
+              },
+              "required": [
+                "ADD-EMAIL-ADDRESS",
+                "ADD-EMAIL-TYPE",
+                "ADD-EMAIL-VERIFIED",
+                "ADD-EMAIL-PRIMARY"
+              ]
+            }
+          },
+          "required": [
+            "PRIMARY-EMAIL",
+            "PRIMARY-EMAIL-VERIFIED",
+            "EMAIL-BOUNCE-COUNT",
+            "EMAIL-LAST-SENT",
+            "ADD-EMAIL-COUNT",
+            "ADDITIONAL-EMAILS"
+          ]
+        },
+        "SOCIAL-MEDIA-INFO": {
+          "type": "object",
+          "properties": {
+            "SOCIAL-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99
+            },
+            "SOCIAL-MEDIA-ACCOUNTS": {
+              "type": "object",
+              "properties": {
+                "SOCIAL-PLATFORM": {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                "SOCIAL-HANDLE": {
+                  "type": "string",
+                  "maxLength": 50
+                },
+                "SOCIAL-VERIFIED": {
+                  "type": "string",
+                  "maxLength": 1
+                }
+              },
+              "required": [
+                "SOCIAL-PLATFORM",
+                "SOCIAL-HANDLE",
+                "SOCIAL-VERIFIED"
+              ]
+            }
+          },
+          "required": [
+            "SOCIAL-COUNT",
+            "SOCIAL-MEDIA-ACCOUNTS"
+          ]
+        },
+        "EMERGENCY-CONTACT": {
+          "type": "object",
+          "properties": {
+            "EMERGENCY-NAME": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "EMERGENCY-RELATIONSHIP": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "EMERGENCY-PHONE": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "EMERGENCY-EMAIL": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "EMERGENCY-NAME",
+            "EMERGENCY-RELATIONSHIP",
+            "EMERGENCY-PHONE",
+            "EMERGENCY-EMAIL"
+          ]
+        }
+      },
+      "required": [
+        "PHONE-INFO",
+        "EMAIL-INFO",
+        "SOCIAL-MEDIA-INFO",
+        "EMERGENCY-CONTACT"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TRANSACTION-STATS",
+      "type": "object",
+      "properties": {
+        "MTD-DEPOSIT-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9999999
+        },
+        "MTD-DEPOSIT-AMOUNT": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "MTD-WITHDRAWAL-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9999999
+        },
+        "MTD-WITHDRAWAL-AMOUNT": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "MTD-TRANSFER-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9999999
+        },
+        "MTD-TRANSFER-AMOUNT": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "YTD-DEPOSIT-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999999999
+        },
+        "YTD-DEPOSIT-AMOUNT": {
+          "type": "number",
+          "minimum": -99999999999999999,
+          "maximum": 99999999999999999
+        },
+        "YTD-WITHDRAWAL-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999999999
+        },
+        "YTD-WITHDRAWAL-AMOUNT": {
+          "type": "number",
+          "minimum": -99999999999999999,
+          "maximum": 99999999999999999
+        },
+        "YTD-TRANSFER-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999999999
+        },
+        "YTD-TRANSFER-AMOUNT": {
+          "type": "number",
+          "minimum": -99999999999999999,
+          "maximum": 99999999999999999
+        },
+        "LAST-DEPOSIT-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "LAST-DEPOSIT-AMOUNT": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "LAST-WITHDRAWAL-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "LAST-WITHDRAWAL-AMOUNT": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "LARGEST-DEPOSIT": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "LARGEST-WITHDRAWAL": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "AVG-MONTHLY-BALANCE": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "AVG-DAILY-BALANCE": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        }
+      },
+      "required": [
+        "MTD-DEPOSIT-COUNT",
+        "MTD-DEPOSIT-AMOUNT",
+        "MTD-WITHDRAWAL-COUNT",
+        "MTD-WITHDRAWAL-AMOUNT",
+        "MTD-TRANSFER-COUNT",
+        "MTD-TRANSFER-AMOUNT",
+        "YTD-DEPOSIT-COUNT",
+        "YTD-DEPOSIT-AMOUNT",
+        "YTD-WITHDRAWAL-COUNT",
+        "YTD-WITHDRAWAL-AMOUNT",
+        "YTD-TRANSFER-COUNT",
+        "YTD-TRANSFER-AMOUNT",
+        "LAST-DEPOSIT-DATE",
+        "LAST-DEPOSIT-AMOUNT",
+        "LAST-WITHDRAWAL-DATE",
+        "LAST-WITHDRAWAL-AMOUNT",
+        "LARGEST-DEPOSIT",
+        "LARGEST-WITHDRAWAL",
+        "AVG-MONTHLY-BALANCE",
+        "AVG-DAILY-BALANCE"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PRODUCT-COUNT",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PRODUCT-HOLDINGS",
+      "type": "object",
+      "properties": {
+        "PRODUCT-CODE": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "PRODUCT-TYPE": {
+          "type": "string",
+          "maxLength": 3
+        },
+        "PRODUCT-STATUS": {
+          "type": "string",
+          "maxLength": 2
+        },
+        "PRODUCT-OPEN-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "PRODUCT-BALANCE": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "PRODUCT-LIMIT": {
+          "type": "number",
+          "minimum": -999999999999999,
+          "maximum": 999999999999999
+        },
+        "PRODUCT-RATE": {
+          "type": "number",
+          "minimum": -999999999,
+          "maximum": 999999999
+        },
+        "PRODUCT-TERM": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9999
+        },
+        "PRODUCT-MATURITY-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "PRODUCT-LAST-PAYMENT": {
+          "type": "number",
+          "minimum": -9999999999999,
+          "maximum": 9999999999999
+        },
+        "PRODUCT-NEXT-DUE-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "PRODUCT-DELINQ-STATUS": {
+          "type": "string",
+          "maxLength": 2
+        },
+        "PRODUCT-PROFIT-CENTER": {
+          "type": "string",
+          "maxLength": 5
+        }
+      },
+      "required": [
+        "PRODUCT-CODE",
+        "PRODUCT-TYPE",
+        "PRODUCT-STATUS",
+        "PRODUCT-OPEN-DATE",
+        "PRODUCT-BALANCE",
+        "PRODUCT-LIMIT",
+        "PRODUCT-RATE",
+        "PRODUCT-TERM",
+        "PRODUCT-MATURITY-DATE",
+        "PRODUCT-LAST-PAYMENT",
+        "PRODUCT-NEXT-DUE-DATE",
+        "PRODUCT-DELINQ-STATUS",
+        "PRODUCT-PROFIT-CENTER"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CREDIT-INFO",
+      "type": "object",
+      "properties": {
+        "CREDIT-LIMIT": {
+          "type": "number",
+          "minimum": -9999999999999,
+          "maximum": 9999999999999
+        },
+        "AVAILABLE-CREDIT": {
+          "type": "number",
+          "minimum": -9999999999999,
+          "maximum": 9999999999999
+        },
+        "CREDIT-UTILIZATION": {
+          "type": "number",
+          "minimum": -99999,
+          "maximum": 99999
+        },
+        "PAYMENT-HISTORY-SCORE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9999
+        },
+        "DELINQUENCY-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999
+        },
+        "CHARGE-OFF-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999
+        },
+        "BANKRUPTCY-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "BANKRUPTCY-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "FORECLOSURE-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "COLLECTIONS-FLAG": {
+          "type": "string",
+          "maxLength": 1
+        }
+      },
+      "required": [
+        "CREDIT-LIMIT",
+        "AVAILABLE-CREDIT",
+        "CREDIT-UTILIZATION",
+        "PAYMENT-HISTORY-SCORE",
+        "DELINQUENCY-COUNT",
+        "CHARGE-OFF-COUNT",
+        "BANKRUPTCY-FLAG",
+        "BANKRUPTCY-DATE",
+        "FORECLOSURE-FLAG",
+        "COLLECTIONS-FLAG"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FINANCIAL-RATIOS",
+      "type": "object",
+      "properties": {
+        "DEBT-TO-INCOME": {
+          "type": "number",
+          "minimum": -99999,
+          "maximum": 99999
+        },
+        "LOAN-TO-VALUE": {
+          "type": "number",
+          "minimum": -99999,
+          "maximum": 99999
+        },
+        "LIQUIDITY-RATIO": {
+          "type": "number",
+          "minimum": -99999,
+          "maximum": 99999
+        },
+        "PROFITABILITY-INDEX": {
+          "type": "number",
+          "minimum": -9999999,
+          "maximum": 9999999
+        },
+        "RISK-ADJUSTED-RETURN": {
+          "type": "number",
+          "minimum": -9999999,
+          "maximum": 9999999
+        }
+      },
+      "required": [
+        "DEBT-TO-INCOME",
+        "LOAN-TO-VALUE",
+        "LIQUIDITY-RATIO",
+        "PROFITABILITY-INDEX",
+        "RISK-ADJUSTED-RETURN"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "EMPLOYMENT-INFO",
+      "type": "object",
+      "properties": {
+        "EMPLOYMENT-STATUS": {
+          "type": "string",
+          "maxLength": 2
+        },
+        "EMPLOYER-NAME": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "EMPLOYER-ID": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "OCCUPATION": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "INDUSTRY-CODE": {
+          "type": "string",
+          "maxLength": 6
+        },
+        "JOB-TITLE": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "EMPLOYMENT-START-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "YEARS-EMPLOYED": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999
+        },
+        "EMPLOYER-PHONE": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "EMPLOYER-ADDRESS": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "SUPERVISOR-NAME": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "EMPLOYMENT-TYPE": {
+          "type": "string",
+          "maxLength": 2
+        }
+      },
+      "required": [
+        "EMPLOYMENT-STATUS",
+        "EMPLOYER-NAME",
+        "EMPLOYER-ID",
+        "OCCUPATION",
+        "INDUSTRY-CODE",
+        "JOB-TITLE",
+        "EMPLOYMENT-START-DATE",
+        "YEARS-EMPLOYED",
+        "EMPLOYER-PHONE",
+        "EMPLOYER-ADDRESS",
+        "SUPERVISOR-NAME",
+        "EMPLOYMENT-TYPE"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OTHER-INCOME-COUNT",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OTHER-INCOME",
+      "type": "object",
+      "properties": {
+        "INCOME-SOURCE": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "INCOME-TYPE": {
+          "type": "string",
+          "maxLength": 3
+        },
+        "INCOME-AMOUNT": {
+          "type": "number",
+          "minimum": -9999999999999,
+          "maximum": 9999999999999
+        },
+        "INCOME-FREQUENCY": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "INCOME-VERIFIED": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "INCOME-START-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        }
+      },
+      "required": [
+        "INCOME-SOURCE",
+        "INCOME-TYPE",
+        "INCOME-AMOUNT",
+        "INCOME-FREQUENCY",
+        "INCOME-VERIFIED",
+        "INCOME-START-DATE"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TOTAL-ANNUAL-INCOME",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VERIFIED-INCOME",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "INCOME-VERIFICATION-DATE",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RELATIONSHIP-SECTION",
+      "type": "object",
+      "properties": {
+        "RELATIONSHIP-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "RELATED-PARTIES": {
+          "type": "object",
+          "properties": {
+            "RELATED-CUSTOMER-ID": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999999999
+            },
+            "RELATIONSHIP-TYPE": {
+              "type": "string",
+              "maxLength": 3
+            },
+            "RELATIONSHIP-START": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "RELATIONSHIP-END": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "RELATIONSHIP-STATUS": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "JOINT-LIABILITY-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "RELATED-CUSTOMER-ID",
+            "RELATIONSHIP-TYPE",
+            "RELATIONSHIP-START",
+            "RELATIONSHIP-END",
+            "RELATIONSHIP-STATUS",
+            "JOINT-LIABILITY-FLAG"
+          ]
+        },
+        "BENEFICIARY-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "BENEFICIARIES": {
+          "type": "object",
+          "properties": {
+            "BENEFICIARY-NAME": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "BENEFICIARY-TYPE": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "BENEFICIARY-PERCENT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            },
+            "BENEFICIARY-SSN": {
+              "type": "string",
+              "maxLength": 11
+            },
+            "BENEFICIARY-DOB": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "BENEFICIARY-ADDRESS": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "BENEFICIARY-PHONE": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "CONTINGENT-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "BENEFICIARY-NAME",
+            "BENEFICIARY-TYPE",
+            "BENEFICIARY-PERCENT",
+            "BENEFICIARY-SSN",
+            "BENEFICIARY-DOB",
+            "BENEFICIARY-ADDRESS",
+            "BENEFICIARY-PHONE",
+            "CONTINGENT-FLAG"
+          ]
+        }
+      },
+      "required": [
+        "RELATIONSHIP-COUNT",
+        "RELATED-PARTIES",
+        "BENEFICIARY-COUNT",
+        "BENEFICIARIES"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PREFERENCES-SECTION",
+      "type": "object",
+      "properties": {
+        "NOTIFICATION-PREFS": {
+          "type": "object",
+          "properties": {
+            "EMAIL-NOTIFICATIONS": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "SMS-NOTIFICATIONS": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "PUSH-NOTIFICATIONS": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "POSTAL-NOTIFICATIONS": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "ALERT-THRESHOLD-AMT": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "LOW-BALANCE-ALERT": {
+              "type": "number",
+              "minimum": -99999999999,
+              "maximum": 99999999999
+            },
+            "LARGE-DEPOSIT-ALERT": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "SUSPICIOUS-ACTIVITY": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "EMAIL-NOTIFICATIONS",
+            "SMS-NOTIFICATIONS",
+            "PUSH-NOTIFICATIONS",
+            "POSTAL-NOTIFICATIONS",
+            "ALERT-THRESHOLD-AMT",
+            "LOW-BALANCE-ALERT",
+            "LARGE-DEPOSIT-ALERT",
+            "SUSPICIOUS-ACTIVITY"
+          ]
+        },
+        "STATEMENT-PREFS": {
+          "type": "object",
+          "properties": {
+            "STATEMENT-FREQUENCY": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "STATEMENT-DELIVERY": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "PAPERLESS-STATEMENTS": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "STATEMENT-EMAIL": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "COMBINED-STATEMENTS": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "STATEMENT-FREQUENCY",
+            "STATEMENT-DELIVERY",
+            "PAPERLESS-STATEMENTS",
+            "STATEMENT-EMAIL",
+            "COMBINED-STATEMENTS"
+          ]
+        },
+        "ONLINE-BANKING-PREFS": {
+          "type": "object",
+          "properties": {
+            "ONLINE-BANKING-ENROLLED": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "ENROLLMENT-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "LAST-LOGIN-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "LAST-LOGIN-TIME": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999999
+            },
+            "LOGIN-COUNT-MTD": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "FAILED-LOGIN-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            },
+            "ACCOUNT-LOCKED-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "PASSWORD-LAST-CHANGE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "SECURITY-QUESTION-SET": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "TWO-FACTOR-AUTH": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "BIOMETRIC-AUTH": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "ONLINE-BANKING-ENROLLED",
+            "ENROLLMENT-DATE",
+            "LAST-LOGIN-DATE",
+            "LAST-LOGIN-TIME",
+            "LOGIN-COUNT-MTD",
+            "FAILED-LOGIN-COUNT",
+            "ACCOUNT-LOCKED-FLAG",
+            "PASSWORD-LAST-CHANGE",
+            "SECURITY-QUESTION-SET",
+            "TWO-FACTOR-AUTH",
+            "BIOMETRIC-AUTH"
+          ]
+        },
+        "MOBILE-BANKING-PREFS": {
+          "type": "object",
+          "properties": {
+            "MOBILE-ENROLLED": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "DEVICE-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99
+            },
+            "MOBILE-DEPOSIT-LIMIT": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "MOBILE-TRANSFER-LIMIT": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            }
+          },
+          "required": [
+            "MOBILE-ENROLLED",
+            "DEVICE-COUNT",
+            "MOBILE-DEPOSIT-LIMIT",
+            "MOBILE-TRANSFER-LIMIT"
+          ]
+        }
+      },
+      "required": [
+        "NOTIFICATION-PREFS",
+        "STATEMENT-PREFS",
+        "ONLINE-BANKING-PREFS",
+        "MOBILE-BANKING-PREFS"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AUDIT-SECTION",
+      "type": "object",
+      "properties": {
+        "RECORD-METADATA": {
+          "type": "object",
+          "properties": {
+            "RECORD-CREATE-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "RECORD-CREATE-TIME": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999999
+            },
+            "RECORD-CREATE-USER": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "RECORD-CREATE-TERMINAL": {
+              "type": "string",
+              "maxLength": 15
+            },
+            "RECORD-UPDATE-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "RECORD-UPDATE-TIME": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999999
+            },
+            "RECORD-UPDATE-USER": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "RECORD-UPDATE-TERMINAL": {
+              "type": "string",
+              "maxLength": 15
+            },
+            "RECORD-VERSION": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "RECORD-STATUS": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "RECORD-CREATE-DATE",
+            "RECORD-CREATE-TIME",
+            "RECORD-CREATE-USER",
+            "RECORD-CREATE-TERMINAL",
+            "RECORD-UPDATE-DATE",
+            "RECORD-UPDATE-TIME",
+            "RECORD-UPDATE-USER",
+            "RECORD-UPDATE-TERMINAL",
+            "RECORD-VERSION",
+            "RECORD-STATUS"
+          ]
+        },
+        "COMPLIANCE-INFO": {
+          "type": "object",
+          "properties": {
+            "AML-RISK-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            "AML-LAST-REVIEW": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "OFAC-CHECK-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "OFAC-CHECK-RESULT": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "PEP-STATUS": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "FATCA-STATUS": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "CRS-STATUS": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "SANCTIONS-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "WATCHLIST-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "ADVERSE-MEDIA-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "AML-RISK-SCORE",
+            "AML-LAST-REVIEW",
+            "OFAC-CHECK-DATE",
+            "OFAC-CHECK-RESULT",
+            "PEP-STATUS",
+            "FATCA-STATUS",
+            "CRS-STATUS",
+            "SANCTIONS-FLAG",
+            "WATCHLIST-FLAG",
+            "ADVERSE-MEDIA-FLAG"
+          ]
+        },
+        "AUDIT-ENTRY-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999
+        },
+        "AUDIT-TRAIL": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "AUDIT-DATE": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 99999999
+              },
+              "AUDIT-TIME": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 999999
+              },
+              "AUDIT-USER": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "AUDIT-ACTION": {
+                "type": "string",
+                "maxLength": 10
+              },
+              "AUDIT-FIELD-NAME": {
+                "type": "string",
+                "maxLength": 30
+              },
+              "AUDIT-OLD-VALUE": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "AUDIT-NEW-VALUE": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "AUDIT-REASON-CODE": {
+                "type": "string",
+                "maxLength": 5
+              },
+              "AUDIT-TERMINAL": {
+                "type": "string",
+                "maxLength": 15
+              }
+            },
+            "required": [
+              "AUDIT-DATE",
+              "AUDIT-TIME",
+              "AUDIT-USER",
+              "AUDIT-ACTION",
+              "AUDIT-FIELD-NAME",
+              "AUDIT-OLD-VALUE",
+              "AUDIT-NEW-VALUE",
+              "AUDIT-REASON-CODE",
+              "AUDIT-TERMINAL"
+            ]
+          },
+          "minItems": 100,
+          "maxItems": 100
+        },
+        "REGULATORY-REPORT-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "REGULATORY-REPORTS": {
+          "type": "object",
+          "properties": {
+            "REPORT-TYPE": {
+              "type": "string",
+              "maxLength": 5
+            },
+            "REPORT-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "REPORT-FILING-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "REPORT-STATUS": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "REPORT-REFERENCE": {
+              "type": "string",
+              "maxLength": 30
+            }
+          },
+          "required": [
+            "REPORT-TYPE",
+            "REPORT-DATE",
+            "REPORT-FILING-DATE",
+            "REPORT-STATUS",
+            "REPORT-REFERENCE"
+          ]
+        }
+      },
+      "required": [
+        "RECORD-METADATA",
+        "COMPLIANCE-INFO",
+        "AUDIT-ENTRY-COUNT",
+        "AUDIT-TRAIL",
+        "REGULATORY-REPORT-COUNT",
+        "REGULATORY-REPORTS"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MARKETING-SECTION",
+      "type": "object",
+      "properties": {
+        "CAMPAIGN-INFO": {
+          "type": "object",
+          "properties": {
+            "LAST-CAMPAIGN-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "LAST-CAMPAIGN-CODE": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "RESPONSE-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "CONVERSION-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "TOTAL-CAMPAIGN-VALUE": {
+              "type": "number",
+              "minimum": -999999999999999,
+              "maximum": 999999999999999
+            }
+          },
+          "required": [
+            "LAST-CAMPAIGN-DATE",
+            "LAST-CAMPAIGN-CODE",
+            "RESPONSE-COUNT",
+            "CONVERSION-COUNT",
+            "TOTAL-CAMPAIGN-VALUE"
+          ]
+        },
+        "CAMPAIGN-HISTORY-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "CAMPAIGN-HISTORY": {
+          "type": "object",
+          "properties": {
+            "CAMPAIGN-CODE": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "CAMPAIGN-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "CAMPAIGN-CHANNEL": {
+              "type": "string",
+              "maxLength": 3
+            },
+            "CAMPAIGN-RESPONSE": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "CAMPAIGN-RESPONSE-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "CAMPAIGN-CONVERSION": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "CAMPAIGN-VALUE": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            }
+          },
+          "required": [
+            "CAMPAIGN-CODE",
+            "CAMPAIGN-DATE",
+            "CAMPAIGN-CHANNEL",
+            "CAMPAIGN-RESPONSE",
+            "CAMPAIGN-RESPONSE-DATE",
+            "CAMPAIGN-CONVERSION",
+            "CAMPAIGN-VALUE"
+          ]
+        },
+        "ANALYTICS-DATA": {
+          "type": "object",
+          "properties": {
+            "CUSTOMER-LIFETIME-VALUE": {
+              "type": "number",
+              "minimum": -999999999999999,
+              "maximum": 999999999999999
+            },
+            "ACQUISITION-COST": {
+              "type": "number",
+              "minimum": -9999999999999,
+              "maximum": 9999999999999
+            },
+            "CHURN-RISK-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            "PROPENSITY-TO-BUY": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            "CROSS-SELL-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            "UPSELL-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            "NPS-SCORE": {
+              "type": "integer",
+              "minimum": -999,
+              "maximum": 999
+            },
+            "SATISFACTION-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            },
+            "ENGAGEMENT-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            }
+          },
+          "required": [
+            "CUSTOMER-LIFETIME-VALUE",
+            "ACQUISITION-COST",
+            "CHURN-RISK-SCORE",
+            "PROPENSITY-TO-BUY",
+            "CROSS-SELL-SCORE",
+            "UPSELL-SCORE",
+            "NPS-SCORE",
+            "SATISFACTION-SCORE",
+            "ENGAGEMENT-SCORE"
+          ]
+        },
+        "BEHAVIOR-SCORES": {
+          "type": "object",
+          "properties": {
+            "DIGITAL-ADOPTION": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            },
+            "BRANCH-USAGE-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            },
+            "CALL-CENTER-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            },
+            "SELF-SERVICE-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999
+            },
+            "COMPLAINT-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "COMPLIMENT-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "REFERRAL-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            }
+          },
+          "required": [
+            "DIGITAL-ADOPTION",
+            "BRANCH-USAGE-SCORE",
+            "CALL-CENTER-SCORE",
+            "SELF-SERVICE-SCORE",
+            "COMPLAINT-COUNT",
+            "COMPLIMENT-COUNT",
+            "REFERRAL-COUNT"
+          ]
+        }
+      },
+      "required": [
+        "CAMPAIGN-INFO",
+        "CAMPAIGN-HISTORY-COUNT",
+        "CAMPAIGN-HISTORY",
+        "ANALYTICS-DATA",
+        "BEHAVIOR-SCORES"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FLEXIBLE-ATTR-COUNT",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FLEXIBLE-ATTRIBUTES",
+      "type": "object",
+      "properties": {
+        "ATTR-NAME": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "ATTR-VALUE": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "ATTR-TYPE": {
+          "type": "string",
+          "maxLength": 1
+        },
+        "ATTR-UPDATE-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        }
+      },
+      "required": [
+        "ATTR-NAME",
+        "ATTR-VALUE",
+        "ATTR-TYPE",
+        "ATTR-UPDATE-DATE"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DOCUMENT-COUNT",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DOCUMENTS",
+      "type": "object",
+      "properties": {
+        "DOC-TYPE": {
+          "type": "string",
+          "maxLength": 5
+        },
+        "DOC-ID": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "DOC-NAME": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "DOC-UPLOAD-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "DOC-STATUS": {
+          "type": "string",
+          "maxLength": 2
+        },
+        "DOC-EXPIRY-DATE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999999
+        },
+        "DOC-SIZE-KB": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999999999
+        },
+        "DOC-STORAGE-LOCATION": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "DOC-TYPE",
+        "DOC-ID",
+        "DOC-NAME",
+        "DOC-UPLOAD-DATE",
+        "DOC-STATUS",
+        "DOC-EXPIRY-DATE",
+        "DOC-SIZE-KB",
+        "DOC-STORAGE-LOCATION"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RISK-FRAUD-SECTION",
+      "type": "object",
+      "properties": {
+        "FRAUD-INFO": {
+          "type": "object",
+          "properties": {
+            "FRAUD-ALERT-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "FRAUD-SCORE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            "FRAUD-LAST-REVIEW": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "IDENTITY-THEFT-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "DISPUTED-TRANS-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "CHARGEBACK-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "NSF-COUNT-YTD": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "OVERDRAFT-COUNT-YTD": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "RETURNED-CHECK-COUNT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            }
+          },
+          "required": [
+            "FRAUD-ALERT-FLAG",
+            "FRAUD-SCORE",
+            "FRAUD-LAST-REVIEW",
+            "IDENTITY-THEFT-FLAG",
+            "DISPUTED-TRANS-COUNT",
+            "CHARGEBACK-COUNT",
+            "NSF-COUNT-YTD",
+            "OVERDRAFT-COUNT-YTD",
+            "RETURNED-CHECK-COUNT"
+          ]
+        },
+        "RISK-INDICATORS": {
+          "type": "object",
+          "properties": {
+            "VELOCITY-CHECK-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "UNUSUAL-ACTIVITY-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "HIGH-RISK-COUNTRY": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "SHELL-COMPANY-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "CASH-INTENSIVE-FLAG": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "POLITICALLY-EXPOSED": {
+              "type": "string",
+              "maxLength": 1
+            }
+          },
+          "required": [
+            "VELOCITY-CHECK-FLAG",
+            "UNUSUAL-ACTIVITY-FLAG",
+            "HIGH-RISK-COUNTRY",
+            "SHELL-COMPANY-FLAG",
+            "CASH-INTENSIVE-FLAG",
+            "POLITICALLY-EXPOSED"
+          ]
+        },
+        "FRAUD-ALERT-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "FRAUD-ALERTS": {
+          "type": "object",
+          "properties": {
+            "ALERT-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "ALERT-TYPE": {
+              "type": "string",
+              "maxLength": 5
+            },
+            "ALERT-SEVERITY": {
+              "type": "string",
+              "maxLength": 1
+            },
+            "ALERT-DESCRIPTION": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "ALERT-RESOLUTION": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "ALERT-RESOLVED-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "ALERT-RESOLVED-BY": {
+              "type": "string",
+              "maxLength": 20
+            }
+          },
+          "required": [
+            "ALERT-DATE",
+            "ALERT-TYPE",
+            "ALERT-SEVERITY",
+            "ALERT-DESCRIPTION",
+            "ALERT-RESOLUTION",
+            "ALERT-RESOLVED-DATE",
+            "ALERT-RESOLVED-BY"
+          ]
+        }
+      },
+      "required": [
+        "FRAUD-INFO",
+        "RISK-INDICATORS",
+        "FRAUD-ALERT-COUNT",
+        "FRAUD-ALERTS"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SERVICE-SECTION",
+      "type": "object",
+      "properties": {
+        "SERVICE-STATS": {
+          "type": "object",
+          "properties": {
+            "TOTAL-INQUIRIES": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999999
+            },
+            "TOTAL-COMPLAINTS": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "RESOLVED-COMPLAINTS": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "PENDING-COMPLAINTS": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999
+            },
+            "AVG-RESOLUTION-DAYS": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            },
+            "LAST-CONTACT-DATE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99999999
+            },
+            "LAST-CONTACT-TYPE": {
+              "type": "string",
+              "maxLength": 3
+            },
+            "LAST-CONTACT-REASON": {
+              "type": "string",
+              "maxLength": 5
+            }
+          },
+          "required": [
+            "TOTAL-INQUIRIES",
+            "TOTAL-COMPLAINTS",
+            "RESOLVED-COMPLAINTS",
+            "PENDING-COMPLAINTS",
+            "AVG-RESOLUTION-DAYS",
+            "LAST-CONTACT-DATE",
+            "LAST-CONTACT-TYPE",
+            "LAST-CONTACT-REASON"
+          ]
+        },
+        "INTERACTION-COUNT": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999
+        },
+        "INTERACTIONS": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "INTERACTION-DATE": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 99999999
+              },
+              "INTERACTION-TIME": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 999999
+              },
+              "INTERACTION-TYPE": {
+                "type": "string",
+                "maxLength": 3
+              },
+              "INTERACTION-CHANNEL": {
+                "type": "string",
+                "maxLength": 3
+              },
+              "INTERACTION-REASON": {
+                "type": "string",
+                "maxLength": 5
+              },
+              "INTERACTION-DURATION": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 999999
+              },
+              "INTERACTION-AGENT": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "INTERACTION-OUTCOME": {
+                "type": "string",
+                "maxLength": 3
+              },
+              "INTERACTION-NOTES": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "INTERACTION-DATE",
+              "INTERACTION-TIME",
+              "INTERACTION-TYPE",
+              "INTERACTION-CHANNEL",
+              "INTERACTION-REASON",
+              "INTERACTION-DURATION",
+              "INTERACTION-AGENT",
+              "INTERACTION-OUTCOME",
+              "INTERACTION-NOTES"
+            ]
+          },
+          "minItems": 50,
+          "maxItems": 50
+        }
+      },
+      "required": [
+        "SERVICE-STATS",
+        "INTERACTION-COUNT",
+        "INTERACTIONS"
+      ],
+      "x-variant-name": "default"
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FILLER",
+      "type": "object",
+      "properties": {},
+      "x-variant-name": "default"
+    }
+  ],
+  "copybook": "CUSTOMER-MASTER-RECORD",
+  "group": "default",
+  "variant_count": 48
+}

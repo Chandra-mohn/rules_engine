@@ -265,7 +265,7 @@ class MultiFileSchemaGenerator:
 
                 if top_level not in grouped:
                     grouped[top_level] = []
-                grouped[top_level].append((variant_name, schema))
+                grouped[top_level].append(schema)
 
             print(f"Total variants generated: {enumerator.variant_count}")
 

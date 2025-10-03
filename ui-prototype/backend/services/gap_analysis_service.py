@@ -10,6 +10,8 @@ from typing import Dict, List, Set, Tuple, Any, Optional
 from collections import defaultdict, Counter
 from models import db, Rule, ProcessArea
 from services.rule_service import RuleService
+from grammar_parser.rules_parser import RulesEngineParser, RuleInfoExtractor
+from grammar_parser.rule_validator import RuleValidator
 
 
 class GapAnalysisService:
@@ -83,7 +85,7 @@ class GapAnalysisService:
             }
 
     def _analyze_single_rule(self, rule: Rule) -> Dict[str, Any]:
-        """Analyze a single rule for validation, dependencies, and attributes."""
+        """Analyze a single rule using AST parsing for validation and extraction."""
         result = {
             'rule': rule.to_dict(),
             'validation_status': 'unknown',
@@ -96,28 +98,74 @@ class GapAnalysisService:
         }
 
         try:
-            # Use existing rule service validation
-            validation_result = self.rule_service.validate_rule_content(rule.content)
-            result['validation_status'] = 'valid' if validation_result.get('valid', False) else 'invalid'
-            result['validation_errors'] = validation_result.get('errors', [])
+            # Use ANTLR-based validation and extraction via AST
+            validator = RuleValidator()
 
-            # If there are warnings, note them but still consider valid if no errors
-            if validation_result.get('warnings'):
-                result['validation_errors'].extend([f"Warning: {w}" for w in validation_result.get('warnings', [])])
+            # Get available actions/attributes for validation context
+            available_actions = self._get_existing_actions()
+            available_attributes = self._get_defined_attributes()
 
-            # Extract components using existing rule service methods
-            result['extracted_attributes'] = self._extract_attributes(rule.content)
+            validation_context = {
+                'available_actions': list(available_actions),
+                'available_attributes': list(available_attributes)
+            }
 
-            # Use existing rule service action extraction
-            extracted_actions = self.rule_service._extract_actions_from_rule(rule.content)
-            result['referenced_actions'] = extracted_actions
-            result['referenced_actionsets'] = self._extract_actionsets(rule.content)
-            result['builtin_functions'] = self._extract_builtin_functions(rule.content)
+            # Validate using AST - this handles comments correctly via grammar
+            validation_result = validator.validate_rule(rule.content, validation_context)
 
-            # Find missing actions by comparing with existing actions
-            all_referenced = extracted_actions + result['referenced_actionsets']
-            existing_actions = self._get_existing_actions()
-            result['missing_actions'] = [action for action in all_referenced if action not in existing_actions]
+            # Extract validation status
+            result['validation_status'] = 'valid' if validation_result['valid'] else 'invalid'
+
+            # Extract errors (convert dict errors to strings for frontend compatibility)
+            for error in validation_result.get('errors', []):
+                if isinstance(error, dict):
+                    result['validation_errors'].append(error.get('message', str(error)))
+                else:
+                    result['validation_errors'].append(str(error))
+
+            # Extract warnings
+            for warning in validation_result.get('warnings', []):
+                if isinstance(warning, dict):
+                    result['validation_errors'].append(f"Warning: {warning.get('message', str(warning))}")
+                else:
+                    result['validation_errors'].append(f"Warning: {warning}")
+
+            # Extract info from AST parsing
+            rule_info = validation_result.get('rule_info', {})
+
+            # Attributes from AST (automatically filters comments)
+            result['extracted_attributes'] = sorted(rule_info.get('attributes_used', []))
+
+            # Actions from AST (both regular actions and ActionSet references)
+            # The AST extracts all actions - both IDENTIFIER (unquoted) and STRING (quoted)
+            # We consider STRING actions as potential ActionSet references
+            actions_from_ast = rule_info.get('actions_used', [])
+
+            # For now, treat all actions uniformly - let the missing actions check handle it
+            # This is simpler and more accurate than trying to guess ActionSet vs action
+            result['referenced_actions'] = sorted(actions_from_ast)
+
+            # ActionSets can be identified later if needed via database lookup
+            # For gap analysis, we just want to know what's referenced
+            actionset_matches = []
+            for action in actions_from_ast:
+                matching_actionset = Rule.query.filter_by(
+                    name=action,
+                    item_type='actionset'
+                ).first()
+                if matching_actionset:
+                    actionset_matches.append(action)
+
+            result['referenced_actionsets'] = sorted(actionset_matches)
+
+            # Functions from AST
+            result['builtin_functions'] = sorted(rule_info.get('functions_used', []))
+
+            # Find missing actions (actions referenced but not defined)
+            result['missing_actions'] = [
+                action for action in actions_from_ast
+                if action not in available_actions
+            ]
 
         except Exception as e:
             result['validation_status'] = 'error'
@@ -125,47 +173,9 @@ class GapAnalysisService:
 
         return result
 
-    def _extract_attributes(self, content: str) -> List[str]:
-        """Extract variable attributes from rule content (e.g., applicant.creditScore)."""
-        # Pattern to match object.attribute references
-        attribute_pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)\b'
-        attributes = re.findall(attribute_pattern, content)
-
-        # Remove duplicates and sort
-        return sorted(list(set(attributes)))
-
-    def _extract_actions(self, content: str) -> List[str]:
-        """Extract action calls from rule content."""
-        # Pattern to match action calls (function-like calls)
-        action_pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\([^)]*\))?'
-        potential_actions = re.findall(action_pattern, content)
-
-        # Filter out common keywords and keep likely action names
-        keywords_to_exclude = {
-            'rule', 'if', 'then', 'else', 'and', 'or', 'not', 'true', 'false',
-            'RULE', 'IF', 'THEN', 'ELSE', 'AND', 'OR', 'NOT', 'TRUE', 'FALSE'
-        }
-
-        actions = []
-        for action in potential_actions:
-            if action not in keywords_to_exclude and self._is_likely_action(action):
-                actions.append(action)
-
-        return sorted(list(set(actions)))
-
-    def _extract_actionsets(self, content: str) -> List[str]:
-        """Extract actionset references from rule content."""
-        # Look for quoted strings that might be actionset names
-        actionset_pattern = r'"([^"]+)"'
-        potential_actionsets = re.findall(actionset_pattern, content)
-
-        # Filter to keep only those that look like actionset names
-        actionsets = []
-        for name in potential_actionsets:
-            if self._is_likely_actionset_name(name):
-                actionsets.append(name)
-
-        return sorted(list(set(actionsets)))
+    # REMOVED: _extract_attributes - now using AST-based extraction
+    # REMOVED: _extract_actions - now using AST-based extraction
+    # REMOVED: _extract_actionsets - now using AST-based extraction
 
     def _extract_builtin_functions(self, content: str) -> List[str]:
         """Extract builtin function calls from rule content."""
@@ -184,24 +194,8 @@ class GapAnalysisService:
 
         return sorted(found_functions)
 
-    def _is_likely_action(self, name: str) -> bool:
-        """Determine if a name looks like an action."""
-        # Actions typically start with a verb or are camelCase
-        action_patterns = [
-            r'^(approve|reject|send|log|update|create|delete|validate|calculate|process)',
-            r'^[a-z][a-zA-Z]*[A-Z]',  # camelCase
-            r'[A-Z][a-z]+[A-Z]'  # PascalCase
-        ]
-
-        return any(re.match(pattern, name, re.IGNORECASE) for pattern in action_patterns)
-
-    def _is_likely_actionset_name(self, name: str) -> bool:
-        """Determine if a name looks like an actionset."""
-        # Actionsets often have descriptive names with spaces or specific patterns
-        return (len(name.split()) > 1 or
-                'workflow' in name.lower() or
-                'process' in name.lower() or
-                'approval' in name.lower())
+    # REMOVED: _is_likely_action - obsolete with AST-based extraction
+    # REMOVED: _is_likely_actionset_name - obsolete with AST-based extraction
 
     def _get_existing_actions(self) -> Set[str]:
         """Get all existing actions and actionsets from the rule service."""
