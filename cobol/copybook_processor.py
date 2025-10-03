@@ -3,10 +3,15 @@ COBOL Copybook AST Processor
 Performs semantic analysis on AST: computes offsets, sizes, and handles REDEFINES.
 """
 
-from typing import List, Dict, Set, Tuple, Optional
+import sys
+from typing import List, Dict, Set, Tuple, Optional, Generator
 from dataclasses import dataclass, field
 from copy import deepcopy
 from copybook_parser import ASTNode, NodeType, PictureClause, UsageClause
+
+# Increase int conversion limit for large copybooks
+# Python 3.11+ has a default limit of 4300 digits
+sys.set_int_max_str_digits(0)  # 0 = unlimited
 
 
 @dataclass
@@ -350,6 +355,195 @@ class RedefinesEnumerator:
             groups[top_level].append((variant_name, variant_tree))
 
         return groups
+
+
+class HierarchicalRedefinesEnumerator:
+    """
+    Hierarchical REDEFINES enumeration for large copybooks.
+    Only enumerates variants within active hierarchy paths.
+    """
+
+    def __init__(self, processed: ProcessedCopybook, max_variants: int = 10000, max_depth: Optional[int] = None):
+        """
+        Initialize hierarchical enumerator
+
+        Args:
+            processed: ProcessedCopybook from CopybookProcessor
+            max_variants: Maximum number of variants to generate (safety limit)
+            max_depth: Maximum depth of REDEFINES to enumerate (None = unlimited)
+        """
+        self.processed = processed
+        self.processor = CopybookProcessor(processed.root)
+        self.processor.redefines_groups = processed.redefines_groups
+        self.max_variants = max_variants
+        self.max_depth = max_depth
+        self.variant_count = 0
+
+    def enumerate_variants_streaming(self) -> Generator[Tuple[str, ASTNode], None, None]:
+        """
+        Stream variant generation to avoid memory explosion.
+        Yields variants one at a time.
+
+        Yields:
+            (variant_name, variant_tree) tuples
+        """
+        self.variant_count = 0
+
+        # Group REDEFINES by their parent path for hierarchical processing
+        hierarchy_map = self._build_hierarchy_map()
+
+        # Start enumeration from root
+        yield from self._enumerate_hierarchical(
+            node=deepcopy(self.processed.root),
+            hierarchy_map=hierarchy_map,
+            current_path="",
+            current_depth=0,
+            variant_prefix=""
+        )
+
+    def _build_hierarchy_map(self) -> Dict[str, List[RedefinesGroup]]:
+        """
+        Build a map of REDEFINES groups organized by their parent path.
+
+        Returns:
+            Dictionary mapping parent paths to REDEFINES groups at that level
+        """
+        hierarchy_map: Dict[str, List[RedefinesGroup]] = {}
+
+        def traverse(node: ASTNode, path: str):
+            # Check if this node has REDEFINES children
+            redefines_at_this_level = []
+
+            for child in node.children:
+                if child.redefines:
+                    # Find the group this belongs to
+                    for group in self.processed.redefines_groups:
+                        if group.original_field == child.redefines:
+                            if group not in redefines_at_this_level:
+                                redefines_at_this_level.append(group)
+                            break
+
+            if redefines_at_this_level:
+                hierarchy_map[path] = redefines_at_this_level
+
+            # Recurse into children
+            for child in node.children:
+                if not child.redefines:  # Don't traverse REDEFINES nodes yet
+                    child_path = f"{path}.{child.name}" if path else child.name
+                    traverse(child, child_path)
+
+        traverse(self.processed.root, "")
+        return hierarchy_map
+
+    def _enumerate_hierarchical(
+        self,
+        node: ASTNode,
+        hierarchy_map: Dict[str, List[RedefinesGroup]],
+        current_path: str,
+        current_depth: int,
+        variant_prefix: str
+    ) -> Generator[Tuple[str, ASTNode], None, None]:
+        """
+        Recursively enumerate variants in hierarchical context.
+
+        Args:
+            node: Current node being processed
+            hierarchy_map: Map of parent paths to REDEFINES groups
+            current_path: Current path in the tree
+            current_depth: Current REDEFINES nesting depth
+            variant_prefix: Accumulated variant name prefix
+        """
+        # Check depth limit
+        if self.max_depth is not None and current_depth >= self.max_depth:
+            # Stop enumeration, yield this variant
+            variant_name = variant_prefix if variant_prefix else "default"
+            self.variant_count += 1
+            yield (variant_name, node)
+            return
+
+        # Check if there are REDEFINES at this level
+        if current_path in hierarchy_map:
+            # Enumerate each variant at this level
+            for group in hierarchy_map[current_path]:
+                for variant in group.variants:
+                    # Safety check
+                    if self.variant_count >= self.max_variants:
+                        print(f"\nWarning: Reached maximum variant limit ({self.max_variants})")
+                        print(f"Use --max-variants to increase or --max-depth to limit enumeration depth")
+                        return
+
+                    # Create a copy with this variant choice
+                    variant_node = deepcopy(node)
+
+                    # Apply this REDEFINES choice
+                    self._apply_redefines_choice(variant_node, group.original_field, variant.name)
+
+                    # Build variant name
+                    new_prefix = f"{variant_prefix}_{variant.name}" if variant_prefix else variant.name
+
+                    # Recurse into this variant's children
+                    variant_path = f"{current_path}.{variant.name}" if current_path else variant.name
+
+                    # Check if there are nested REDEFINES
+                    has_nested = any(p.startswith(variant_path + ".") for p in hierarchy_map.keys())
+
+                    if has_nested:
+                        # Continue enumeration in nested context
+                        yield from self._enumerate_hierarchical(
+                            node=variant_node,
+                            hierarchy_map=hierarchy_map,
+                            current_path=variant_path,
+                            current_depth=current_depth + 1,
+                            variant_prefix=new_prefix
+                        )
+                    else:
+                        # No nested REDEFINES, yield this variant
+                        self.variant_count += 1
+                        yield (new_prefix, variant_node)
+        else:
+            # No REDEFINES at this level, yield current state
+            variant_name = variant_prefix if variant_prefix else "default"
+            self.variant_count += 1
+            yield (variant_name, node)
+
+    def _apply_redefines_choice(self, node: ASTNode, original_field: str, variant_name: str):
+        """
+        Apply a REDEFINES choice to a node tree (in-place modification).
+
+        Args:
+            node: Node to modify
+            original_field: Original field being redefined
+            variant_name: Name of variant to keep
+        """
+        # Filter children
+        new_children = []
+        redefines_seen: Set[str] = set()
+
+        for child in node.children:
+            if child.redefines:
+                # This is a REDEFINES field
+                if child.redefines == original_field:
+                    # Check if this is the chosen variant
+                    if child.name == variant_name:
+                        # Keep this variant, clear REDEFINES marker
+                        child.redefines = None
+                        new_children.append(child)
+                        redefines_seen.add(original_field)
+                    # Otherwise skip this variant
+                elif child.redefines not in redefines_seen:
+                    # Different REDEFINES group, keep first variant as default
+                    child.redefines = None
+                    new_children.append(child)
+                    redefines_seen.add(child.redefines if child.redefines else child.name)
+            else:
+                # Normal field, always keep
+                new_children.append(child)
+
+        node.children = new_children
+
+        # Recursively process children
+        for child in node.children:
+            self._apply_redefines_choice(child, original_field, variant_name)
 
 
 if __name__ == '__main__':

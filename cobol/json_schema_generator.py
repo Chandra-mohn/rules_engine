@@ -208,6 +208,9 @@ class MultiFileSchemaGenerator:
         self.copybook_path = copybook_path
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
+        self.max_variants = 10000
+        self.max_depth = None
+        self.enum_mode = 'hierarchical'
 
     def generate(self, include_metadata: bool = True) -> List[str]:
         """
@@ -220,45 +223,90 @@ class MultiFileSchemaGenerator:
             List of generated file paths
         """
         from copybook_parser import parse_copybook
+        from copybook_processor import HierarchicalRedefinesEnumerator
 
         # Parse and process copybook
         ast = parse_copybook(self.copybook_path)
         processor = CopybookProcessor(ast)
         processed = processor.process()
 
-        # Generate variants
-        enumerator = RedefinesEnumerator(processed)
-        variants = enumerator.enumerate_variants()
+        num_redefines = len(processed.redefines_groups)
+        print(f"Detected {num_redefines} REDEFINES groups")
 
-        # Group by top-level REDEFINES
-        grouped = enumerator.group_variants_by_top_level(variants)
+        # Choose enumeration strategy
+        if self.enum_mode == 'hierarchical' or num_redefines > 20:
+            if num_redefines > 20:
+                print(f"Large copybook detected: Using hierarchical enumeration")
+                print(f"Mode: hierarchical, Max variants: {self.max_variants}, Max depth: {self.max_depth or 'unlimited'}")
+
+            # Use hierarchical enumerator with streaming
+            enumerator = HierarchicalRedefinesEnumerator(
+                processed,
+                max_variants=self.max_variants,
+                max_depth=self.max_depth
+            )
+
+            # Process variants in streaming fashion
+            variants = []
+            grouped: Dict[str, List] = {}
+
+            print(f"Generating schemas...")
+            for i, (variant_name, variant_tree) in enumerate(enumerator.enumerate_variants_streaming(), 1):
+                if i % 100 == 0:
+                    print(f"  Generated {i} variants...")
+
+                generator = JSONSchemaGenerator(processed)
+                schema = generator.generate_schema(variant_tree, include_metadata)
+                schema["x-variant-name"] = variant_name
+
+                # Group by first part of variant name (top-level choice)
+                parts = variant_name.split('_')
+                top_level = parts[0] if parts else "default"
+
+                if top_level not in grouped:
+                    grouped[top_level] = []
+                grouped[top_level].append((variant_name, schema))
+
+            print(f"Total variants generated: {enumerator.variant_count}")
+
+        else:
+            # Use flat enumeration for small copybooks
+            print(f"Using flat enumeration (mode: {self.enum_mode})")
+            enumerator = RedefinesEnumerator(processed)
+            variants = enumerator.enumerate_variants()
+
+            # Group by top-level REDEFINES
+            grouped_tuples = enumerator.group_variants_by_top_level(variants)
+
+            # Convert to schema format
+            grouped = {}
+            for group_name, group_variants in grouped_tuples.items():
+                schemas_list = []
+                for variant_name, variant_tree in group_variants:
+                    generator = JSONSchemaGenerator(processed)
+                    schema = generator.generate_schema(variant_tree, include_metadata)
+                    schema["x-variant-name"] = variant_name
+                    schemas_list.append(schema)
+                grouped[group_name] = schemas_list
 
         generated_files = []
 
         # Generate a file for each top-level group
-        for group_name, group_variants in grouped.items():
-            schemas = []
-
-            for variant_name, variant_tree in group_variants:
-                generator = JSONSchemaGenerator(processed)
-                schema = generator.generate_schema(variant_tree, include_metadata)
-                schema["x-variant-name"] = variant_name
-                schemas.append(schema)
-
+        for group_name, group_schemas in grouped.items():
             # Write to file
             filename = f"{ast.name}_{group_name}.json"
             filepath = self.output_dir / filename
 
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump({
-                    "schemas": schemas,
+                    "schemas": group_schemas,
                     "copybook": ast.name,
                     "group": group_name,
-                    "variant_count": len(schemas)
+                    "variant_count": len(group_schemas)
                 }, f, indent=2)
 
             generated_files.append(str(filepath))
-            print(f"Generated: {filepath} ({len(schemas)} variants)")
+            print(f"Generated: {filepath} ({len(group_schemas)} variants)")
 
         return generated_files
 
@@ -276,6 +324,9 @@ class SingleSchemaGenerator:
         """
         self.copybook_path = copybook_path
         self.output_file = output_file
+        self.max_variants = 10000
+        self.max_depth = None
+        self.enum_mode = 'hierarchical'
 
     def generate(self, include_metadata: bool = True) -> str:
         """
@@ -288,6 +339,7 @@ class SingleSchemaGenerator:
             Generated file path
         """
         from copybook_parser import parse_copybook
+        from copybook_processor import HierarchicalRedefinesEnumerator
 
         # Parse and process copybook
         ast = parse_copybook(self.copybook_path)
@@ -304,14 +356,45 @@ class SingleSchemaGenerator:
 
         # Generate all variants if there are REDEFINES
         variants = []
-        if processed.redefines_groups:
-            enumerator = RedefinesEnumerator(processed)
-            variant_list = enumerator.enumerate_variants()
+        num_redefines = len(processed.redefines_groups)
 
-            for variant_name, variant_tree in variant_list:
-                variant_schema = generator.generate_schema(variant_tree, include_metadata)
-                variant_schema["x-variant-name"] = variant_name
-                variants.append(variant_schema)
+        if processed.redefines_groups:
+            print(f"Detected {num_redefines} REDEFINES groups")
+
+            # Choose enumeration strategy
+            if self.enum_mode == 'hierarchical' or num_redefines > 20:
+                if num_redefines > 20:
+                    print(f"Large copybook detected: Using hierarchical enumeration")
+                    print(f"Mode: hierarchical, Max variants: {self.max_variants}, Max depth: {self.max_depth or 'unlimited'}")
+
+                # Use hierarchical enumerator with streaming
+                enumerator = HierarchicalRedefinesEnumerator(
+                    processed,
+                    max_variants=self.max_variants,
+                    max_depth=self.max_depth
+                )
+
+                print(f"Generating schemas...")
+                for i, (variant_name, variant_tree) in enumerate(enumerator.enumerate_variants_streaming(), 1):
+                    if i % 100 == 0:
+                        print(f"  Generated {i} variants...")
+
+                    variant_schema = generator.generate_schema(variant_tree, include_metadata)
+                    variant_schema["x-variant-name"] = variant_name
+                    variants.append(variant_schema)
+
+                print(f"Total variants generated: {enumerator.variant_count}")
+
+            else:
+                # Use flat enumeration for small copybooks
+                print(f"Using flat enumeration (mode: {self.enum_mode})")
+                enumerator = RedefinesEnumerator(processed)
+                variant_list = enumerator.enumerate_variants()
+
+                for variant_name, variant_tree in variant_list:
+                    variant_schema = generator.generate_schema(variant_tree, include_metadata)
+                    variant_schema["x-variant-name"] = variant_name
+                    variants.append(variant_schema)
 
         # Combine into single output
         output = {
@@ -352,18 +435,31 @@ if __name__ == '__main__':
     parser.add_argument('--output', help='Output file for single-file mode')
     parser.add_argument('--no-metadata', action='store_true',
                        help='Exclude COBOL-specific metadata')
+    parser.add_argument('--max-variants', type=int, default=10000,
+                       help='Maximum number of variants to generate (default: 10000)')
+    parser.add_argument('--max-depth', type=int, default=None,
+                       help='Maximum REDEFINES nesting depth to enumerate (default: unlimited)')
+    parser.add_argument('--mode', choices=['flat', 'hierarchical'], default='hierarchical',
+                       help='Enumeration mode: flat (all combinations) or hierarchical (context-aware, default)')
 
     args = parser.parse_args()
 
     include_metadata = not args.no_metadata
 
+    # Set enumeration mode based on arguments
     if args.multi_file:
         generator = MultiFileSchemaGenerator(args.copybook, args.output_dir)
+        generator.max_variants = args.max_variants
+        generator.max_depth = args.max_depth
+        generator.enum_mode = args.mode
         files = generator.generate(include_metadata)
         print(f"\nGenerated {len(files)} file(s):")
         for f in files:
             print(f"  - {f}")
     else:
         generator = SingleSchemaGenerator(args.copybook, args.output)
+        generator.max_variants = args.max_variants
+        generator.max_depth = args.max_depth
+        generator.enum_mode = args.mode
         output_file = generator.generate(include_metadata)
         print(f"\nSchema generated: {output_file}")
