@@ -484,6 +484,7 @@ class HierarchicalRedefinesEnumerator:
                     yield from self._traverse_for_nested_redefines(
                         node=variant_node,
                         hierarchy_map=hierarchy_map,
+                        current_path=current_path,
                         current_depth=current_depth + 1,
                         variant_prefix=new_prefix
                     )
@@ -492,6 +493,7 @@ class HierarchicalRedefinesEnumerator:
             yield from self._traverse_for_nested_redefines(
                 node=node,
                 hierarchy_map=hierarchy_map,
+                current_path=current_path,
                 current_depth=current_depth,
                 variant_prefix=variant_prefix
             )
@@ -500,6 +502,7 @@ class HierarchicalRedefinesEnumerator:
         self,
         node: ASTNode,
         hierarchy_map: Dict[str, List[RedefinesGroup]],
+        current_path: str,
         current_depth: int,
         variant_prefix: str
     ) -> Generator[Tuple[str, ASTNode], None, None]:
@@ -509,6 +512,7 @@ class HierarchicalRedefinesEnumerator:
         Args:
             node: Current node
             hierarchy_map: Map of parent paths to REDEFINES groups
+            current_path: Current path in the tree (from root)
             current_depth: Current REDEFINES nesting depth
             variant_prefix: Accumulated variant name prefix
         """
@@ -516,12 +520,12 @@ class HierarchicalRedefinesEnumerator:
         has_nested_redefines = False
 
         for child in node.children:
-            # Build child path
-            child_path = f"{child.name}"
+            # Build full child path from root
+            child_path = f"{current_path}.{child.name}" if current_path else child.name
 
-            # Check all possible nested paths under this child
+            # Check if this path or any subpath has REDEFINES
             for path_key in hierarchy_map.keys():
-                if path_key.startswith(child_path):
+                if path_key == child_path or path_key.startswith(child_path + "."):
                     has_nested_redefines = True
                     break
 
@@ -531,7 +535,8 @@ class HierarchicalRedefinesEnumerator:
         if has_nested_redefines:
             # Recurse into children to find nested REDEFINES
             for child in node.children:
-                child_path = child.name
+                # Build full child path from root
+                child_path = f"{current_path}.{child.name}" if current_path else child.name
 
                 # Recursively enumerate this child's subtree
                 yield from self._enumerate_hierarchical(
