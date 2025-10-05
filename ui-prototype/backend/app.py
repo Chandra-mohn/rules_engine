@@ -6,6 +6,7 @@ from api.schema import schema_bp
 from api.lists import lists_bp
 from api.hierarchy import hierarchy_bp
 from api.context import bp as context_bp
+from api.java_files import java_files_bp
 from config import Config
 from cli_commands import register_commands
 import os
@@ -25,6 +26,7 @@ def create_app():
     app.register_blueprint(lists_bp, url_prefix='/api')
     app.register_blueprint(hierarchy_bp, url_prefix='/api')
     app.register_blueprint(context_bp)
+    app.register_blueprint(java_files_bp)
 
     # Register CLI commands
     register_commands(app)

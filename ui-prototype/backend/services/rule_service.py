@@ -68,11 +68,11 @@ class RuleService:
         # Start with Rule query and join hierarchy for filtering
         query = Rule.query.join(ProcessArea).join(ProcessGroup).join(Client)
 
-        # Apply item_type filter - if None, show all rule types (exclude actions)
+        # Apply item_type filter - if None, show all types including actions
         if item_type:
             query = query.filter(Rule.item_type == item_type)
         else:
-            query = query.filter(Rule.item_type.in_(['rule', 'actionset', 'mon_rule', 'non_mon_rule']))
+            query = query.filter(Rule.item_type.in_(['rule', 'actionset', 'mon_rule', 'non_mon_rule', 'action']))
 
         # Apply hierarchy filters
         if client_id:
@@ -119,26 +119,45 @@ class RuleService:
     def create_rule(self, data: Dict[str, Any], created_by: str = 'system') -> Tuple[Rule, Dict[str, Any]]:
         """
         Create a new rule with validation.
-        
+
         Args:
             data: Rule data (description, content, status, schema_version)
-                 Note: 'name' is now parsed from content, not provided separately
+                 Note: For rules/actionsets, 'name' is parsed from content
+                       For actions, 'name' is provided in data
             created_by: User who created the rule
-            
+
         Returns:
             Tuple of (created_rule, validation_result)
         """
-        # Parse rule name from content
-        parsed_name = self.parse_rule_name_from_content(data['content'])
-        if not parsed_name:
-            return None, {
-                'valid': False,
-                'message': 'Could not parse name from content. Must start with "rule name:"',
-                'errors': ['Rule name not found in content']
-            }
+        item_type = data.get('item_type', 'rule')
 
-        # Validate rule content using Python ANTLR engine
-        validation_result = self.rules_engine.validate_rule(data['content'])
+        # For actions, use the provided name and skip DSL validation
+        if item_type == 'action':
+            if 'name' not in data or not data['name']:
+                return None, {
+                    'valid': False,
+                    'message': 'Action name is required',
+                    'errors': ['Action name not provided']
+                }
+
+            parsed_name = data['name']
+            validation_result = {
+                'valid': True,
+                'message': 'Action created successfully',
+                'errors': []
+            }
+        else:
+            # For rules and actionsets, parse rule name from content
+            parsed_name = self.parse_rule_name_from_content(data['content'])
+            if not parsed_name:
+                return None, {
+                    'valid': False,
+                    'message': 'Could not parse name from content. Must start with "rule name:"',
+                    'errors': ['Rule name not found in content']
+                }
+
+            # Validate rule content using Python ANTLR engine
+            validation_result = self.rules_engine.validate_rule(data['content'])
         
         # Handle dates
         effective_date = None
@@ -270,31 +289,43 @@ class RuleService:
         # Store old content for history
         old_content = rule.content
         old_name = rule.name
-        
-        # Validate content - either new content or current content for DRAFT rules
-        validation_result = {'valid': True, 'message': 'No content changes', 'errors': []}
-        content_to_validate = None
 
-        if 'content' in data and data['content'] != rule.content:
-            # New content provided - validate it
-            content_to_validate = data['content']
-            validation_result = self.validate_rule_content(data['content'], data.get('schema_version', 'modern'), resolve_lists=True)
-        elif rule.status == 'DRAFT' and 'status' not in data:
-            # DRAFT rule without explicit status change - validate current content for potential auto-promotion
-            content_to_validate = rule.content
-            validation_result = self.validate_rule_content(rule.content, rule.schema_version or 'modern', resolve_lists=True)
-        
-        # Parse name from content if content changed
-        if 'content' in data:
-            parsed_name = self.parse_rule_name_from_content(data['content'])
-            if not parsed_name:
-                return None, {
-                    'valid': False,
-                    'message': 'Could not parse rule name from content. Rule must start with "rule name:"',
-                    'errors': ['Rule name not found in content']
-                }
-            rule.name = parsed_name
-            rule.content = data['content']
+        # For actions, skip DSL validation and name parsing
+        if rule.item_type == 'action':
+            validation_result = {'valid': True, 'message': 'Action updated successfully', 'errors': []}
+
+            # Update action name if provided
+            if 'name' in data:
+                rule.name = data['name']
+
+            # Update content (Java file path) if provided
+            if 'content' in data:
+                rule.content = data['content']
+        else:
+            # Validate content - either new content or current content for DRAFT rules
+            validation_result = {'valid': True, 'message': 'No content changes', 'errors': []}
+            content_to_validate = None
+
+            if 'content' in data and data['content'] != rule.content:
+                # New content provided - validate it
+                content_to_validate = data['content']
+                validation_result = self.validate_rule_content(data['content'], data.get('schema_version', 'modern'), resolve_lists=True)
+            elif rule.status == 'DRAFT' and 'status' not in data:
+                # DRAFT rule without explicit status change - validate current content for potential auto-promotion
+                content_to_validate = rule.content
+                validation_result = self.validate_rule_content(rule.content, rule.schema_version or 'modern', resolve_lists=True)
+
+            # Parse name from content if content changed
+            if 'content' in data:
+                parsed_name = self.parse_rule_name_from_content(data['content'])
+                if not parsed_name:
+                    return None, {
+                        'valid': False,
+                        'message': 'Could not parse rule name from content. Rule must start with "rule name:"',
+                        'errors': ['Rule name not found in content']
+                    }
+                rule.name = parsed_name
+                rule.content = data['content']
             
         # Update other rule fields
         if 'description' in data:

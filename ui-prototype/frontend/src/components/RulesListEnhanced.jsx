@@ -9,17 +9,14 @@ import {
   Modal,
   message,
   Tooltip,
-  Card,
   Row,
   Col,
   Typography,
-  Radio,
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  SearchOutlined,
   PlayCircleOutlined,
   HistoryOutlined,
   ThunderboltOutlined,
@@ -137,9 +134,8 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
   // Handle view history
   const handleViewHistory = async (rule) => {
     try {
-      const response = await rulesApi.getRuleHistory(rule.id);
-      const history = response.data;
-      
+      await rulesApi.getRuleHistory(rule.id);
+
       Modal.info({
         title: `Rule History: ${rule.name}`,
         width: 800,
@@ -336,6 +332,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
               height: '16px',
               backgroundColor:
                 record.item_type === 'actionset' ? '#1890ff' :
+                record.item_type === 'action' ? '#13c2c2' :
                 record.item_type === 'mon_rule' ? '#faad14' :
                 record.item_type === 'non_mon_rule' ? '#722ed1' : '#000',
               color: 'white',
@@ -345,7 +342,8 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
               marginRight: '8px',
               fontWeight: 'bold'
             }}>
-              {record.item_type === 'actionset' ? 'A' :
+              {record.item_type === 'actionset' ? 'AS' :
+               record.item_type === 'action' ? 'AC' :
                record.item_type === 'mon_rule' ? 'M' :
                record.item_type === 'non_mon_rule' ? 'N' : 'R'}
             </span>
@@ -371,6 +369,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
         const typeMap = {
           'rule': { label: 'Rule', color: 'green' },
           'actionset': { label: 'ActionSet', color: 'blue' },
+          'action': { label: 'Action', color: 'cyan' },
           'mon_rule': { label: 'Monetary', color: 'gold' },
           'non_mon_rule': { label: 'Non-Monetary', color: 'purple' }
         };
@@ -406,24 +405,26 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
       width: 240,
       render: (_, record) => (
         <Space>
-          <Tooltip title={`Edit ${record.item_type === 'actionset' ? 'ActionSet' : 'Rule'}`}>
+          <Tooltip title={`Edit ${record.item_type === 'actionset' ? 'ActionSet' : record.item_type === 'action' ? 'Action' : 'Rule'}`}>
             <Button
               icon={<EditOutlined />}
               size="small"
               onClick={() => onEditRule(record)}
             />
           </Tooltip>
-          <Tooltip title={`Test ${record.item_type === 'actionset' ? 'ActionSet' : 'Rule'}`}>
-            <Button
-              icon={<PlayCircleOutlined />}
-              size="small"
-              onClick={() => handleTest(record)}
-            />
-          </Tooltip>
-          <Tooltip title={record.status === 'PROD' ? `Execute ${record.item_type === 'actionset' ? 'ActionSet' : 'Rule'}` : 'Execute (PROD only)'}>
-            <Button
-              icon={<ThunderboltOutlined />}
-              size="small"
+          {record.item_type !== 'action' && (
+            <>
+              <Tooltip title={`Test ${record.item_type === 'actionset' ? 'ActionSet' : 'Rule'}`}>
+                <Button
+                  icon={<PlayCircleOutlined />}
+                  size="small"
+                  onClick={() => handleTest(record)}
+                />
+              </Tooltip>
+              <Tooltip title={record.status === 'PROD' ? `Execute ${record.item_type === 'actionset' ? 'ActionSet' : 'Rule'}` : 'Execute (PROD only)'}>
+                <Button
+                  icon={<ThunderboltOutlined />}
+                  size="small"
               onClick={() => handleExecute(record)}
               disabled={record.status !== 'PROD'}
               style={{
@@ -432,6 +433,8 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
               }}
             />
           </Tooltip>
+            </>
+          )}
           {canPromoteStatus(record.status) && (
             <Tooltip title="Promote Status">
               <Button
@@ -550,6 +553,33 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
                 }}
               >
                 New ActionSet
+              </Button>
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => onCreateRule('action')}
+                className="action-button action-button-action"
+                style={{
+                  height: '36px',
+                  minWidth: '140px',
+                  backgroundColor: '#f0f9ff',
+                  borderColor: '#0ea5e9',
+                  color: '#0ea5e9',
+                  fontWeight: 500,
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0ea5e9';
+                  e.target.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#f0f9ff';
+                  e.target.style.color = '#0ea5e9';
+                }}
+              >
+                New Action
               </Button>
               {showSpecialButtons && (
                 <>

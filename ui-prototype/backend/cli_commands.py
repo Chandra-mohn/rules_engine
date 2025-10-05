@@ -76,6 +76,7 @@ def db_info_command():
         ('Rules (total)', Rule.query.count()),
         ('  - Regular Rules', Rule.query.filter_by(item_type='rule').count()),
         ('  - ActionSets', Rule.query.filter_by(item_type='actionset').count()),
+        ('  - Actions', Rule.query.filter_by(item_type='action').count()),
         ('  - Monetary Rules', Rule.query.filter_by(item_type='mon_rule').count()),
         ('  - Non-Monetary Rules', Rule.query.filter_by(item_type='non_mon_rule').count()),
         ('Schema Entities', SchemaEntity.query.count()),

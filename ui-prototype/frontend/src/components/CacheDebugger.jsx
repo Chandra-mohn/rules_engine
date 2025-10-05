@@ -3,7 +3,7 @@ import { Card, Button, Typography, Space, Tag, Divider, Alert } from 'antd';
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import suggestionCache from '../services/suggestionCache';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 const CacheDebugger = () => {
   const [stats, setStats] = useState(null);

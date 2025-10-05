@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Layout } from 'antd';
 import RulesListEnhanced from './components/RulesListEnhanced';
 import RuleEditor from './components/RuleEditor';
+import ActionEditor from './components/ActionEditor';
 import GapAnalysis from './components/GapAnalysis';
 import './App.css';
 
@@ -63,6 +64,12 @@ function App() {
             />
           ) : currentView === 'gap-analysis' ? (
             <GapAnalysis onBack={handleBackToList} />
+          ) : selectedRule?.item_type === 'action' ? (
+            <ActionEditor
+              action={selectedRule}
+              onBack={handleBackToList}
+              onSave={handleSaveRule}
+            />
           ) : (
             <RuleEditor
               rule={selectedRule}

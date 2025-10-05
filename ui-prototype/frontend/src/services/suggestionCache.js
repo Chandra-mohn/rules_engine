@@ -34,8 +34,6 @@ class SuggestionCache {
     this.cache.error = null;
 
     try {
-      const startTime = performance.now();
-      
       const response = await fetch(this.API_ENDPOINT);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

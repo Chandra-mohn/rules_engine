@@ -51,6 +51,7 @@ def create_demo_data():
         'process_areas': 0,
         'rules': 0,
         'actionsets': 0,
+        'actions': 0,
         'mon_rules': 0,
         'non_mon_rules': 0,
         'schema_entities': 0,
@@ -501,6 +502,46 @@ def create_demo_data():
     created['schema_attributes'] = len(applicant_attributes) + len(transaction_attributes)
     print(f"   ✅ Created {created['schema_entities']} schema entities")
     print(f"   ✅ Created {created['schema_attributes']} schema attributes")
+
+    # === ACTIONS ===
+    print("\n8️⃣  Creating Sample Actions...")
+
+    # Get first process area for global actions (workaround for NOT NULL constraint)
+    # TODO: Consider making process_area_id nullable for global actions
+    first_process_area = ProcessArea.query.first()
+
+    sample_actions = [
+        Rule(
+            name='approve',
+            description='Approve a credit card application or transaction',
+            content='com/rules/actions/ApprovalAction.java',  # Just the file path
+            status='VALID',
+            process_area_id=first_process_area.id,
+            item_type='action'
+        ),
+        Rule(
+            name='reject',
+            description='Reject a credit card application or transaction',
+            content='com/rules/actions/RejectionAction.java',  # Just the file path
+            status='VALID',
+            process_area_id=first_process_area.id,
+            item_type='action'
+        ),
+        Rule(
+            name='sendEmail',
+            description='Send email notification to applicant or customer',
+            content='com/rules/actions/EmailAction.java',  # Just the file path
+            status='VALID',
+            process_area_id=first_process_area.id,
+            item_type='action'
+        )
+    ]
+
+    for action in sample_actions:
+        db.session.add(action)
+
+    created['actions'] = len(sample_actions)
+    print(f"   ✅ Created {created['actions']} actions")
 
     # === COMMIT ALL ===
     db.session.commit()

@@ -96,12 +96,19 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   // Initialize form and editor
   useEffect(() => {
     if (rule) {
-      form.setFieldsValue({
+      const formValues = {
         description: rule.description,
         status: rule.status,
         process_area_id: rule.process_area_id,
-      });
-      setEditorContent(rule.content);
+      };
+
+      // Add name field for Actions and ActionSets
+      if (rule.item_type === 'action' || rule.item_type === 'actionset') {
+        formValues.name = rule.name;
+      }
+
+      form.setFieldsValue(formValues);
+      setEditorContent(rule.content || '');
       setValidation({
         valid: rule.validation_status === 'valid',
         message: rule.validation_message,
@@ -113,7 +120,18 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       form.setFieldsValue({
         status: 'DRAFT',
       });
-      setEditorContent('rule newRule:\n    if condition then action');
+
+      // Set default content based on item type
+      if (rule?.item_type === 'action') {
+        setEditorContent(JSON.stringify({
+          "javaPath": "actions/NewAction.java",
+          "parameters": [
+            {"name": "param1", "type": "string", "required": true}
+          ]
+        }, null, 2));
+      } else {
+        setEditorContent('rule newRule:\n    if condition then action');
+      }
     }
   }, [rule, form]);
 
@@ -965,20 +983,36 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
       setLoading(true);
 
-      // Validate that rule name can be parsed
-      if (!parsedRuleName) {
-        message.error('Could not parse rule name from content. Make sure your rule starts with "rule name:"');
-        return;
+      // Get the name - from form for Actions/ActionSets, parsed from content for Rules
+      let ruleName;
+      if (rule?.item_type === 'action' || rule?.item_type === 'actionset') {
+        ruleName = values.name;
+        if (!ruleName) {
+          message.error('Please enter a name');
+          return;
+        }
+      } else {
+        // Validate that rule name can be parsed for regular rules
+        ruleName = parsedRuleName;
+        if (!ruleName) {
+          message.error('Could not parse rule name from content. Make sure your rule starts with "rule name:"');
+          return;
+        }
       }
 
       // Prepare rule data - only send status if user explicitly changed it
       const ruleData = {
         description: values.description,
-        name: parsedRuleName, // Use parsed name instead of form field
+        name: ruleName,
         content: editorContent,
         schema_version: selectedSchema,
         process_area_id: values.process_area_id,
       };
+
+      // Include item_type for Actions and ActionSets
+      if (rule?.item_type) {
+        ruleData.item_type = rule.item_type;
+      }
 
       // Only include status if it was explicitly set by user (different from initial rule status)
       if (rule && values.status !== rule.status) {
@@ -1027,6 +1061,8 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     const itemType = rule?.item_type || 'rule';
 
     switch (itemType) {
+      case 'action':
+        return 'Action Definition';
       case 'actionset':
         return 'ActionSet Content';
       case 'non_mon_rule':
@@ -1248,20 +1284,33 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         <Col span={8}>
           <Card title="Rule Information" size="small">
             <Form form={form} layout="vertical">
-              <Form.Item
-                label="Rule Name"
-                help="Extracted from rule definition"
-              >
-                <Input 
-                  value={parsedRuleName || '(not parsed)'} 
-                  disabled 
-                  placeholder="Will be extracted from rule content"
-                  style={{ 
-                    backgroundColor: parsedRuleName ? '#f6ffed' : '#fff2f0',
-                    borderColor: parsedRuleName ? '#b7eb8f' : '#ffccc7'
-                  }}
-                />
-              </Form.Item>
+              {rule?.item_type === 'action' || rule?.item_type === 'actionset' ? (
+                <Form.Item
+                  name="name"
+                  label={rule?.item_type === 'action' ? 'Action Name' : 'ActionSet Name'}
+                  rules={[{ required: true, message: 'Please enter a name' }]}
+                  help="Enter a unique identifier for this item"
+                >
+                  <Input
+                    placeholder={`Enter ${rule?.item_type === 'action' ? 'action' : 'actionset'} name`}
+                  />
+                </Form.Item>
+              ) : (
+                <Form.Item
+                  label="Rule Name"
+                  help="Extracted from rule definition"
+                >
+                  <Input
+                    value={parsedRuleName || '(not parsed)'}
+                    disabled
+                    placeholder="Will be extracted from rule content"
+                    style={{
+                      backgroundColor: parsedRuleName ? '#f6ffed' : '#fff2f0',
+                      borderColor: parsedRuleName ? '#b7eb8f' : '#ffccc7'
+                    }}
+                  />
+                </Form.Item>
+              )}
 
               <Form.Item name="description" label="Description">
                 <TextArea
@@ -1604,7 +1653,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             <div style={{ height: 600, border: '1px solid #d9d9d9', borderRadius: 6 }}>
               <Editor
                 height="calc(100% - 24px)"
-                language="rules"
+                language={rule?.item_type === 'action' ? 'json' : 'rules'}
                 value={editorContent}
                 onChange={setEditorContent}
                 onMount={handleEditorDidMount}
