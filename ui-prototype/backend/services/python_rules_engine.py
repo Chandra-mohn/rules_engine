@@ -12,18 +12,19 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 from grammar_parser import RulesEngineParser, RuleValidator
-from grammar_parser.advanced_java_generator import AdvancedJavaCodeGenerator
+from grammar_parser.template_code_generator import TemplateCodeGenerator
 
 
 class PythonRulesEngine:
     """
     Complete Python implementation of the rules engine.
     Replaces the Java bridge with Python ANTLR parsing and Java code generation.
+    Uses template-based code generator with arithmetic expression support.
     """
 
     def __init__(self):
         self.parser = RulesEngineParser()
-        self.code_generator = AdvancedJavaCodeGenerator()
+        self.code_generator = TemplateCodeGenerator()
         self.validator = RuleValidator()
 
         # Cache for compiled rules

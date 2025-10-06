@@ -1,10 +1,9 @@
 grammar Rules;
 
 // Parser rules
-ruleSet: definition+ EOF;
-definition: unifiedRule;
+ruleSet: rule+ EOF;
 
-unifiedRule: RULE ruleName COLON ruleStep+;
+rule: RULE ruleName COLON ruleStep+;
 ruleName: STRING | IDENTIFIER;
 
 ruleStep:
@@ -23,15 +22,20 @@ primaryExpression:
     comparison
     | '(' orExpression ')';
 
-comparison: operand operator operand;
-operand: attribute | value | functionCall;
+comparison: expression operator expression;
+
+// Arithmetic expressions with proper precedence
+expression: term ((PLUS | MINUS) term)*;
+term: factor ((MULT | DIV | MOD) factor)*;
+factor: MINUS? atom;
+atom: attribute | value | functionCall | '(' expression ')';
 
 attribute: attributeIdentifier ('.' attributeIdentifier)*;
 attributeIdentifier: STRING | IDENTIFIER;
 
-// Function call support (NEW)
+// Function call support
 functionCall: IDENTIFIER '(' functionArgs? ')';
-functionArgs: operand (',' operand)*;
+functionArgs: expression (',' expression)*;
 
 operator: (IN | NOT_IN | IS_NULL | IS_NOT_NULL | CONTAINS |
           STARTS_WITH | ENDS_WITH | MATCHES | EQ | NE | LT | LE | GT | GE);
@@ -44,7 +48,7 @@ action:
     | STRING ('(' parameterList? ')')?;
 
 parameterList: parameter (',' parameter)*;
-parameter: value | attribute;
+parameter: expression;
 
 // Lexer rules
 RULE: 'rule';
@@ -64,8 +68,8 @@ ENDS_WITH: 'ends_with';
 MATCHES: 'matches';
 
 NULL: 'null';
-EQ: '==' | '=' | 'equals';
-NE: '!=' | '<>' | 'not_equals';
+EQ: '==';
+NE: '!=';
 LT: '<';
 LE: '<=';
 GT: '>';
@@ -79,6 +83,13 @@ DOT: '.';
 COMMA: ',';
 COLON: ':';
 
+// Arithmetic operators
+PLUS: '+';
+MINUS: '-';
+MULT: '*';
+DIV: '/';
+MOD: '%';
+
 BOOLEAN: 'true' | 'false';
 NUMBER: [0-9]+ ('.' [0-9]+)?;
 STRING: '"' (~["\r\n])* '"' | '\'' (~['\r\n])* '\'';
@@ -86,5 +97,3 @@ IDENTIFIER: [a-zA-Z_][a-zA-Z0-9_]*;
 
 WS: [ \t\r\n]+ -> skip;
 LINE_COMMENT: '//' ~[\r\n]* -> skip;
-BLOCK_COMMENT: '/*' .*? '*/' -> skip;
-HASH_COMMENT: '#' ~[\r\n]* -> skip;

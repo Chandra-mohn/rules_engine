@@ -400,7 +400,7 @@ class RuleInfoExtractor(RulesListener):
         self.functions_used = set()
         self.function_errors = []
 
-    def enterUnifiedRule(self, ctx):
+    def enterRule(self, ctx):
         """Extract rule name."""
         if ctx.ruleName():
             if ctx.ruleName().IDENTIFIER():

@@ -1,4 +1,4 @@
-# Generated from ../java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4 by ANTLR 4.13.2
+# Generated from Rules.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .RulesParser import RulesParser
@@ -17,21 +17,12 @@ class RulesListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by RulesParser#definition.
-    def enterDefinition(self, ctx:RulesParser.DefinitionContext):
+    # Enter a parse tree produced by RulesParser#rule.
+    def enterRule(self, ctx:RulesParser.RuleContext):
         pass
 
-    # Exit a parse tree produced by RulesParser#definition.
-    def exitDefinition(self, ctx:RulesParser.DefinitionContext):
-        pass
-
-
-    # Enter a parse tree produced by RulesParser#unifiedRule.
-    def enterUnifiedRule(self, ctx:RulesParser.UnifiedRuleContext):
-        pass
-
-    # Exit a parse tree produced by RulesParser#unifiedRule.
-    def exitUnifiedRule(self, ctx:RulesParser.UnifiedRuleContext):
+    # Exit a parse tree produced by RulesParser#rule.
+    def exitRule(self, ctx:RulesParser.RuleContext):
         pass
 
 
@@ -116,12 +107,39 @@ class RulesListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by RulesParser#operand.
-    def enterOperand(self, ctx:RulesParser.OperandContext):
+    # Enter a parse tree produced by RulesParser#expression.
+    def enterExpression(self, ctx:RulesParser.ExpressionContext):
         pass
 
-    # Exit a parse tree produced by RulesParser#operand.
-    def exitOperand(self, ctx:RulesParser.OperandContext):
+    # Exit a parse tree produced by RulesParser#expression.
+    def exitExpression(self, ctx:RulesParser.ExpressionContext):
+        pass
+
+
+    # Enter a parse tree produced by RulesParser#term.
+    def enterTerm(self, ctx:RulesParser.TermContext):
+        pass
+
+    # Exit a parse tree produced by RulesParser#term.
+    def exitTerm(self, ctx:RulesParser.TermContext):
+        pass
+
+
+    # Enter a parse tree produced by RulesParser#factor.
+    def enterFactor(self, ctx:RulesParser.FactorContext):
+        pass
+
+    # Exit a parse tree produced by RulesParser#factor.
+    def exitFactor(self, ctx:RulesParser.FactorContext):
+        pass
+
+
+    # Enter a parse tree produced by RulesParser#atom.
+    def enterAtom(self, ctx:RulesParser.AtomContext):
+        pass
+
+    # Exit a parse tree produced by RulesParser#atom.
+    def exitAtom(self, ctx:RulesParser.AtomContext):
         pass
 
 
@@ -140,6 +158,24 @@ class RulesListener(ParseTreeListener):
 
     # Exit a parse tree produced by RulesParser#attributeIdentifier.
     def exitAttributeIdentifier(self, ctx:RulesParser.AttributeIdentifierContext):
+        pass
+
+
+    # Enter a parse tree produced by RulesParser#functionCall.
+    def enterFunctionCall(self, ctx:RulesParser.FunctionCallContext):
+        pass
+
+    # Exit a parse tree produced by RulesParser#functionCall.
+    def exitFunctionCall(self, ctx:RulesParser.FunctionCallContext):
+        pass
+
+
+    # Enter a parse tree produced by RulesParser#functionArgs.
+    def enterFunctionArgs(self, ctx:RulesParser.FunctionArgsContext):
+        pass
+
+    # Exit a parse tree produced by RulesParser#functionArgs.
+    def exitFunctionArgs(self, ctx:RulesParser.FunctionArgsContext):
         pass
 
 
