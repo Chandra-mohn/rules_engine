@@ -4,10 +4,10 @@ grammar Rules;
 ruleSet: rule+ EOF;
 
 rule: RULE ruleName COLON ruleStep+;
-ruleName: STRING | IDENTIFIER;
+ruleName: DQUOTED_STRING | SQUOTED_STRING | IDENTIFIER;  // Rule names can use either quote type
 
 ruleStep:
-    IF condition THEN actionList (ELSE actionList)?
+    IF condition THEN actionList (ELSEIF condition THEN actionList)* (ELSE actionList)? ENDIF
     | actionList;
 
 actionList: action (',' action)*;
@@ -31,7 +31,7 @@ factor: MINUS? atom;
 atom: attribute | value | functionCall | '(' expression ')';
 
 attribute: attributeIdentifier ('.' attributeIdentifier)*;
-attributeIdentifier: STRING | IDENTIFIER;
+attributeIdentifier: DQUOTED_STRING | IDENTIFIER;  // Attributes use double quotes for special chars
 
 // Function call support
 functionCall: IDENTIFIER '(' functionArgs? ')';
@@ -40,12 +40,13 @@ functionArgs: expression (',' expression)*;
 operator: (IN | NOT_IN | IS_NULL | IS_NOT_NULL | CONTAINS |
           STARTS_WITH | ENDS_WITH | MATCHES | EQ | NE | LT | LE | GT | GE);
 
-value: STRING | NUMBER | BOOLEAN | NULL | list;
+value: SQUOTED_STRING | NUMBER | BOOLEAN | NULL | list;  // String literals use single quotes only
 list: '[' (value (',' value)*)? ']';
 
 action:
     IDENTIFIER ('(' parameterList? ')')?
-    | STRING ('(' parameterList? ')')?;
+    | DQUOTED_STRING ('(' parameterList? ')')?  // Actions with special chars use double quotes
+    | SQUOTED_STRING ('(' parameterList? ')')?;  // Backwards compatibility
 
 parameterList: parameter (',' parameter)*;
 parameter: expression;
@@ -54,7 +55,9 @@ parameter: expression;
 RULE: 'rule';
 IF: 'if';
 THEN: 'then';
+ELSEIF: 'elseif';
 ELSE: 'else';
+ENDIF: 'endif';
 AND: 'and';
 OR: 'or';
 NOT: 'not';
@@ -92,7 +95,9 @@ MOD: '%';
 
 BOOLEAN: 'true' | 'false';
 NUMBER: [0-9]+ ('.' [0-9]+)?;
-STRING: '"' (~["\r\n])* '"' | '\'' (~['\r\n])* '\'';
+DQUOTED_STRING: '"' (~["\r\n])* '"';  // Double-quoted: for attribute names with special chars
+SQUOTED_STRING: '\'' (~['\r\n])* '\'';  // Single-quoted: for string literals/constants
+STRING: DQUOTED_STRING | SQUOTED_STRING;  // Backwards compatibility - matches both
 IDENTIFIER: [a-zA-Z_][a-zA-Z0-9_]*;
 
 WS: [ \t\r\n]+ -> skip;

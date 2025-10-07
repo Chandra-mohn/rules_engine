@@ -425,12 +425,9 @@ class RuleService:
                 'available_attributes': available_attributes
             }
 
-            # 1. Extract and validate actions from rule content
-            action_validation = self._validate_actions_in_rule(content_to_validate)
-            if not action_validation['valid']:
-                validation_errors.extend(action_validation['errors'])
-
-            # 2. ANTLR-based syntax and semantic validation
+            # ANTLR-based syntax and semantic validation (includes action/attribute validation)
+            # NOTE: We removed the separate _validate_actions_in_rule() call to avoid duplicate error messages
+            # The ANTLR semantic validator already validates actions against available_actions
             antlr_validation = self.rules_engine.validate_rule(content_to_validate, validation_context)
             if not antlr_validation['valid']:
                 # Convert ANTLR error objects to strings for consistent frontend handling
@@ -439,22 +436,20 @@ class RuleService:
                         validation_errors.append(error.get('message', str(error)))
                     else:
                         validation_errors.append(str(error))
-            # Include ANTLR warnings as well (also convert to strings)
-            if antlr_validation.get('warnings'):
-                for warning in antlr_validation['warnings']:
-                    if isinstance(warning, dict):
-                        validation_errors.append(warning.get('message', str(warning)))
-                    else:
-                        validation_errors.append(str(warning))
+            # NOTE: Warnings are NOT added to validation_errors to avoid duplicates
+            # They are returned separately in the 'warnings' field below
 
-            # 3. Return combined results with validation details
-            is_valid = len(validation_errors) == 0
+            # Deduplicate errors and warnings (may appear multiple times in complex rules with elseif)
+            unique_errors = list(dict.fromkeys(validation_errors))  # Preserve order while deduplicating
+
+            # Return combined results with validation details
+            is_valid = len(unique_errors) == 0
 
             # Create detailed validation summary
             validation_details = {
                 'syntax_check': 'passed' if antlr_validation.get('valid', False) else 'failed',
                 'semantic_check': 'passed' if len(antlr_validation.get('undefined_actions', [])) == 0 and len(antlr_validation.get('undefined_attributes', [])) == 0 else 'warnings',
-                'action_validation': 'passed' if action_validation.get('valid', False) else 'failed',
+                'action_validation': 'passed' if len(antlr_validation.get('undefined_actions', [])) == 0 else 'failed',
                 'rule_info': antlr_validation.get('rule_info', {}),
                 'checks_performed': [
                     'ANTLR grammar syntax validation',
@@ -466,14 +461,18 @@ class RuleService:
 
             success_message = f"✅ Syntax validation: {validation_details['syntax_check']} | ✅ Semantic validation: {validation_details['semantic_check']} | ✅ Action validation: {validation_details['action_validation']}"
 
+            # Deduplicate warnings (attributes may appear multiple times in complex rules)
+            warning_messages = [
+                warning.get('message', str(warning)) if isinstance(warning, dict) else str(warning)
+                for warning in antlr_validation.get('warnings', [])
+            ]
+            unique_warnings = list(dict.fromkeys(warning_messages))  # Preserve order while deduplicating
+
             return {
                 'valid': is_valid,
                 'message': success_message if is_valid else 'Rule validation failed',
-                'errors': validation_errors,
-                'warnings': [
-                    warning.get('message', str(warning)) if isinstance(warning, dict) else str(warning)
-                    for warning in antlr_validation.get('warnings', [])
-                ],
+                'errors': unique_errors,
+                'warnings': unique_warnings,
                 'validation_details': validation_details
             }
 
@@ -506,7 +505,7 @@ class RuleService:
             errors = []
             for action in actions:
                 if action not in known_items:
-                    errors.append(f"Unknown action/actionset: '{action}'. Available items: {', '.join(sorted(known_items.keys()))}")
+                    errors.append(f"Unknown action/actionset: '{action}'")
 
             return {
                 'valid': len(errors) == 0,
@@ -520,44 +519,27 @@ class RuleService:
             }
 
     def _extract_actions_from_rule(self, content: str) -> list:
-        """Extract action names from rule content."""
-        import re
-        actions = []
+        """
+        Extract action names from rule content using ANTLR parser.
+        This is much more reliable than regex parsing.
+        """
+        try:
+            # Use the ANTLR-based parser to extract actions
+            from grammar_parser.rules_parser import RulesEngineParser
 
-        # Find actions in "then" clauses and standalone actions
-        lines = content.split('\n')
-        for line in lines:
-            stripped = line.strip()
-            if not stripped or stripped.startswith('#') or stripped.startswith('rule'):
-                continue
+            parser = RulesEngineParser()
+            rule_info = parser.extract_rule_info(content)
 
-            # Extract actions from "then" clauses
-            if ' then ' in stripped:
-                then_part = stripped.split(' then ', 1)[1]
-                action_texts = [a.strip() for a in then_part.split(',')]
-                for action_text in action_texts:
-                    action_name = self._parse_action_name(action_text)
-                    if action_name:
-                        actions.append(action_name)
+            # Get actions from the parsed rule
+            if 'actions_used' in rule_info:
+                return list(rule_info['actions_used'])
 
-            # Extract actions from "else" clauses
-            elif stripped.startswith('else '):
-                else_part = stripped[5:]  # Remove 'else '
-                action_texts = [a.strip() for a in else_part.split(',')]
-                for action_text in action_texts:
-                    action_name = self._parse_action_name(action_text)
-                    if action_name:
-                        actions.append(action_name)
+            return []
 
-            # Extract standalone actions
-            elif not stripped.startswith('if') and not stripped.startswith('else'):
-                action_texts = [a.strip() for a in stripped.split(',')]
-                for action_text in action_texts:
-                    action_name = self._parse_action_name(action_text)
-                    if action_name:
-                        actions.append(action_name)
-
-        return list(set(actions))  # Remove duplicates
+        except Exception as e:
+            # Fallback to empty list if parsing fails
+            # (validation will catch grammar errors separately)
+            return []
 
     def _parse_action_name(self, action_text: str) -> str:
         """Parse action name from action text, handling parameters."""

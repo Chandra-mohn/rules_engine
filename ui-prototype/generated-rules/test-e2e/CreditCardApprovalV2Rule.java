@@ -46,6 +46,9 @@ public class CreditCardApprovalV2Rule {
         } else {
             actions.add("applicant");
         }
+        matched = true;
+        actions.add("creditScore");
+        
 
         return new RuleResult(matched, actions, finalAction);
     }

@@ -34,7 +34,7 @@ export const rulesLanguageDefinition = {
     tokenPostfix: '.rules',
 
     keywords: [
-      'rule', 'if', 'then', 'else', 'and', 'or', 'not',
+      'rule', 'if', 'then', 'elseif', 'else', 'endif', 'and', 'or', 'not',
       'true', 'false', 'null',
       'before', 'after', 'between', 'within',
       'contains', 'starts_with', 'ends_with', 'matches',
@@ -67,9 +67,6 @@ export const rulesLanguageDefinition = {
     // The main tokenizer for our simple language
     tokenizer: {
       root: [
-        // quoted identifiers (support any characters within quotes)
-        [/"[^"]*"/, 'identifier.quoted'],
-        
         // identifiers and keywords (support both lowercase and uppercase)
         [/[a-zA-Z_$][\w$]*/, {
           cases: {
@@ -101,9 +98,13 @@ export const rulesLanguageDefinition = {
         // delimiter: after number because of .\d floats
         [/[;,.]/, 'delimiter'],
 
-        // strings
-        [/"([^"\\]|\\.)*$/, 'string.invalid'],  // non-terminated string
-        [/"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
+        // Double-quoted strings: for attributes with special characters (blue color)
+        [/"([^"\\]|\\.)*$/, 'string.invalid'],  // non-terminated double-quoted string
+        [/"/, { token: 'string.dquote', bracket: '@open', next: '@dquotedstring' }],
+
+        // Single-quoted strings: for string literals/constants (green color)
+        [/'([^'\\]|\\.)*$/, 'string.invalid'],  // non-terminated single-quoted string
+        [/'/, { token: 'string.squote', bracket: '@open', next: '@squotedstring' }],
 
         // date literals
         [/\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})?)?/, 'string.date'],
@@ -119,10 +120,16 @@ export const rulesLanguageDefinition = {
         [/[/*]/, 'comment']
       ],
 
-      string: [
-        [/[^\\"]+/, 'string'],
+      dquotedstring: [
+        [/[^\\"]+/, 'string.attribute'],
         [/\\./, 'string.escape.invalid'],
-        [/"/, { token: 'string.quote', bracket: '@close', next: '@pop' }]
+        [/"/, { token: 'string.dquote', bracket: '@close', next: '@pop' }]
+      ],
+
+      squotedstring: [
+        [/[^\\']+/, 'string.literal'],
+        [/\\./, 'string.escape.invalid'],
+        [/'/, { token: 'string.squote', bracket: '@close', next: '@pop' }]
       ],
 
       whitespace: [
@@ -144,8 +151,8 @@ export const rulesLanguageDefinition = {
       { token: 'function.mvp', foreground: 'e91e63', fontStyle: 'bold' },
       { token: 'function', foreground: '795e26' },
       { token: 'function.action', foreground: '008000', fontStyle: 'bold' },
-      { token: 'identifier.quoted', foreground: '000000' },
-      { token: 'string', foreground: 'a31515' },
+      { token: 'string.attribute', foreground: '0451a5' },  // Double-quoted: blue for attributes
+      { token: 'string.literal', foreground: '008000' },    // Single-quoted: green for string literals
       { token: 'string.date', foreground: '098658' },
       { token: 'number', foreground: '098658' },
       { token: 'comment', foreground: '008000', fontStyle: 'italic' },
@@ -178,9 +185,23 @@ export const rulesLanguageDefinition = {
           label: 'if',
           kind: 14,
           // eslint-disable-next-line no-template-curly-in-string
-          insertText: 'if ${1:condition} then ${2:action}',
+          insertText: 'if ${1:condition} then\n    ${2:action}\nelseif ${3:condition} then\n    ${4:action}\nelse\n    ${5:action}\nendif',
           insertTextRules: 4,
-          documentation: 'Conditional statement'
+          documentation: 'Conditional statement with elseif/else/endif'
+        },
+        {
+          label: 'elseif',
+          kind: 14,
+          // eslint-disable-next-line no-template-curly-in-string
+          insertText: 'elseif ${1:condition} then\n    ${2:action}',
+          insertTextRules: 4,
+          documentation: 'Additional conditional branch'
+        },
+        {
+          label: 'endif',
+          kind: 14,
+          insertText: 'endif',
+          documentation: 'End of conditional block'
         },
         // MVP Functions
         {

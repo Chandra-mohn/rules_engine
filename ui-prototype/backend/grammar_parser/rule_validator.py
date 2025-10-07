@@ -33,8 +33,12 @@ class SemanticValidator(RulesListener):
         action_name = None
         if ctx.IDENTIFIER():
             action_name = ctx.IDENTIFIER().getText()
-        elif ctx.STRING():
-            action_name = ctx.STRING().getText().strip('"')
+        elif ctx.DQUOTED_STRING():
+            # Actions with special chars use double quotes
+            action_name = ctx.DQUOTED_STRING().getText().strip('"')
+        elif ctx.SQUOTED_STRING():
+            # Backwards compatibility - single quotes for actions
+            action_name = ctx.SQUOTED_STRING().getText().strip("'")
 
         if action_name and self.available_actions:
             if action_name not in self.available_actions:
@@ -51,10 +55,14 @@ class SemanticValidator(RulesListener):
         """Validate attribute references."""
         attr_parts = []
         for identifier in ctx.attributeIdentifier():
-            if identifier.IDENTIFIER():
+            # Check for DQUOTED_STRING (attributes with special chars)
+            if identifier.DQUOTED_STRING():
+                attr_parts.append(identifier.DQUOTED_STRING().getText().strip('"'))
+            # Check for IDENTIFIER (normal attributes)
+            elif identifier.IDENTIFIER():
                 attr_parts.append(identifier.IDENTIFIER().getText())
-            elif identifier.STRING():
-                attr_parts.append(identifier.STRING().getText().strip('"'))
+            # NOTE: We intentionally skip SQUOTED_STRING here
+            # Single-quoted strings are literals (e.g., 'US'), not attribute references
 
         if attr_parts and self.available_attributes:
             attr_name = '.'.join(attr_parts)
@@ -94,7 +102,7 @@ class RuleValidator:
 
     def validate_rule(self, rule_content: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Comprehensive rule validation.
+        Comprehensive rule validation with context-aware error messages.
 
         Args:
             rule_content: Rule content to validate
@@ -107,40 +115,105 @@ class RuleValidator:
         available_actions = context.get('available_actions', [])
         available_attributes = context.get('available_attributes', [])
 
-        # Step 1: Syntax validation
+        # Step 1: Grammar/Syntax validation (ANTLR parsing)
         syntax_result = self.parser.validate_syntax(rule_content)
 
         if not syntax_result['valid']:
+            # Grammar errors - format with helpful context
+            formatted_errors = []
+            for err in syntax_result['errors']:
+                formatted_error = {
+                    'type': 'grammar',
+                    'line': err.get('line', 0),
+                    'column': err.get('column', 0),
+                    'length': err.get('length', 1),  # Token length for precise underlining
+                    'message': self._format_grammar_error(err, rule_content),
+                    'severity': 'error'
+                }
+                formatted_errors.append(formatted_error)
+
             return {
                 'valid': False,
-                'errors': syntax_result['errors'],
+                'errors': formatted_errors,
                 'warnings': syntax_result['warnings'],
-                'type': 'syntax_error'
+                'error_type': 'grammar'
             }
 
-        # Step 2: Semantic validation
+        # Step 2: Semantic validation (only if grammar is valid)
         semantic_validator = SemanticValidator(available_actions, available_attributes)
 
         if syntax_result['parse_tree']:
             walker = ParseTreeWalker()
             walker.walk(semantic_validator, syntax_result['parse_tree'])
 
-        # Step 3: Extract rule information
-        rule_info = self.parser.extract_rule_info(rule_content)
+        # Step 3: Extract rule information (pass available_actions to exclude them from function validation)
+        rule_info = self.parser.extract_rule_info(rule_content, available_actions=available_actions)
 
-        # Combine all results
-        all_errors = syntax_result['errors'] + semantic_validator.errors
+        # Format semantic errors (clean messages without available items list)
+        formatted_semantic_errors = []
+        for err in semantic_validator.errors:
+            if err['type'] == 'undefined_action':
+                action_name = err['action']
+                formatted_err = {
+                    'type': 'undefined_action',
+                    'line': err['line'],
+                    'column': err['column'],
+                    'length': len(action_name) if action_name else 1,  # Length of action name
+                    'message': err['message'],  # Clean message without available actions list
+                    'action': action_name,
+                    # Don't send available_actions - keep error messages clean
+                    'severity': 'warning'  # Semantic errors are warnings
+                }
+                formatted_semantic_errors.append(formatted_err)
+            else:
+                formatted_semantic_errors.append(err)
+
+        # Combine results
         all_warnings = syntax_result['warnings'] + semantic_validator.warnings
 
         return {
-            'valid': len(all_errors) == 0,
-            'errors': all_errors,
+            'valid': len(formatted_semantic_errors) == 0,
+            'errors': formatted_semantic_errors,
             'warnings': all_warnings,
             'rule_info': rule_info,
             'undefined_actions': list(semantic_validator.undefined_actions),
             'undefined_attributes': list(semantic_validator.undefined_attributes),
-            'parse_tree': syntax_result['parse_tree']
+            'parse_tree': syntax_result['parse_tree'],
+            'error_type': 'semantic' if formatted_semantic_errors else None
         }
+
+    def _format_grammar_error(self, error: Dict[str, Any], rule_content: str) -> str:
+        """
+        Format grammar error with helpful context and migration hints.
+
+        Args:
+            error: Error dictionary with line, column, message
+            rule_content: Original rule content for context
+
+        Returns:
+            str: Formatted error message
+        """
+        msg = error.get('message', '')
+        line = error.get('line', 0)
+
+        # Check for common migration issues
+        if 'extraneous input' in msg.lower():
+            # Check if user is using old 'else if' syntax
+            lines = rule_content.split('\n')
+            if line > 0 and line <= len(lines):
+                line_content = lines[line - 1]
+                if 'else' in line_content.lower() and 'if' in line_content.lower():
+                    return f"{msg}\n💡 Hint: Use 'elseif' (single word) instead of 'else if'"
+
+        # Check for missing endif
+        if 'missing' in msg.lower() and 'endif' in msg.lower():
+            return f"{msg}\n💡 Hint: Every 'if' statement must end with 'endif'"
+
+        if "missing 'endif'" in msg.lower() or 'expecting endif' in msg.lower():
+            return f"{msg}\n💡 Hint: Add 'endif' to close your if-elseif-else block"
+
+        # Return original message for other grammar errors
+        return msg
 
     def validate_rule_parameters(self, rule_content: str, action_schemas: Dict[str, Any] = None) -> Dict[str, Any]:
         """
@@ -261,8 +334,10 @@ class ParameterValidator(RulesListener):
         action_name = None
         if ctx.IDENTIFIER():
             action_name = ctx.IDENTIFIER().getText()
-        elif ctx.STRING():
-            action_name = ctx.STRING().getText().strip('"')
+        elif ctx.DQUOTED_STRING():
+            action_name = ctx.DQUOTED_STRING().getText().strip('"')
+        elif ctx.SQUOTED_STRING():
+            action_name = ctx.SQUOTED_STRING().getText().strip("'")
 
         if action_name and ctx.parameterList():
             schema = self.action_schemas.get(action_name, {})

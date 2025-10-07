@@ -68,8 +68,10 @@ class RuleDataExtractor(RulesListener):
     def _convert_rule_step(self, ctx):
         """Convert a rule step context to Java code."""
         if ctx.IF():
-            # Conditional step: if condition then actions [else actions]
-            condition = self._convert_condition(ctx.condition())
+            # Conditional step: if condition then actions (elseif condition then actions)* (else actions)? endif
+
+            # Main if clause
+            condition = self._convert_condition(ctx.condition(0))
             then_actions = self._convert_action_list(ctx.actionList(0))
 
             java_code = f"if ({condition}) {{\n"
@@ -79,8 +81,22 @@ class RuleDataExtractor(RulesListener):
                 escaped_action = action.replace('"', '\\"')
                 java_code += f'    actions.add("{escaped_action}");\n'
 
+            # Handle elseif clauses (multiple possible)
+            num_conditions = len(ctx.condition())
+            for i in range(1, num_conditions):
+                elseif_condition = self._convert_condition(ctx.condition(i))
+                elseif_actions = self._convert_action_list(ctx.actionList(i))
+
+                java_code += "} else if (" + elseif_condition + ") {\n"
+                java_code += "    matched = true;\n"
+                for action in elseif_actions:
+                    escaped_action = action.replace('"', '\\"')
+                    java_code += f'    actions.add("{escaped_action}");\n'
+
+            # Handle final else clause (optional)
             if ctx.ELSE():
-                else_actions = self._convert_action_list(ctx.actionList(1))
+                # Else actions are in the last actionList
+                else_actions = self._convert_action_list(ctx.actionList(num_conditions))
                 java_code += "} else {\n"
                 for action in else_actions:
                     escaped_action = action.replace('"', '\\"')

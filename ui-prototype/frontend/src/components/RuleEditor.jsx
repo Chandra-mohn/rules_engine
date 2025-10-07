@@ -422,6 +422,30 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       },
     });
 
+    // Register hover provider for error details
+    monaco.languages.registerHoverProvider('rules', {
+      provideHover: function(model, position) {
+        // Check if there's a marker at this position
+        const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'rules-validator' });
+        const marker = markers.find(m =>
+          m.startLineNumber === position.lineNumber &&
+          position.column >= m.startColumn &&
+          position.column <= m.endColumn
+        );
+
+        if (marker) {
+          return {
+            contents: [
+              { value: `**${marker.severity === monaco.MarkerSeverity.Error ? '🔴 Error' : '⚠️ Warning'}**` },
+              { value: marker.message }
+            ]
+          };
+        }
+
+        return null;
+      }
+    });
+
     // Set up auto-validation on content change
     let validationTimeout;
     editor.onDidChangeModelContent(() => {
@@ -450,6 +474,14 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const validateContent = async (content) => {
     if (!content.trim()) {
       setValidation(null);
+      // Clear markers when no content
+      if (editorRef.current && monacoRef.current) {
+        monacoRef.current.editor.setModelMarkers(
+          editorRef.current.getModel(),
+          'rules-validator',
+          []
+        );
+      }
       return;
     }
 
@@ -457,15 +489,64 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     try {
       const response = await rulesApi.validateRule(content);
       setValidation(response.data);
+
+      // Add Monaco markers for errors
+      if (editorRef.current && monacoRef.current) {
+        updateMonacoMarkers(response.data);
+      }
     } catch (error) {
       setValidation({
         valid: false,
         message: 'Validation failed: ' + (error.response?.data?.error || error.message),
         errors: [error.response?.data?.error || error.message],
       });
+
+      // Clear markers on exception
+      if (editorRef.current && monacoRef.current) {
+        monacoRef.current.editor.setModelMarkers(
+          editorRef.current.getModel(),
+          'rules-validator',
+          []
+        );
+      }
     } finally {
       setValidating(false);
     }
+  };
+
+  // Update Monaco markers based on validation results
+  const updateMonacoMarkers = (validationData) => {
+    if (!editorRef.current || !monacoRef.current) return;
+
+    const monaco = monacoRef.current;
+    const model = editorRef.current.getModel();
+    const markers = [];
+
+    // Add markers for errors
+    if (validationData.errors && validationData.errors.length > 0) {
+      validationData.errors.forEach(err => {
+        const severity = err.severity === 'error' || err.type === 'grammar'
+          ? monaco.MarkerSeverity.Error
+          : monaco.MarkerSeverity.Warning;
+
+        const marker = {
+          severity: severity,
+          startLineNumber: err.line || 1,
+          startColumn: err.column || 1,
+          endLineNumber: err.line || 1,
+          endColumn: (err.column || 1) + (err.length || 1),
+          message: err.message || 'Validation error',
+        };
+
+        // Don't show available actions list - keep error messages clean and concise
+        // Users can see available actions through autocomplete
+
+        markers.push(marker);
+      });
+    }
+
+    // Set markers
+    monaco.editor.setModelMarkers(model, 'rules-validator', markers);
   };
 
   // Handle manual validation

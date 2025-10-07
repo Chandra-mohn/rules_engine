@@ -6,6 +6,7 @@ Provides parsing, AST generation, and validation for the rules DSL.
 import sys
 import re
 from pathlib import Path
+from typing import List
 from antlr4 import *
 from antlr4.error.ErrorListener import ErrorListener
 
@@ -28,11 +29,19 @@ class RulesErrorListener(ErrorListener):
 
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
         error_msg = f"Line {line}:{column} - {msg}"
+
+        # Calculate token length for precise underlining
+        token_length = 1
+        if offendingSymbol:
+            token_text = str(offendingSymbol.text) if hasattr(offendingSymbol, 'text') else str(offendingSymbol)
+            token_length = len(token_text) if token_text and token_text != '<EOF>' else 1
+
         self.errors.append({
             'line': line,
             'column': column,
             'message': msg,
-            'symbol': str(offendingSymbol) if offendingSymbol else None
+            'symbol': str(offendingSymbol) if offendingSymbol else None,
+            'length': token_length
         })
 
 
@@ -294,12 +303,13 @@ class RulesEngineParser:
             'parse_tree': tree
         }
 
-    def extract_rule_info(self, rule_content: str):
+    def extract_rule_info(self, rule_content: str, available_actions: List[str] = None):
         """
         Extract basic information from rule content.
 
         Args:
             rule_content: String content of the rule
+            available_actions: List of known action names to exclude from function validation
 
         Returns:
             dict: Rule information (name, type, etc.)
@@ -330,6 +340,15 @@ class RulesEngineParser:
         if tree is None or len(self.error_listener.errors) > 0:
             return {'error': 'Failed to parse rule', 'errors': self.error_listener.errors}
 
+        # Walk the tree to extract information first (to get actions_used)
+        info_extractor = RuleInfoExtractor()
+        walker = ParseTreeWalker()
+        walker.walk(info_extractor, tree)
+
+        # Create set of known actions (from available_actions parameter + actions found in rule)
+        known_action_names = set(available_actions or [])
+        known_action_names.update(info_extractor.actions_used)
+
         # Extract all functions from placeholders
         functions_used = set()
         function_errors = []
@@ -352,9 +371,15 @@ class RulesEngineParser:
                 function_errors.append(error_msg)
 
         # Also check for unknown functions that weren't processed
+        # BUT exclude known actions to avoid duplicate error messages
         function_pattern = r'(\w+)\s*\('
         for match in re.finditer(function_pattern, rule_content):
             function_name = match.group(1)
+
+            # Skip if this is a known action (to avoid duplicate "Unknown function" + "Unknown action" errors)
+            if function_name in known_action_names:
+                continue
+
             if not function_registry.is_function_registered(function_name):
                 # Check if it looks like a function call by finding the closing parenthesis
                 start_pos = match.end() - 1
@@ -369,11 +394,6 @@ class RulesEngineParser:
 
                 if paren_count == 0:  # Found complete function call
                     function_errors.append(f"Unknown function: {function_name}")
-
-        # Walk the tree to extract other information
-        info_extractor = RuleInfoExtractor()
-        walker = ParseTreeWalker()
-        walker.walk(info_extractor, tree)
 
         return {
             'name': info_extractor.rule_name,
@@ -405,9 +425,10 @@ class RuleInfoExtractor(RulesListener):
         if ctx.ruleName():
             if ctx.ruleName().IDENTIFIER():
                 self.rule_name = ctx.ruleName().IDENTIFIER().getText()
-            elif ctx.ruleName().STRING():
-                # Remove quotes from string literal
-                self.rule_name = ctx.ruleName().STRING().getText().strip('"')
+            elif ctx.ruleName().DQUOTED_STRING():
+                self.rule_name = ctx.ruleName().DQUOTED_STRING().getText().strip('"')
+            elif ctx.ruleName().SQUOTED_STRING():
+                self.rule_name = ctx.ruleName().SQUOTED_STRING().getText().strip("'")
 
     def enterRuleStep(self, ctx):
         """Check for conditions and actions."""
@@ -423,8 +444,9 @@ class RuleInfoExtractor(RulesListener):
             for identifier in ctx.attributeIdentifier():
                 if identifier.IDENTIFIER():
                     attr_parts.append(identifier.IDENTIFIER().getText())
-                elif identifier.STRING():
-                    attr_parts.append(identifier.STRING().getText().strip('"'))
+                elif identifier.DQUOTED_STRING():
+                    attr_parts.append(identifier.DQUOTED_STRING().getText().strip('"'))
+                # Note: SQUOTED_STRING not included - single quotes are for literals, not attributes
             if attr_parts:
                 self.attributes_used.add('.'.join(attr_parts))
 
@@ -432,8 +454,10 @@ class RuleInfoExtractor(RulesListener):
         """Extract action references."""
         if ctx.IDENTIFIER():
             self.actions_used.add(ctx.IDENTIFIER().getText())
-        elif ctx.STRING():
-            self.actions_used.add(ctx.STRING().getText().strip('"'))
+        elif ctx.DQUOTED_STRING():
+            self.actions_used.add(ctx.DQUOTED_STRING().getText().strip('"'))
+        elif ctx.SQUOTED_STRING():
+            self.actions_used.add(ctx.SQUOTED_STRING().getText().strip("'"))
 
     def enterOperator(self, ctx):
         """Extract operators used."""
