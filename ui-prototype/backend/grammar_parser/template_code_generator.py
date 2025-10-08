@@ -529,7 +529,7 @@ class TemplateCodeGenerator:
         Returns:
             str: Generated JUnit 5 test class code
         """
-        from test_scenario_generator import TestScenarioGenerator
+        from grammar_parser.test_scenario_generator import TestScenarioGenerator
         from antlr4.tree.Tree import ParseTreeWalker
 
         # Extract test scenarios from parse tree

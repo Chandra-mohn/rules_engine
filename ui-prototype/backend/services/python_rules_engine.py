@@ -102,18 +102,19 @@ class PythonRulesEngine:
             rule_info = self.parser.extract_rule_info(rule_content)
             rule_name = rule_info.get('name', rule_id)
 
-            # Step 3: Generate Java code using simple generator
-            java_code = self.code_generator.generate(rule_content, rule_name)
+            # Step 3: Generate Java code and tests using template generator
+            production_code, test_code = self.code_generator.generate_with_tests(rule_content, rule_name)
 
             # Step 4: Compile Java code
-            compilation_result = self._compile_java_code(java_code, rule_name)
+            compilation_result = self._compile_java_code(production_code, rule_name)
 
             compilation_time = int((time.time() - start_time) * 1000)
 
             if compilation_result['success']:
                 # Cache the compiled rule
                 self.compiled_rules_cache[rule_id] = {
-                    'java_code': java_code,
+                    'java_code': production_code,
+                    'test_code': test_code,
                     'class_name': compilation_result['class_name'],
                     'compiled_at': time.time()
                 }
@@ -126,7 +127,8 @@ class PythonRulesEngine:
                     'className': compilation_result['class_name'],
                     'compilationTimeMs': compilation_time,
                     'message': 'Rule compiled successfully',
-                    'java_code': java_code
+                    'java_code': production_code,
+                    'test_code': test_code
                 }
             else:
                 return {

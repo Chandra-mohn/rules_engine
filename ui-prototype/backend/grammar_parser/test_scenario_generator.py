@@ -38,31 +38,25 @@ class TestScenarioGenerator(RulesListener):
 
     def enterRuleStep(self, ctx):
         """Detect rule type and extract scenarios."""
-        print(f"DEBUG: enterRuleStep called, has IF: {ctx.IF() is not None}")  # DEBUG
         if ctx.IF():
-            print(f"DEBUG: Processing as conditional rule")  # DEBUG
             self.rule_type = 'standard'
             self._extract_conditional_scenarios(ctx)
         else:
-            print(f"DEBUG: Processing as action rule")  # DEBUG
             self.rule_type = 'action'
             self._extract_action_scenarios(ctx)
 
     def _extract_conditional_scenarios(self, ctx):
         """Extract test scenarios from conditional rule step."""
 
-        print(f"DEBUG: Extracting conditional scenarios, has condition: {ctx.condition(0) is not None}")  # DEBUG
-
         # Extract main if clause
         if ctx.condition(0):
-            print(f"DEBUG: Analyzing main condition")  # DEBUG
             condition_info = self._analyze_condition(ctx.condition(0))
             action_list = self._extract_action_names(ctx.actionList(0))
 
             # Positive scenario: condition is true
             positive_scenario = {
-                'name': f'test_{self._sanitize_name(condition_info["description"])}_true',
-                'description': f'Should match when {condition_info["description"]}',
+                'name': f'shouldMatchWhen_IfConditionTrue',
+                'description': f'Should match when main condition is true',
                 'entity_values': condition_info['positive_values'],
                 'expected_matched': True,
                 'expected_actions': action_list,
@@ -72,8 +66,8 @@ class TestScenarioGenerator(RulesListener):
 
             # Negative scenario: condition is false
             negative_scenario = {
-                'name': f'test_{self._sanitize_name(condition_info["description"])}_false',
-                'description': f'Should not match when {condition_info["description"]} is false',
+                'name': f'shouldNotMatchWhen_IfConditionFalse',
+                'description': f'Should not match when main condition is false',
                 'entity_values': condition_info['negative_values'],
                 'expected_matched': False,
                 'expected_actions': [],
@@ -88,8 +82,8 @@ class TestScenarioGenerator(RulesListener):
             action_list = self._extract_action_names(ctx.actionList(i))
 
             scenario = {
-                'name': f'test_elseif_{i}_{self._sanitize_name(condition_info["description"])}',
-                'description': f'Should match elseif when {condition_info["description"]}',
+                'name': f'shouldMatchWhen_ElseIfBranch{i}True',
+                'description': f'Should match when elseif branch {i} condition is true',
                 'entity_values': condition_info['positive_values'],
                 'expected_matched': True,
                 'expected_actions': action_list,
@@ -101,8 +95,8 @@ class TestScenarioGenerator(RulesListener):
         if ctx.ELSE():
             else_actions = self._extract_action_names(ctx.actionList(-1))
             scenario = {
-                'name': 'test_else_clause',
-                'description': 'Should match when all conditions are false',
+                'name': 'shouldMatchWhen_ElseClauseReached',
+                'description': 'Should match when else clause is reached',
                 'entity_values': self._generate_else_values(),
                 'expected_matched': True,
                 'expected_actions': else_actions,
@@ -116,7 +110,7 @@ class TestScenarioGenerator(RulesListener):
         action_list = self._extract_action_names(ctx.actionList(0))
 
         scenario = {
-            'name': 'test_direct_action_execution',
+            'name': 'shouldAlwaysExecute_DirectActions',
             'description': 'Should always execute direct actions',
             'entity_values': self._generate_default_values(),
             'expected_matched': True,
@@ -137,9 +131,6 @@ class TestScenarioGenerator(RulesListener):
 
         # Extract field references
         fields = self._extract_field_references(ctx)
-        print(f"DEBUG: Extracted {len(fields)} fields from condition")  # DEBUG
-        for field in fields:
-            print(f"  Field: {field}")  # DEBUG
 
         positive_values = self._generate_positive_values(ctx)
         negative_values = self._generate_negative_values(ctx)

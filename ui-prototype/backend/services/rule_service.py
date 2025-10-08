@@ -880,10 +880,10 @@ class RuleService:
         try:
             # Get schema-aware type information
             schema_context = self._get_schema_context()
-            
-            # Generate schema-aware Java code directly
+
+            # Generate schema-aware Java code and tests directly
             try:
-                java_code = self._generate_typed_java_code(rule_content, schema_context)
+                java_code, test_code = self._generate_typed_java_code(rule_content, schema_context)
             except Exception as schema_error:
                 # Fallback to regular generation if schema-aware generation fails
                 java_code_result = self.rules_engine.compile_rule(rule_content)
@@ -894,10 +894,11 @@ class RuleService:
                     }
                 # Note: The key is 'java_code' (underscore), not 'javaCode' (camelCase)
                 java_code = java_code_result.get('java_code', '')
-            
-            # Generate artifacts in memory first
+                test_code = java_code_result.get('test_code', '')
+
+            # Generate artifacts in memory first (including tests)
             artifacts = self._generate_rule_library_artifacts(
-                rule_id, rule_name, rule_content, package_name, java_code, item_type
+                rule_id, rule_name, rule_content, package_name, java_code, item_type, test_code
             )
             
             # Create output directory for generated code
@@ -937,8 +938,8 @@ class RuleService:
             }
     
     def _generate_rule_library_artifacts(self, rule_id: str, rule_name: str, rule_content: str,
-                                       package_name: str, java_code: str, item_type: str = 'rule') -> Dict[str, str]:
-        """Generate all production artifacts for a rule library."""
+                                       package_name: str, java_code: str, item_type: str = 'rule', test_code: str = '') -> Dict[str, str]:
+        """Generate all production artifacts for a rule library including unit tests."""
 
         # Implement proper naming conventions
         safe_rule_id = str(rule_id).replace('-', '_').replace(' ', '_').lower()
@@ -953,19 +954,23 @@ class RuleService:
         artifacts[f'src/main/java/{safe_package_path}/{class_name}.java'] = self._generate_rule_type_specific_wrapper(
             package_name, class_name, java_code, rule_name, rule_content, item_type
         )
-        
-        # 2. Maven pom.xml for library packaging
+
+        # 2. Generated JUnit test file
+        if test_code:
+            artifacts[f'src/test/java/{safe_package_path}/{class_name}Test.java'] = test_code
+
+        # 3. Maven pom.xml for library packaging
         artifacts['pom.xml'] = self._generate_rule_library_pom(rule_id, rule_name)
-        
-        # 3. README.md with usage instructions
+
+        # 4. README.md with usage instructions
         artifacts['README.md'] = self._generate_rule_library_readme(rule_id, rule_name, class_name, package_name)
-        
-        # 4. Dockerfile for containerizing the rule engine service
+
+        # 5. Dockerfile for containerizing the rule engine service
         artifacts['Dockerfile'] = self._generate_rule_service_dockerfile()
-        
-        # 5. Rule metadata file
+
+        # 6. Rule metadata file
         artifacts['rule-metadata.json'] = self._generate_rule_metadata(rule_id, rule_name, rule_content)
-        
+
         return artifacts
     
     def _generate_rule_java_wrapper(self, package_name: str, class_name: str, 
@@ -1250,9 +1255,9 @@ ENTRYPOINT ["java", "-Drules.library.path=/app/rules", "-jar", "app.jar"]
         
         return schema_context
     
-    def _generate_typed_java_code(self, rule_content: str, schema_context: Dict[str, Any]) -> str:
+    def _generate_typed_java_code(self, rule_content: str, schema_context: Dict[str, Any]) -> tuple:
         """
-        Generate Java code using the working template code generator.
+        Generate Java code and unit tests using the working template code generator.
 
         DEPRECATED: This method previously attempted custom typed code generation but had bugs.
         Now it delegates to the working TemplateCodeGenerator for reliable code generation.
@@ -1262,13 +1267,13 @@ ENTRYPOINT ["java", "-Drules.library.path=/app/rules", "-jar", "app.jar"]
             schema_context: Database schema context (currently unused, kept for compatibility)
 
         Returns:
-            str: Generated Java code (complete class)
+            tuple: (java_code, test_code) - Production code and JUnit test code
         """
         # Determine item type from schema context
         item_type = schema_context.get('item_type', 'rule') if schema_context else 'rule'
 
         # Use the working template code generator
-        # This calls TemplateCodeGenerator.generate() which we just added
+        # This calls TemplateCodeGenerator.generate_with_tests() to get both production and test code
         java_code_result = self.rules_engine.compile_rule(rule_content)
 
         if not java_code_result.get('success'):
@@ -1278,8 +1283,10 @@ ENTRYPOINT ["java", "-Drules.library.path=/app/rules", "-jar", "app.jar"]
                 error_msg = f"{error_msg}: {', '.join(str(e) for e in errors)}"
             raise ValueError(f"Code generation failed: {error_msg}")
 
-        # Note: The key is 'java_code' (underscore), not 'javaCode' (camelCase)
-        return java_code_result.get('java_code', '')
+        # Return both production code and test code
+        java_code = java_code_result.get('java_code', '')
+        test_code = java_code_result.get('test_code', '')
+        return java_code, test_code
     
     def _generate_type_conversion(self, java_type: str, value_var: str) -> str:
         """Generate appropriate type conversion code."""

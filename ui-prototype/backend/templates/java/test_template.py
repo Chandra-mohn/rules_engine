@@ -103,9 +103,16 @@ def _generate_test_method(scenario, entities, class_name):
 
     # Generate entity setup code
     entity_setup = []
-    for entity_name in sorted(entity_values.keys()):
-        values = entity_values[entity_name]
-        entity_setup.append(_generate_entity_setup(entity_name, values))
+    if entity_values and any(entity_values.values()):
+        # Use provided entity values
+        for entity_name in sorted(entity_values.keys()):
+            values = entity_values[entity_name]
+            entity_setup.append(_generate_entity_setup(entity_name, values))
+    else:
+        # Generate default entity setup with TODO comment
+        entity_setup.append('// TODO: Set up test data for entities: ' + ', '.join(sorted(entities)))
+        for entity_name in sorted(entities):
+            entity_setup.append(f'context.put("{entity_name}", new HashMap<>());')
 
     entity_setup_code = '\n        '.join(entity_setup)
 
@@ -130,9 +137,15 @@ def _generate_test_method(scenario, entities, class_name):
 
     assertions_code = '\n        '.join(assertions)
 
+    # Clean up display name (limit to 80 chars)
+    clean_description = description[:80] if len(description) > 80 else description
+
+    # Clean up method name (convert to camelCase, limit length)
+    clean_method_name = _clean_method_name(scenario_name)
+
     method_code = f'''    @Test
-    @DisplayName("{description}")
-    void {scenario_name}() {{
+    @DisplayName("{clean_description}")
+    void {clean_method_name}() {{
         // Arrange
         {entity_setup_code}
 
@@ -183,6 +196,18 @@ def _add_nested_values(lines, entity_var, values, path):
         else:
             # Simple value
             lines.append(f'{entity_var}.put("{key}", {_format_value(value)});')
+
+
+def _clean_method_name(name):
+    """Clean and shorten test method name."""
+    # Limit to 50 chars to avoid overly long method names
+    if len(name) > 50:
+        name = name[:50]
+
+    # Remove trailing underscores from truncation
+    name = name.rstrip('_')
+
+    return name
 
 
 def _format_value(value):
