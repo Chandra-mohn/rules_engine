@@ -36,16 +36,21 @@ class RuleDataExtractor(RulesListener):
     def enterRule(self, ctx):
         """Extract rule name."""
         if ctx.ruleName():
-            if ctx.ruleName().IDENTIFIER():
+            # Try IDENTIFIER first
+            if hasattr(ctx.ruleName(), 'IDENTIFIER') and ctx.ruleName().IDENTIFIER():
                 self.rule_name = ctx.ruleName().IDENTIFIER().getText()
-            elif ctx.ruleName().STRING():
+            # Try STRING
+            elif hasattr(ctx.ruleName(), 'STRING') and ctx.ruleName().STRING():
                 self.rule_name = ctx.ruleName().STRING().getText().strip('"\'')
+            # Fallback: get all text
+            else:
+                self.rule_name = ctx.ruleName().getText().strip('"\'')
 
     def enterAttribute(self, ctx):
         """Extract entity names from attributes (e.g., 'applicant' from 'applicant.creditScore')."""
         if ctx.attributeIdentifier() and len(ctx.attributeIdentifier()) > 0:
             first_attr = ctx.attributeIdentifier(0)
-            if first_attr.IDENTIFIER():
+            if hasattr(first_attr, 'IDENTIFIER') and first_attr.IDENTIFIER():
                 entity = first_attr.IDENTIFIER().getText()
                 self.entities.add(entity)
 
@@ -77,9 +82,7 @@ class RuleDataExtractor(RulesListener):
             java_code = f"if ({condition}) {{\n"
             java_code += "    matched = true;\n"
             for action in then_actions:
-                # Fix string escaping: escape inner quotes
-                escaped_action = action.replace('"', '\\"')
-                java_code += f'    actions.add("{escaped_action}");\n'
+                java_code += self._generate_action_add(action)
 
             # Handle elseif clauses (multiple possible)
             num_conditions = len(ctx.condition())
@@ -90,17 +93,16 @@ class RuleDataExtractor(RulesListener):
                 java_code += "} else if (" + elseif_condition + ") {\n"
                 java_code += "    matched = true;\n"
                 for action in elseif_actions:
-                    escaped_action = action.replace('"', '\\"')
-                    java_code += f'    actions.add("{escaped_action}");\n'
+                    java_code += self._generate_action_add(action)
 
             # Handle final else clause (optional)
             if ctx.ELSE():
                 # Else actions are in the last actionList
                 else_actions = self._convert_action_list(ctx.actionList(num_conditions))
                 java_code += "} else {\n"
+                java_code += "    matched = true;\n"
                 for action in else_actions:
-                    escaped_action = action.replace('"', '\\"')
-                    java_code += f'    actions.add("{escaped_action}");\n'
+                    java_code += self._generate_action_add(action)
 
             java_code += "}"
             return java_code
@@ -110,8 +112,7 @@ class RuleDataExtractor(RulesListener):
             java_code = "matched = true;\n"
             for action in actions:
                 self.actions_list.append(action)  # Store for action template
-                escaped_action = action.replace('"', '\\"')
-                java_code += f'actions.add("{escaped_action}");\n'
+                java_code += self._generate_action_add(action)
             return java_code
 
     def _convert_condition(self, ctx):
@@ -177,9 +178,21 @@ class RuleDataExtractor(RulesListener):
 
         # Handle term + operators
         result = self._convert_term(ctx.term(0))
+
+        # If we have addition/subtraction operators, we need type-safe arithmetic
+        if len(ctx.term()) > 1:
+            # Wrap first term in _toNumber if it's a field access
+            if '_getFieldValue' in result and '_toNumber' not in result:
+                result = f"_toNumber({result})"
+
         for i in range(1, len(ctx.term())):
             operator = ctx.getChild(2 * i - 1).getText()  # Get operator between terms
             term = self._convert_term(ctx.term(i))
+
+            # Wrap term in _toNumber if it's a field access and not already wrapped
+            if '_getFieldValue' in term and '_toNumber' not in term:
+                term = f"_toNumber({term})"
+
             result = f"({result} {operator} {term})"
 
         return result
@@ -187,9 +200,21 @@ class RuleDataExtractor(RulesListener):
     def _convert_term(self, ctx):
         """Convert term (factor with */% operators)."""
         result = self._convert_factor(ctx.factor(0))
+
+        # If we have arithmetic operators, we need type-safe arithmetic
+        if len(ctx.factor()) > 1:
+            # Wrap first factor in _toNumber if it's a field access
+            if '_getFieldValue' in result:
+                result = f"_toNumber({result})"
+
         for i in range(1, len(ctx.factor())):
             operator = ctx.getChild(2 * i - 1).getText()
             factor = self._convert_factor(ctx.factor(i))
+
+            # Wrap factor in _toNumber if it's a field access
+            if '_getFieldValue' in factor:
+                factor = f"_toNumber({factor})"
+
             result = f"({result} {operator} {factor})"
 
         return result
@@ -217,10 +242,20 @@ class RuleDataExtractor(RulesListener):
         """Convert attribute (nested field access) to Java code."""
         parts = []
         for attr_id in ctx.attributeIdentifier():
-            if attr_id.IDENTIFIER():
+            if hasattr(attr_id, 'IDENTIFIER') and attr_id.IDENTIFIER():
                 parts.append(attr_id.IDENTIFIER().getText())
-            elif attr_id.STRING():
+            elif hasattr(attr_id, 'STRING') and attr_id.STRING():
                 parts.append(attr_id.STRING().getText().strip('"\''))
+            else:
+                # Fallback: try to get text directly
+                text = attr_id.getText()
+                if text:
+                    # Strip quotes if present (for string literals used as attribute names)
+                    parts.append(text.strip('"\''))
+
+        if len(parts) == 0:
+            # No parts found, return null
+            return "null"
 
         if len(parts) == 1:
             # Single attribute - could be entity or field
@@ -236,25 +271,36 @@ class RuleDataExtractor(RulesListener):
 
     def _convert_value(self, ctx):
         """Convert value to Java literal."""
-        if ctx.STRING():
+        # Check for single-quoted string (SQUOTED_STRING)
+        if hasattr(ctx, 'SQUOTED_STRING') and ctx.SQUOTED_STRING():
+            # Convert single quotes to double quotes for Java
+            text = ctx.SQUOTED_STRING().getText()
+            # Remove outer single quotes and wrap in double quotes
+            return f'"{text[1:-1]}"'
+        # Check for double-quoted string (STRING)
+        elif hasattr(ctx, 'STRING') and ctx.STRING():
             # Return string as-is (already quoted)
             return ctx.STRING().getText()
-        elif ctx.NUMBER():
+        elif hasattr(ctx, 'NUMBER') and ctx.NUMBER():
             return ctx.NUMBER().getText()
-        elif ctx.BOOLEAN():
+        elif hasattr(ctx, 'BOOLEAN') and ctx.BOOLEAN():
             return ctx.BOOLEAN().getText()
-        elif ctx.NULL():
+        elif hasattr(ctx, 'NULL') and ctx.NULL():
             return "null"
-        elif ctx.list():
+        elif hasattr(ctx, 'list') and ctx.list():
             values = [self._convert_value(v) for v in ctx.list().value()]
             return f"Arrays.asList({', '.join(values)})"
         return "null"
 
     def _convert_function_call(self, ctx):
         """Convert function call to Java code."""
-        func_name = ctx.IDENTIFIER().getText()
+        if hasattr(ctx, 'IDENTIFIER') and ctx.IDENTIFIER():
+            func_name = ctx.IDENTIFIER().getText()
+        else:
+            func_name = "unknownFunction"
+
         args = []
-        if ctx.functionArgs():
+        if hasattr(ctx, 'functionArgs') and ctx.functionArgs():
             for expr in ctx.functionArgs().expression():
                 args.append(self._convert_expression(expr))
 
@@ -262,27 +308,102 @@ class RuleDataExtractor(RulesListener):
         return f"{func_name}({args_str})"
 
     def _convert_action_list(self, ctx):
-        """Convert action list to array of action strings."""
+        """Convert action list to array of action objects with name and parameters."""
         actions = []
         for action_ctx in ctx.action():
             action_name = None
-            if action_ctx.IDENTIFIER():
+            if hasattr(action_ctx, 'IDENTIFIER') and action_ctx.IDENTIFIER():
                 action_name = action_ctx.IDENTIFIER().getText()
-            elif action_ctx.STRING():
+            elif hasattr(action_ctx, 'STRING') and action_ctx.STRING():
                 action_name = action_ctx.STRING().getText().strip('"\'')
 
             # Handle parameterized actions
-            if action_ctx.parameterList():
-                params = []
+            params = []
+            if hasattr(action_ctx, 'parameterList') and action_ctx.parameterList():
                 for param in action_ctx.parameterList().parameter():
-                    params.append(self._convert_expression(param.expression()))
-                action_str = f"{action_name}({', '.join(params)})"
-            else:
-                action_str = action_name
+                    params.append({
+                        'expression': self._convert_expression(param.expression()),
+                        'is_literal': self._is_literal_expression(param.expression())
+                    })
 
-            actions.append(action_str)
+            actions.append({
+                'name': action_name,
+                'params': params
+            })
 
         return actions
+
+    def _is_literal_expression(self, expr_ctx):
+        """Check if an expression is a literal value (string, number, boolean)."""
+        if not expr_ctx:
+            return False
+
+        # Check if it's a single term with a single factor with a single atom
+        if len(expr_ctx.term()) == 1:
+            term = expr_ctx.term(0)
+            if len(term.factor()) == 1:
+                factor = term.factor(0)
+                atom = factor.atom()
+                if atom and atom.value():
+                    return True
+
+        return False
+
+    def _generate_action_add(self, action):
+        """Generate Java code to add an action to the actions list.
+
+        Evaluates parameters at runtime and builds action string with actual values.
+        """
+        action_name = action['name']
+        params = action['params']
+
+        if not params:
+            # No parameters - simple action
+            return f'    actions.add("{action_name}");\n'
+
+        # Build action string with evaluated parameters
+        # Start with action name and opening paren
+        java_code = f'    actions.add("{action_name}(" + '
+
+        param_parts = []
+        for i, param in enumerate(params):
+            expr = param['expression']
+
+            if param['is_literal']:
+                # Literal value - include directly in string
+                if expr.startswith('"') and expr.endswith('"'):
+                    # String literal - escape inner quotes and include in action string
+                    inner = expr[1:-1].replace('"', '\\"')
+                    param_parts.append(f'"\\\"{inner}\\\""')
+                else:
+                    # Number or boolean - include as-is
+                    param_parts.append(f'"{expr}"')
+            else:
+                # Expression - check if it looks like a field access that should be evaluated
+                # vs a string literal that was incorrectly converted to _getFieldValue
+                if '_getFieldValue(context,' in expr and '"' in expr:
+                    # This is likely a string literal being incorrectly treated as field access
+                    # Extract the string value
+                    import re
+                    match = re.search(r'_getFieldValue\(context, "([^"]+)"\)', expr)
+                    if match:
+                        # It's a string literal - include directly
+                        string_val = match.group(1).replace('"', '\\"')
+                        param_parts.append(f'"\\\"{string_val}\\\""')
+                    else:
+                        # Fallback - evaluate at runtime
+                        param_parts.append(expr)
+                else:
+                    # Normal expression - evaluate at runtime and concatenate
+                    param_parts.append(expr)
+
+        # Join parameters with commas
+        java_code += ' + ", " + '.join(param_parts)
+
+        # Close the action string
+        java_code += ' + ")");\n'
+
+        return java_code
 
     def calculate_complexity(self):
         """Calculate complexity score based on extracted data."""
@@ -357,6 +478,44 @@ class TemplateCodeGenerator:
             )
 
         return java_code
+
+    def generate(self, rule_content: str, rule_name: str = None, item_type: str = 'rule') -> str:
+        """
+        Convenience wrapper that parses rule content and generates Java code.
+
+        This method is called by PythonRulesEngine.compile_rule() to provide
+        a simple interface for code generation from DSL content.
+
+        Args:
+            rule_content: DSL rule content to parse
+            rule_name: Optional rule name (extracted from DSL if not provided)
+            item_type: Rule type ('rule', 'actionset', 'action', 'mon_rule', 'non_mon_rule')
+
+        Returns:
+            str: Generated Java code (complete class)
+        """
+        from grammar_parser import RulesEngineParser
+
+        # Parse rule content
+        parser = RulesEngineParser()
+        tree, error_listener = parser.parse(rule_content)
+
+        if tree is None or error_listener.errors:
+            error_messages = [error['message'] for error in error_listener.errors] if error_listener.errors else ['Unknown parse error']
+            raise ValueError(f"Parse errors: {', '.join(error_messages)}")
+
+        # Map item_type to rule_type for generate_code
+        rule_type_map = {
+            'rule': 'standard_rule',
+            'actionset': 'actionset',
+            'action': 'action',
+            'mon_rule': 'standard_rule',  # monetary rules use standard template
+            'non_mon_rule': 'standard_rule'  # validation rules use standard template
+        }
+        rule_type = rule_type_map.get(item_type, 'standard_rule')
+
+        # Generate code using the working template system
+        return self.generate_code(tree, rule_type)
 
     def _to_class_name(self, rule_name):
         """Convert rule name to Java class name (PascalCase + 'Rule' suffix)."""

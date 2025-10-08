@@ -39,25 +39,8 @@ def create_app():
         # Create tables
         db.create_all()
 
-        # Auto-seed demo data only if AUTO_SEED_DEMO_DATA env var is set
-        if os.getenv('AUTO_SEED_DEMO_DATA', 'false').lower() == 'true':
-            from models import Rule
-            if Rule.query.count() == 0:
-                print("🌱 AUTO_SEED_DEMO_DATA enabled - seeding demo data...")
-                from fixtures import create_demo_data
-                try:
-                    create_demo_data()
-                except Exception as e:
-                    print(f"⚠️  Warning: Failed to auto-seed demo data: {e}")
-                    print("   You can manually seed with: flask seed-demo")
-            else:
-                print("ℹ️  Database already contains data - skipping auto-seed")
-        else:
-            from models import Rule
-            if Rule.query.count() == 0:
-                print("\nℹ️  Database is empty. To seed with demo data, run:")
-                print("   flask seed-demo")
-                print("   OR set AUTO_SEED_DEMO_DATA=true environment variable\n")
+        # Use 'flask seed-demo' to manually populate with demo data if needed
+        print("✅ Database initialized")
 
     @app.route('/api/health')
     def health_check():

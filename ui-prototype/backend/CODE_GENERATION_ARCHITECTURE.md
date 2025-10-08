@@ -1,39 +1,48 @@
 # Rules Engine Code Generation Architecture
 
+**Last Updated**: 2025-10-07
+**Current Implementation**: Template-Based Generation with Python ANTLR
+
+---
+
 ## Overview
 
-The Rules Engine implements a sophisticated multi-tier code generation system that transforms Domain-Specific Language (DSL) rules into optimized Java code for high-performance execution. This document provides a comprehensive explanation of the code generation process with visualizations.
+The Rules Engine implements a template-based code generation system that transforms Domain-Specific Language (DSL) rules into optimized Java code for high-performance execution. The system uses Python ANTLR for parsing and Python f-string templates for code generation - **no external template engines required**.
+
+---
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    RULES ENGINE ARCHITECTURE                    │
-├─────────────────────────────────────────────────────────────────┤
+┌──────────────────────────────────────────────────────────────────┐
+│                    RULES ENGINE ARCHITECTURE                     │
+├──────────────────────────────────────────────────────────────────┤
 │  Frontend (React)    │  Backend (Flask)     │  Engine (Java)     │
 │  ┌─────────────────┐ │  ┌─────────────────┐ │  ┌───────────────┐ │
 │  │ Rule Editor     │ │  │ Python Rules    │ │  │ Generated     │ │
 │  │ (Monaco)        │ │  │ Engine          │ │  │ Java Classes  │ │
 │  │                 │ │  │                 │ │  │               │ │
 │  │ - Syntax HL     │ │  │ - ANTLR Parser  │ │  │ - Executors   │ │
-│  │ - Validation    │ │  │ - Code Gen      │ │  │ - Compiled    │ │
+│  │ - Validation    │ │  │ - Templates     │ │  │ - Compiled    │ │
 │  │ - Auto-complete │ │  │ - Validation    │ │  │ - Optimized   │ │
 │  └─────────────────┘ │  └─────────────────┘ │  └───────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────────┘
 
                     HTTP/REST API ──────────┐
                                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                  STREAMLINED GENERATION PIPELINE               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  DSL Input ──► ANTLR Parse ──► Analyze ──► Generate ──► Compile│
-│                     │             │           │                 │
-│                     ▼             ▼           ▼                 │
-│              AdvancedJavaCodeGenerator (Direct)                 │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                  TEMPLATE-BASED GENERATION PIPELINE              │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  DSL Input → ANTLR Parse → Extract Data → Apply Templates → Java │
+│                   │            │              │                  │
+│                   ▼            ▼              ▼                  │
+│              RulesEngineParser              TemplateCodeGenerator│
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ## Code Generation Flow
 
@@ -41,17 +50,18 @@ The Rules Engine implements a sophisticated multi-tier code generation system th
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     PHASE 1: PARSING                           │
+│                     PHASE 1: PARSING                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Rule DSL                ANTLR Parser               AST         │
 │  ┌─────────┐             ┌─────────────┐           ┌─────────┐  │
-│  │ rule    │             │ Lexical     │           │ Parse   │  │
-│  │ "Credit │    ──────►  │ Analysis    │  ──────►  │ Tree    │  │
-│  │ Check": │             │             │           │         │  │
-│  │ if ...  │             │ - Tokenize  │           │ - Rules │  │
-│  │ then... │             │ - Grammar   │           │ - Conds │  │
-│  └─────────┘             │ - Validate  │           │ - Acts  │  │
+│  │ rule    │             │ Python      │           │ Parse   │  │
+│  │ "Credit │    ──────►  │ ANTLR       │  ──────►  │ Tree    │  │
+│  │ Check": │             │ Parser      │           │         │  │
+│  │ if ...  │             │             │           │ - Rules │  │
+│  │ then... │             │ - Tokenize  │           │ - Conds │  │
+│  └─────────┘             │ - Grammar   │           │ - Acts  │  │
+│                          │ - Validate  │           │         │  │
 │                          └─────────────┘           └─────────┘  │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -59,124 +69,154 @@ The Rules Engine implements a sophisticated multi-tier code generation system th
 
 **Components Involved:**
 
-1. **RulesEngineParser** (`grammar_parser/rules_parser.py:37-42`)
-   - ANTLR4-based parser
+1. **RulesEngineParser** (`grammar_parser/rules_parser.py`)
+   - Python ANTLR4-based parser
+   - Uses Python-generated lexer/parser from Rules.g4
    - Lexical and syntactic analysis
    - Error collection and reporting
 
-2. **Grammar Definition** (Rules.g4)
+2. **Grammar Definition** (`java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4`)
    - DSL syntax specification
    - Token definitions
    - Parse tree structure
+   - Generates both Java and Python parsers
+
+3. **Generated Python ANTLR Files** (`backend/java-bridge/src/main/antlr4/com/rules/grammar/`)
+   - `RulesLexer.py` - Token recognition
+   - `RulesParser.py` - Grammar parsing
+   - `RulesListener.py` - Parse tree walking
 
 **Example DSL Input:**
 ```
 rule "Credit Score Check":
-    if applicant.creditScore >= 750
-    then approveApplication
+    if applicant.creditScore >= 750 then
+        approveApplication
+    endif
 ```
 
-### Phase 2: Performance Analysis & Optimization Strategy
+---
+
+### Phase 2: Data Extraction
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                 PHASE 2: PERFORMANCE ANALYSIS                  │
+│                   PHASE 2: DATA EXTRACTION                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  AST Input              Performance                Optimization │
-│  ┌─────────┐            Analyzer                  Strategy      │
-│  │ Parse   │            ┌─────────────┐           ┌───────────┐ │
-│  │ Tree    │  ────────► │ Complexity  │ ────────► │ Code Gen  │ │
-│  │         │            │ Analysis    │           │ Strategy  │ │
-│  │ - Rules │            │             │           │           │ │
-│  │ - Conds │            │ - Steps     │           │ - Hot     │ │
-│  │ - Acts  │            │ - Nesting   │           │ - Warm    │ │
-│  └─────────┘            │ - Category  │           │ - Cold    │ │
-│                         └─────────────┘           └───────────┘ │
+│  Parse Tree            RuleDataExtractor        Structured Data │
+│  ┌─────────┐           ┌─────────────┐          ┌────────────┐  │
+│  │ AST     │           │ ANTLR       │          │ Python     │  │
+│  │ Nodes   │  ──────►  │ Listener    │  ──────► │ Dict/List  │  │
+│  │         │           │             │          │            │  │
+│  │ - Rules │           │ - Extract   │          │ - Name     │  │
+│  │ - Conds │           │ - Convert   │          │ - Steps    │  │
+│  │ - Acts  │           │ - Analyze   │          │ - Entities │  │
+│  └─────────┘           └─────────────┘          └────────────┘  │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Components Involved:**
 
-1. **PerformanceAnalyzer** (`advanced_java_generator.py:50-56`)
-   - Complexity scoring (1-10 scale)
-   - Performance categorization (hot/warm/cold)
-   - Optimization hint generation
+1. **RuleDataExtractor** (`grammar_parser/template_code_generator.py:20-250`)
+   - ANTLR Listener implementation
+   - Walks parse tree extracting structured data
+   - Converts conditions, actions, attributes to Java code strings
+   - Tracks entities, complexity, performance category
 
-2. **RuleAnalysis** (`advanced_java_generator.py:25-37`)
-   - Dataclass containing analysis results
-   - Conditions, actions, attributes tracking
-   - Complexity and performance metrics
+2. **Data Structure** (Python dicts/lists):
+```python
+{
+    'rule_name': 'Credit Score Check',
+    'entities': {'applicant'},
+    'rule_steps': ['if (condition) { actions.add("..."); }'],
+    'complexity_score': 2,
+    'performance_category': 'hot',
+    'estimated_steps': 3
+}
+```
 
-**Analysis Categories:**
-- **Hot Path** (Score 1-3): Simple conditions, direct actions
-- **Warm Path** (Score 4-7): Moderate complexity, some nesting
-- **Cold Path** (Score 8-10): Complex logic, heavy computation
+---
 
-### Phase 3: Direct Code Generation
+### Phase 3: Template-Based Code Generation
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     PHASE 3: DIRECT GENERATION                 │
+│                 PHASE 3: TEMPLATE GENERATION                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  Performance            AdvancedJavaCodeGenerator     Java      │
-│  Analysis                    (Direct)                Output     │
-│  ┌───────────┐          ┌─────────────┐        ┌─────────────┐  │
-│  │ Hot Path  │          │ ANTLR       │        │ Optimized   │  │
-│  │ Warm Path │ ──────►  │ Visitor     │ ────►  │ Java Class  │  │
-│  │ Cold Path │          │ Templates   │        │             │  │
-│  │           │          │             │        │ - Efficient │  │
-│  │ - Score   │          │ - Parse     │        │ - Readable  │  │
-│  │ - Hints   │          │ - Generate  │        │ - Typed     │  │
-│  └───────────┘          └─────────────┘        └─────────────┘  │
+│  Structured Data     Python Templates          Java Code        │
+│  ┌────────────┐      ┌─────────────┐          ┌─────────────┐   │
+│  │ Rule Data  │      │ f-string    │          │ Complete    │   │
+│  │ Dict/List  │  ──► │ Templates   │  ──────► │ Java Class  │   │
+│  │            │      │             │          │             │   │
+│  │ - Name     │      │ - Skeleton  │          │ - Package   │   │
+│  │ - Steps    │      │ - Methods   │          │ - Imports   │   │
+│  │ - Category │      │ - Helpers   │          │ - Logic     │   │
+│  └────────────┘      └─────────────┘          └─────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Current Implementation:**
+**Components Involved:**
 
-1. **AdvancedJavaCodeGenerator** (`advanced_java_generator.py`)
-   - Direct ANTLR-based generation with integrated performance analysis
-   - Built-in complexity scoring and hot/warm/cold path optimization
-   - Visitor pattern implementation with template engine
+1. **TemplateCodeGenerator** (`grammar_parser/template_code_generator.py:260-340`)
+   ```python
+   class TemplateCodeGenerator:
+       def generate(self, rule_content: str, item_type: str = 'rule') -> str:
+           # Parse with ANTLR
+           tree, error_listener = self.parser.parse(rule_content)
 
-2. **PythonRulesEngine** (`services/python_rules_engine.py:15-26`)
-   - Direct instantiation: `self.code_generator = AdvancedJavaCodeGenerator()`
-   - Streamlined orchestration without abstraction layers
-   - Optimized validation and compilation pipeline
+           # Extract structured data
+           extractor = RuleDataExtractor()
+           walker.walk(extractor, tree)
 
-**Generated Java Structure:**
-```java
-package com.rules.generated;
+           # Apply appropriate template
+           if item_type == 'action':
+               return generate_action(extractor)
+           elif item_type == 'actionset':
+               return generate_actionset(extractor)
+           else:
+               return generate_standard_rule(extractor)
+   ```
 
-public class CreditScoreCheckRule {
-    public boolean evaluate(Map<String, Object> context) {
-        // Generated condition logic
-        Object applicant = context.get("applicant");
-        if (applicant != null) {
-            Object creditScore = getNestedValue(applicant, "creditScore");
-            if (creditScore instanceof Number) {
-                return ((Number) creditScore).doubleValue() >= 750.0;
-            }
-        }
-        return false;
-    }
+2. **Template Functions** (`templates/java/standard_rule_template.py`)
+   - `generate_standard_rule()` - For regular rules
+   - `generate_actionset()` - For ActionSet composition
+   - `generate_action()` - For single actions
 
-    public void execute(Map<String, Object> context) {
-        if (evaluate(context)) {
-            approveApplication(context);
-        }
-    }
-}
-```
+   Uses Python f-strings:
+   ```python
+   def generate_standard_rule(extractor: RuleDataExtractor) -> str:
+       class_name = sanitize_name(extractor.rule_name) + "Rule"
+
+       java_code = f"""
+   package com.rules.generated;
+
+   import java.util.*;
+
+   /**
+    * Generated rule: {extractor.rule_name}
+    * Performance Category: {extractor.performance_category}
+    * Complexity Score: {extractor.complexity_score}/10
+    */
+   public class {class_name} {{
+
+       public static RuleResult evaluate(Map<String, Object> context) {{
+           // ... generated logic ...
+       }}
+   }}
+   """
+       return java_code
+   ```
+
+---
 
 ### Phase 4: Compilation & Deployment
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                 PHASE 4: COMPILATION & DEPLOY                  │
+│                 PHASE 4: COMPILATION & DEPLOY                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Java Source            Compiler                Runtime         │
@@ -194,251 +234,367 @@ public class CreditScoreCheckRule {
 
 **Components Involved:**
 
-1. **Maven Build System**
+1. **Maven Build System** (`java-bridge/pom.xml`)
    - Automated compilation
    - Dependency resolution
    - JAR packaging
 
-2. **Dynamic Class Loading**
-   - Runtime compilation
-   - Hot reloading capability
-   - Performance optimization
+2. **PythonRulesEngine** (`services/python_rules_engine.py`)
+   ```python
+   class PythonRulesEngine:
+       def __init__(self):
+           self.parser = RulesEngineParser()
+           self.code_generator = TemplateCodeGenerator()  # Current implementation
+           self.validator = RuleValidator()
+           self.compiled_rules_cache = {}
+   ```
+
+---
 
 ## Detailed Component Analysis
 
-### 1. Streamlined Generator Architecture
-
-The system uses a direct, streamlined architecture with AdvancedJavaCodeGenerator as the sole implementation:
+### 1. Current Generator Architecture
 
 ```
 PythonRulesEngine
        │
-       ▼
-AdvancedJavaCodeGenerator
+       ├── RulesEngineParser (Python ANTLR)
+       │        │
+       │        └── Python generated files from Rules.g4
        │
-       ├── PerformanceAnalyzer
-       ├── CodeGenStrategy
-       ├── TemplateEngine
-       └── ANTLR Integration
+       ├── TemplateCodeGenerator
+       │        │
+       │        ├── RuleDataExtractor (ANTLR Listener)
+       │        └── Template Functions (f-strings)
+       │
+       └── RuleValidator (Semantic validation)
 ```
 
-**Current Architecture Benefits:**
-- **Direct Implementation**: No abstraction layers, optimal performance
-- **Integrated Analysis**: Built-in complexity scoring and optimization
-- **ANTLR Native**: Full DSL parsing with visitor pattern implementation
-- **Performance Optimized**: Hot/warm/cold path categorization
+**Architecture Benefits:**
+- **No External Dependencies**: Pure Python f-strings, no Jinja2 or other template engines
+- **ANTLR Native**: Full DSL parsing with Python-generated ANTLR classes
+- **Simple & Maintainable**: Direct f-string templates easy to understand and modify
+- **Type Safe**: Python type hints throughout code generation pipeline
 
-### 2. ANTLR Integration
+---
 
-The system leverages ANTLR4 for robust parsing:
+### 2. Template System
+
+The template system uses Python f-strings for maximum simplicity:
+
+**Template Structure** (`templates/java/standard_rule_template.py`):
+```python
+def generate_standard_rule(extractor: RuleDataExtractor) -> str:
+    """
+    Generate Java code for a standard rule using f-string templates.
+    No external template engine required.
+    """
+    # Extract data
+    class_name = sanitize_name(extractor.rule_name) + "Rule"
+    entities = ', '.join(f'"{e}"' for e in extractor.entities)
+    rule_steps_java = '\n        '.join(extractor.rule_steps)
+
+    # Generate using f-string
+    return f"""
+package com.rules.generated;
+
+import java.util.*;
+import java.time.LocalDate;
+
+public class {class_name} {{
+
+    public static class RuleResult {{
+        private final boolean matched;
+        private final List<String> actions;
+
+        // ... constructor and getters ...
+    }}
+
+    public static RuleResult evaluate(Map<String, Object> context) {{
+        List<String> actions = new ArrayList<>();
+        boolean matched = false;
+
+        // Extract entities
+        {extractor._generate_entity_extraction()}
+
+        // Execute rule logic
+        {rule_steps_java}
+
+        return new RuleResult(matched, actions, null);
+    }}
+
+    // Helper methods for null-safe operations
+    private static Object _getFieldValue(Map<String, Object> entity, String fieldName) {{
+        return entity != null ? entity.get(fieldName) : null;
+    }}
+
+    // ... more helper methods ...
+}}
+"""
+```
+
+---
+
+### 3. ANTLR Integration
+
+**Grammar File** (`Rules.g4`):
+- Defines DSL syntax
+- Generates both Java and Python parsers
+- Python version used by backend
+
+**Generation Command**:
+```bash
+# Generate Python parser classes
+antlr4 -Dlanguage=Python3 -o backend/java-bridge/src/main/antlr4/com/rules/grammar Rules.g4
+```
+
+**Generated Python Files**:
+```
+backend/java-bridge/src/main/antlr4/com/rules/grammar/
+├── RulesLexer.py         # Tokenization
+├── RulesParser.py        # Grammar parsing
+├── RulesListener.py      # Tree walking
+└── Rules.tokens          # Token definitions
+```
+
+---
+
+### 4. Performance Categories
+
+Rules are categorized based on complexity:
 
 ```
-DSL Rule Text
-     │
-     ▼
-RulesLexer (Tokenization)
-     │
-     ▼
-RulesParser (Grammar Parsing)
-     │
-     ▼
-ParseTree (AST)
-     │
-     ▼
-RulesListener/Visitor (Tree Walking)
-```
-
-**Generated Files:**
-- `RulesLexer.py`: Token recognition
-- `RulesParser.py`: Grammar parsing
-- `RulesListener.py`: Parse tree walking
-- `Rules.tokens`: Token definitions
-
-### 3. Performance Categories
-
-The system categorizes rules for optimal code generation:
-
-```
-┌─────────────────────────────────────────────────────────────┐
+┌────────────────────────────────────────────────────────────┐
 │                   PERFORMANCE TIERS                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  🔥 HOT PATH (Score 1-3)                                   │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│   HOT PATH (Score 1-3)                                     │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ • Simple conditions (1-2 operators)                 │   │
 │  │ • Direct attribute access                           │   │
 │  │ • Single action execution                           │   │
 │  │ • Estimated: <5 execution steps                     │   │
-│  │ • Generation: Inline optimization                   │   │
 │  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  🔶 WARM PATH (Score 4-7)                                  │
+│                                                            │
+│   WARM PATH (Score 4-7)                                    │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ • Moderate complexity (3-5 operators)               │   │
 │  │ • Some nested conditions                            │   │
 │  │ • Multiple actions                                  │   │
 │  │ • Estimated: 5-15 execution steps                   │   │
-│  │ • Generation: Balanced optimization                 │   │
 │  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  🧊 COLD PATH (Score 8-10)                                 │
+│                                                            │
+│   COLD PATH (Score 8-10)                                   │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ • Complex nested logic                              │   │
 │  │ • Heavy computational requirements                  │   │
 │  │ • Multiple decision points                          │   │
 │  │ • Estimated: >15 execution steps                    │   │
-│  │ • Generation: Maintainability focus                 │   │
 │  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+│                                                            │
+└────────────────────────────────────────────────────────────┘
 ```
 
-## Example: Complete Generation Process
+**Complexity Scoring** (in `RuleDataExtractor`):
+- Base score starts at 0
+- +1 for each condition
+- +2 for each AND/OR operator
+- +1 for each nested condition
+- +1 for every 3 actions
 
-Let's trace through a complete example:
+---
+
+## Example: Complete Generation Process
 
 ### Input DSL Rule
 ```
 rule "Premium Card Approval":
-    if applicant.creditScore >= 800 and applicant.income > 100000
-    then approveApplication and assignPremiumBenefits
+    if applicant.creditScore >= 800 and applicant.income > 100000 then
+        approveApplication,
+        assignPremiumBenefits
+    endif
 ```
 
-### Step 1: Parsing
-```
-ParseTree:
-├── rule "Premium Card Approval"
-├── condition (AND)
-│   ├── applicant.creditScore >= 800
-│   └── applicant.income > 100000
-└── actions
-    ├── approveApplication
-    └── assignPremiumBenefits
+### Step 1: ANTLR Parsing
+```python
+# RulesEngineParser creates parse tree
+tree, error_listener = parser.parse(rule_content)
+# tree is ANTLR ParseTree with structured nodes
 ```
 
-### Step 2: Analysis
-```
-RuleAnalysis {
-    rule_name: "Premium Card Approval"
-    complexity_score: 4 (WARM)
-    estimated_steps: 8
-    conditions: [
-        {attribute: "applicant.creditScore", operator: ">=", value: 800},
-        {attribute: "applicant.income", operator: ">", value: 100000}
-    ]
-    actions: ["approveApplication", "assignPremiumBenefits"]
-    performance_category: "warm"
+### Step 2: Data Extraction
+```python
+# RuleDataExtractor walks tree
+extractor = RuleDataExtractor()
+walker = ParseTreeWalker()
+walker.walk(extractor, tree)
+
+# Extracted data:
+{
+    'rule_name': 'Premium Card Approval',
+    'entities': {'applicant'},
+    'rule_steps': [
+        'if (condition_java) {\n    matched = true;\n    actions.add("approveApplication");\n    actions.add("assignPremiumBenefits");\n}'
+    ],
+    'complexity_score': 4,
+    'performance_category': 'warm',
+    'estimated_steps': 8
 }
 ```
 
-### Step 3: Code Generation
+### Step 3: Template Application
+```python
+# generate_standard_rule() applies f-string template
+java_code = generate_standard_rule(extractor)
+```
+
+### Step 4: Generated Java Output
 ```java
 package com.rules.generated;
 
+import java.util.*;
+
+/**
+ * Generated rule: Premium Card Approval
+ * Performance Category: warm
+ * Complexity Score: 4/10
+ */
 public class PremiumCardApprovalRule {
-    public boolean evaluate(Map<String, Object> context) {
-        Object applicant = context.get("applicant");
-        if (applicant == null) return false;
 
-        // Credit score check
-        Object creditScore = getNestedValue(applicant, "creditScore");
-        boolean creditCheck = false;
-        if (creditScore instanceof Number) {
-            creditCheck = ((Number) creditScore).doubleValue() >= 800.0;
+    public static class RuleResult {
+        private final boolean matched;
+        private final List<String> actions;
+        private final String finalAction;
+
+        public RuleResult(boolean matched, List<String> actions, String finalAction) {
+            this.matched = matched;
+            this.actions = actions;
+            this.finalAction = finalAction;
         }
 
-        // Income check
-        Object income = getNestedValue(applicant, "income");
-        boolean incomeCheck = false;
-        if (income instanceof Number) {
-            incomeCheck = ((Number) income).doubleValue() > 100000.0;
-        }
-
-        return creditCheck && incomeCheck;
+        public boolean isMatched() { return matched; }
+        public List<String> getActions() { return actions; }
+        public String getFinalAction() { return finalAction; }
     }
 
-    public void execute(Map<String, Object> context) {
-        if (evaluate(context)) {
-            approveApplication(context);
-            assignPremiumBenefits(context);
+    public static RuleResult evaluate(Map<String, Object> context) {
+        List<String> actions = new ArrayList<>();
+        String finalAction = null;
+        boolean matched = false;
+
+        // Extract entities
+        Map<String, Object> applicant = (Map<String, Object>) context.get("applicant");
+
+        // Execute rule logic
+        if (_compareTo(_getFieldValue(applicant, "creditScore"), 800) >= 0
+            && _compareTo(_getFieldValue(applicant, "income"), 100000) > 0) {
+            matched = true;
+            actions.add("approveApplication");
+            actions.add("assignPremiumBenefits");
         }
+
+        return new RuleResult(matched, actions, finalAction);
+    }
+
+    // Helper methods
+    private static Object _getFieldValue(Map<String, Object> entity, String fieldName) {
+        return entity != null ? entity.get(fieldName) : null;
+    }
+
+    private static int _compareTo(Object a, Object b) {
+        if (a == null || b == null) return 0;
+        if (a instanceof Number && b instanceof Number) {
+            return Double.compare(((Number)a).doubleValue(), ((Number)b).doubleValue());
+        }
+        return a.toString().compareTo(b.toString());
     }
 }
 ```
 
+---
+
 ## Performance Characteristics
 
-The code generation system achieves high performance through several optimizations:
-
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    PERFORMANCE METRICS                     │
+│                    PERFORMANCE METRICS                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  📊 Generation Performance                                  │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ • Rule Compilation: 63ms average                    │   │
-│  │ • Rule Execution: 0.67ms average                    │   │
-│  │ • Memory Usage: 2KB per rule                        │   │
-│  │ • Target Throughput: 80K+ TPS                       │   │
-│  └─────────────────────────────────────────────────────┘   │
+│   Generation Performance                                    │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ • Rule Compilation: 63ms average                    │    │
+│  │ • Rule Execution: 0.67ms average                    │    │
+│  │ • Memory Usage: 2KB per rule                        │    │
+│  │ • Target Throughput: 80K+ TPS                       │    │
+│  └─────────────────────────────────────────────────────┘    │
 │                                                             │
-│  🔧 Optimization Strategies                                 │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ • Hot Path: Direct field access, inline conditions  │   │
-│  │ • Warm Path: Balanced code/performance trade-offs   │   │
-│  │ • Cold Path: Maintainable, readable generated code  │   │
-│  │ • Caching: Compiled rule bytecode caching          │   │
-│  │ • Batching: Bulk compilation for multiple rules     │   │
-│  └─────────────────────────────────────────────────────┘   │
+│   Optimization Strategies                                   │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ • Hot Path: Direct field access, inline conditions  │    │
+│  │ • Warm Path: Balanced code/performance trade-offs   │    │
+│  │ • Cold Path: Maintainable, readable generated code  │    │
+│  │ • Caching: Compiled rule bytecode caching           │    │
+│  └─────────────────────────────────────────────────────┘    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
-
-## Integration Points
-
-The current streamlined code generation system integrates efficiently across components:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CURRENT INTEGRATION                     │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Frontend ◄─────► Backend ◄─────► AdvancedJavaCodeGenerator │
-│     │                 │                    │                │
-│     │                 │                    ▼                │
-│     │                 │              Java Compilation      │
-│     │                 │                    │                │
-│     │                 │                    ▼                │
-│     │                 └─────► Database ◄── Generated Rules  │
-│     │                                                        │
-│     └─────────────────────► Rule Execution Results         │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Current API Integration:**
-- `POST /api/rules/validate`: Direct ANTLR validation via AdvancedJavaCodeGenerator
-- `POST /api/rules/compile`: Streamlined compilation pipeline
-- `POST /api/rules/test`: Optimized rule execution testing
-- `GET /api/rules`: Efficient rule retrieval and metadata
-
-## Current Capabilities & Roadmap
-
-The streamlined architecture provides:
-
-**Current Capabilities:**
-- **ANTLR-Native Parsing**: Full DSL support with robust error handling
-- **Performance Analysis**: Automatic complexity scoring and optimization
-- **Hot Path Optimization**: Sub-millisecond rule execution (0.67ms average)
-- **Scalable Architecture**: 80K+ TPS target performance
-
-**Enhancement Opportunities:**
-1. **Grammar Extensions**: Additional DSL constructs and operators
-2. **Advanced Optimizations**: Machine learning-based performance tuning
-3. **Multi-Language Generation**: Python, C#, or Rust code generation
-4. **Distributed Processing**: Horizontal scaling for enterprise rule sets
 
 ---
 
-*This document explains the complete code generation architecture from DSL input to executable Java code. The system is designed for high performance, maintainability, and extensibility.*
+## API Integration
+
+**Current Endpoints**:
+- `POST /api/rules/validate` - Validates DSL syntax and semantics using Python ANTLR
+- `POST /api/rules/compile` - Compiles rule to Java via TemplateCodeGenerator
+- `POST /api/rules/test` - Tests generated Java rule with sample data
+- `GET /api/rules` - Retrieves rules and metadata
+
+**Code Flow**:
+```
+API Request → RuleService → PythonRulesEngine → TemplateCodeGenerator → Java Output
+```
+
+---
+
+## File Locations
+
+### Key Files
+- **Grammar**: `java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4`
+- **Python Parser**: `backend/grammar_parser/rules_parser.py`
+- **Generator**: `backend/grammar_parser/template_code_generator.py`
+- **Templates**: `backend/templates/java/standard_rule_template.py`
+- **Engine**: `backend/services/python_rules_engine.py`
+- **Validator**: `backend/grammar_parser/rule_validator.py`
+
+### Generated Files (Python ANTLR)
+```
+backend/java-bridge/src/main/antlr4/com/rules/grammar/
+├── RulesLexer.py
+├── RulesParser.py
+├── RulesListener.py
+└── Rules.tokens
+```
+
+---
+
+## Current Architecture Benefits
+
+✅ **Simple**: No external template engines (Jinja2, Mako, etc.)
+✅ **Fast**: Direct Python f-string generation
+✅ **Maintainable**: Easy to read and modify templates
+✅ **Type Safe**: Python type hints throughout
+✅ **ANTLR Native**: Full DSL parsing capabilities
+✅ **Flexible**: Easy to add new rule types or templates
+
+---
+
+## Enhancement Opportunities
+
+1. **Grammar Extensions**: Add new DSL constructs (loops, functions, etc.)
+2. **Template Variants**: Hot-path specific templates for ultra-fast rules
+3. **Multi-Language**: Generate Python, C#, or Rust code from same DSL
+4. **Optimization**: Machine learning-based performance tuning
+5. **Distributed**: Horizontal scaling for enterprise rule sets
+
+---
+

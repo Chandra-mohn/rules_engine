@@ -892,7 +892,8 @@ class RuleService:
                         'success': False,
                         'message': f'Java code generation failed: {java_code_result.get("message", "Unknown error")}'
                     }
-                java_code = java_code_result.get('javaCode', '')
+                # Note: The key is 'java_code' (underscore), not 'javaCode' (camelCase)
+                java_code = java_code_result.get('java_code', '')
             
             # Generate artifacts in memory first
             artifacts = self._generate_rule_library_artifacts(
@@ -1250,65 +1251,35 @@ ENTRYPOINT ["java", "-Drules.library.path=/app/rules", "-jar", "app.jar"]
         return schema_context
     
     def _generate_typed_java_code(self, rule_content: str, schema_context: Dict[str, Any]) -> str:
-        """Generate type-safe Java code using database schema information."""
-        import re
-        
-        # Parse rule content to identify attribute accesses
-        attribute_pattern = r'(\w+)\.(\w+)'
-        attributes_used = re.findall(attribute_pattern, rule_content)
-        
-        # Generate typed getters and comparison methods
-        typed_methods = []
-        imports = set(['java.util.Objects'])
-        
-        for entity_name, attr_name in attributes_used:
-            if entity_name in schema_context['entities']:
-                entity = schema_context['entities'][entity_name]
-                if attr_name in entity['attributes']:
-                    attr = entity['attributes'][attr_name]
-                    java_type = attr['java_type']
-                    
-                    if java_type == 'LocalDate':
-                        imports.add('java.time.LocalDate')
-                    elif java_type == 'LocalDateTime':
-                        imports.add('java.time.LocalDateTime')
-                    elif java_type == 'BigDecimal':
-                        imports.add('java.math.BigDecimal')
-                    
-                    # Generate typed getter method
-                    method_name = f"get{entity_name.capitalize()}{attr_name.capitalize()}"
-                    typed_methods.append(f"""
-    private {java_type} {method_name}(RuleContext ctx) {{
-        Object value = ctx.getValue("{entity_name}.{attr_name}");
-        if (value == null) return null;
-        {self._generate_type_conversion(java_type, 'value')}
-    }}""")
-        
-        # Generate the main rule logic with type safety
-        import_statements = '\n'.join([f'import {imp};' for imp in sorted(imports)])
-        method_declarations = '\n'.join(typed_methods)
-        
-        rule_logic = self._parse_and_generate_rule_logic(rule_content, schema_context)
-        
-        return f"""{import_statements}
+        """
+        Generate Java code using the working template code generator.
 
-/**
- * Generated rule class with type-safe attribute access
- * Auto-generated - do not modify manually
- */
-public class GeneratedRule implements Rule {{
-{method_declarations}
+        DEPRECATED: This method previously attempted custom typed code generation but had bugs.
+        Now it delegates to the working TemplateCodeGenerator for reliable code generation.
 
-    @Override
-    public RuleResult execute(RuleContext ctx) {{
-{rule_logic}
-    }}
+        Args:
+            rule_content: DSL rule content
+            schema_context: Database schema context (currently unused, kept for compatibility)
 
-    @Override
-    public String getRuleName() {{
-        return "{self.parse_rule_name_from_content(rule_content)}";
-    }}
-}}"""
+        Returns:
+            str: Generated Java code (complete class)
+        """
+        # Determine item type from schema context
+        item_type = schema_context.get('item_type', 'rule') if schema_context else 'rule'
+
+        # Use the working template code generator
+        # This calls TemplateCodeGenerator.generate() which we just added
+        java_code_result = self.rules_engine.compile_rule(rule_content)
+
+        if not java_code_result.get('success'):
+            error_msg = java_code_result.get('message', 'Unknown error')
+            errors = java_code_result.get('errors', [])
+            if errors:
+                error_msg = f"{error_msg}: {', '.join(str(e) for e in errors)}"
+            raise ValueError(f"Code generation failed: {error_msg}")
+
+        # Note: The key is 'java_code' (underscore), not 'javaCode' (camelCase)
+        return java_code_result.get('java_code', '')
     
     def _generate_type_conversion(self, java_type: str, value_var: str) -> str:
         """Generate appropriate type conversion code."""
@@ -1498,8 +1469,24 @@ public class GeneratedRule implements Rule {{
 
     def _generate_rule_type_specific_wrapper(self, package_name: str, class_name: str, java_code: str,
                                            rule_name: str, rule_content: str, item_type: str) -> str:
-        """Generate unified React-like template with conditional capabilities."""
+        """
+        Generate unified React-like template with conditional capabilities.
 
+        This method detects if java_code is already a complete class and returns it as-is,
+        or wraps it in the unified template if it's just rule logic.
+        """
+
+        # Check if java_code is already a complete class
+        # If it has 'public class' and 'package' declarations, it's complete
+        is_complete_class = ('public class' in java_code and
+                            ('package ' in java_code or java_code.strip().startswith('package ')))
+
+        if is_complete_class:
+            # It's already a complete class from TemplateCodeGenerator
+            # Return as-is, no wrapping needed
+            return java_code
+
+        # It's just rule logic, wrap it in the unified template
         return self._generate_unified_template(package_name, class_name, java_code, rule_name, rule_content, item_type)
 
     def _generate_unified_template(self, package_name: str, class_name: str, java_code: str,
