@@ -473,7 +473,12 @@ class RuleService:
                 'message': success_message if is_valid else 'Rule validation failed',
                 'errors': unique_errors,
                 'warnings': unique_warnings,
-                'validation_details': validation_details
+                'validation_details': validation_details,
+                # Add these for enhanced frontend display (matches Gap Analysis UX)
+                'undefined_attributes': list(antlr_validation.get('undefined_attributes', [])),
+                'undefined_actions': list(antlr_validation.get('undefined_actions', [])),
+                'has_missing_items': len(antlr_validation.get('undefined_attributes', [])) > 0
+                                     or len(antlr_validation.get('undefined_actions', [])) > 0
             }
 
         except Exception as e:

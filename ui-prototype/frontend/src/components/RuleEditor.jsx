@@ -14,6 +14,7 @@ import {
   Col,
   Tag,
   Modal,
+  Statistic,
 } from 'antd';
 import {
   CheckCircleOutlined,
@@ -24,6 +25,7 @@ import {
   InfoCircleOutlined,
   DatabaseOutlined,
   SaveOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import { rulesApi } from '../services/api';
@@ -1465,39 +1467,97 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                     icon={<CheckCircleOutlined />}
                   />
                 ) : (
-                  <Alert
-                    message={validation.message && validation.message.toLowerCase().includes('valid') ? 'Validation Warning' : 'Invalid'}
-                    description={
-                      <div>
-                        <div>{validation.message}</div>
-                        {validation.errors && validation.errors.length > 0 && (
-                          <ul style={{ marginTop: 8, marginBottom: 0 }}>
-                            {validation.errors.map((error, index) => (
-                              <li key={index}>{typeof error === 'string' ? error : error.message || JSON.stringify(error)}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    }
-                    type={validation.message && validation.message.toLowerCase().includes('valid') ? 'warning' : 'error'}
-                    showIcon
-                    icon={validation.message && validation.message.toLowerCase().includes('valid') ? <InfoCircleOutlined /> : <CloseCircleOutlined />}
-                  />
+                  // Only show this alert if there are non-missing-item errors
+                  validation.errors && validation.errors.some(e => {
+                    const errStr = typeof e === 'string' ? e : e.message || JSON.stringify(e);
+                    return !errStr.includes('Unknown action') && !errStr.includes('Unknown attribute');
+                  }) && (
+                    <Alert
+                      message="Validation Error"
+                      description={
+                        <div>
+                          <div>{validation.message}</div>
+                          {validation.errors && validation.errors.length > 0 && (
+                            <ul style={{ marginTop: 8, marginBottom: 0 }}>
+                              {validation.errors
+                                .filter(error => {
+                                  const errStr = typeof error === 'string' ? error : error.message || JSON.stringify(error);
+                                  return !errStr.includes('Unknown action') && !errStr.includes('Unknown attribute');
+                                })
+                                .map((error, index) => (
+                                  <li key={index}>{typeof error === 'string' ? error : error.message || JSON.stringify(error)}</li>
+                                ))}
+                            </ul>
+                          )}
+                        </div>
+                      }
+                      type="error"
+                      showIcon
+                      icon={<CloseCircleOutlined />}
+                    />
+                  )
                 )}
-                {validation.warnings && validation.warnings.length > 0 && (
-                  <Alert
-                    style={{ marginTop: 8 }}
-                    message="Warnings"
-                    description={
-                      <ul style={{ marginBottom: 0 }}>
-                        {validation.warnings.map((warning, index) => (
-                          <li key={index}>{warning}</li>
-                        ))}
-                      </ul>
-                    }
-                    type="warning"
-                    showIcon
-                  />
+                {/* Enhanced validation display with statistics cards */}
+                {validation && (validation.warnings?.length > 0 || validation.undefined_attributes?.length > 0 || validation.undefined_actions?.length > 0) && (
+                  <>
+                    {/* Statistics cards for missing items (matches Gap Analysis UX) */}
+                    {(validation.undefined_attributes?.length > 0 || validation.undefined_actions?.length > 0) && (
+                      <Row gutter={16} style={{ marginTop: 16 }}>
+                        {validation.undefined_attributes?.length > 0 && (
+                          <Col span={12}>
+                            <Card size="small" style={{ borderColor: '#ff4d4f' }}>
+                              <Statistic
+                                title="Missing Attributes"
+                                value={validation.undefined_attributes.length}
+                                valueStyle={{ color: '#cf1322' }}
+                                prefix={<WarningOutlined />}
+                              />
+                              <div style={{ marginTop: 8, fontSize: 12, color: '#595959' }}>
+                                {validation.undefined_attributes.join(', ')}
+                              </div>
+                            </Card>
+                          </Col>
+                        )}
+
+                        {validation.undefined_actions?.length > 0 && (
+                          <Col span={validation.undefined_attributes?.length > 0 ? 12 : 24}>
+                            <Card size="small" style={{ borderColor: '#ff4d4f' }}>
+                              <Statistic
+                                title="Missing Actions/ActionSets"
+                                value={validation.undefined_actions.length}
+                                valueStyle={{ color: '#cf1322' }}
+                                prefix={<WarningOutlined />}
+                              />
+                              <div style={{ marginTop: 8, fontSize: 12, color: '#595959' }}>
+                                {validation.undefined_actions.join(', ')}
+                              </div>
+                            </Card>
+                          </Col>
+                        )}
+                      </Row>
+                    )}
+
+                    {/* Other warnings (non-missing-item warnings) */}
+                    {validation.warnings?.some(w =>
+                      !w.includes('Unknown attribute') && !w.includes('Unknown action')
+                    ) && (
+                      <Alert
+                        style={{ marginTop: 12 }}
+                        message="Other Warnings"
+                        description={
+                          <ul style={{ marginBottom: 0 }}>
+                            {validation.warnings
+                              .filter(w => !w.includes('Unknown attribute') && !w.includes('Unknown action'))
+                              .map((warning, index) => (
+                                <li key={index}>{warning}</li>
+                              ))}
+                          </ul>
+                        }
+                        type="warning"
+                        showIcon
+                      />
+                    )}
+                  </>
                 )}
               </div>
             )}
