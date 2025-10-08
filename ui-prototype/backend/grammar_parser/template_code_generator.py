@@ -15,6 +15,7 @@ from RulesListener import RulesListener
 # Import Python template functions
 sys.path.append(str(Path(__file__).parent.parent / 'templates' / 'java'))
 from standard_rule_template import generate_standard_rule, generate_actionset, generate_action
+from test_template import generate_standard_rule_test, generate_actionset_test, generate_action_test
 
 
 class RuleDataExtractor(RulesListener):
@@ -516,6 +517,100 @@ class TemplateCodeGenerator:
 
         # Generate code using the working template system
         return self.generate_code(tree, rule_type)
+
+    def generate_tests(self, parse_tree, rule_type='standard_rule'):
+        """
+        Generate JUnit 5 test code from ANTLR parse tree.
+
+        Args:
+            parse_tree: ANTLR parse tree root
+            rule_type: Type of rule ('standard_rule', 'actionset', 'action')
+
+        Returns:
+            str: Generated JUnit 5 test class code
+        """
+        from test_scenario_generator import TestScenarioGenerator
+        from antlr4.tree.Tree import ParseTreeWalker
+
+        # Extract test scenarios from parse tree
+        scenario_generator = TestScenarioGenerator()
+        walker = ParseTreeWalker()
+        walker.walk(scenario_generator, parse_tree)
+
+        # Extract rule data for metadata
+        data_extractor = RuleDataExtractor()
+        walker.walk(data_extractor, parse_tree)
+        data_extractor.calculate_complexity()
+
+        # Prepare test template data
+        class_name = self._to_class_name(data_extractor.rule_name)
+        test_scenarios = scenario_generator.get_scenarios()
+
+        # Generate test code using appropriate template
+        if rule_type == 'actionset':
+            test_code = generate_actionset_test(
+                rule_name=data_extractor.rule_name,
+                class_name=class_name,
+                entities=list(data_extractor.entities),
+                test_scenarios=test_scenarios,
+                complexity_score=data_extractor.complexity_score
+            )
+        elif rule_type == 'action':
+            test_code = generate_action_test(
+                rule_name=data_extractor.rule_name,
+                class_name=class_name,
+                entities=list(data_extractor.entities),
+                test_scenarios=test_scenarios,
+                complexity_score=data_extractor.complexity_score
+            )
+        else:  # standard_rule
+            test_code = generate_standard_rule_test(
+                rule_name=data_extractor.rule_name,
+                class_name=class_name,
+                entities=list(data_extractor.entities),
+                test_scenarios=test_scenarios,
+                complexity_score=data_extractor.complexity_score
+            )
+
+        return test_code
+
+    def generate_with_tests(self, rule_content: str, rule_name: str = None, item_type: str = 'rule'):
+        """
+        Generate both production code and test code from DSL rule.
+
+        Args:
+            rule_content: DSL rule content to parse
+            rule_name: Optional rule name
+            item_type: Rule type ('rule', 'actionset', 'action', etc.)
+
+        Returns:
+            tuple: (production_code, test_code)
+        """
+        from grammar_parser import RulesEngineParser
+
+        # Parse rule content once
+        parser = RulesEngineParser()
+        tree, error_listener = parser.parse(rule_content)
+
+        if tree is None or error_listener.errors:
+            error_messages = [error['message'] for error in error_listener.errors] if error_listener.errors else ['Unknown parse error']
+            raise ValueError(f"Parse errors: {', '.join(error_messages)}")
+
+        # Map item_type to rule_type
+        rule_type_map = {
+            'rule': 'standard_rule',
+            'actionset': 'actionset',
+            'action': 'action',
+            'mon_rule': 'standard_rule',
+            'non_mon_rule': 'standard_rule'
+        }
+        rule_type = rule_type_map.get(item_type, 'standard_rule')
+
+        # Generate both production and test code
+        production_code = self.generate_code(tree, rule_type)
+        test_code = self.generate_tests(tree, rule_type)
+
+        return production_code, test_code
 
     def _to_class_name(self, rule_name):
         """Convert rule name to Java class name (PascalCase + 'Rule' suffix)."""
