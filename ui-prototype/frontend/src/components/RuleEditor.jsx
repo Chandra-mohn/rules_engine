@@ -181,7 +181,8 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     if (contextId && !contextPanelVisible) {
       setContextPanelVisible(true);
     }
-  }, [form.getFieldValue('context_id')]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextPanelVisible]);
 
   // Persist panel visibility to localStorage
   useEffect(() => {

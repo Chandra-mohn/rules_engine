@@ -99,7 +99,11 @@ const ContextPanel = ({ contextId, onClose }) => {
   if (loading) {
     return (
       <Card size="small" style={{ height: '100%' }}>
-        <Spin tip="Loading context..." style={{ display: 'block', textAlign: 'center', marginTop: 50 }} />
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <Spin tip="Loading context...">
+            <div style={{ padding: 50 }} />
+          </Spin>
+        </div>
       </Card>
     );
   }
