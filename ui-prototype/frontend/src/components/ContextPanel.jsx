@@ -25,22 +25,22 @@ const ContextPanel = ({ contextId, onClose }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    const loadContextData = async () => {
+      setLoading(true);
+      try {
+        const response = await contextsApi.getContext(contextId);
+        setContextData(response.data);
+      } catch (error) {
+        console.error('Failed to load context:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (contextId) {
       loadContextData();
     }
   }, [contextId]);
-
-  const loadContextData = async () => {
-    setLoading(true);
-    try {
-      const response = await contextsApi.getContext(contextId);
-      setContextData(response.data);
-    } catch (error) {
-      console.error('Failed to load context:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Extract all attribute paths from context JSON
   const extractAttributePaths = (obj, prefix = '') => {
