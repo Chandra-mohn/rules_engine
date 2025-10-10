@@ -60,7 +60,6 @@
 - **pre_commit_checks.py** - Pre-commit validation checks for code quality
 
 ### Utility Scripts
-- **show_java_code_locations.py** - Utility to display generated Java code file locations
 - **migrate_schema_actions.py** - Database migration script for schema and actions updates
 
 ### Database Files
