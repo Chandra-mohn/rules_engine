@@ -72,14 +72,17 @@ class PythonRulesEngine:
 
     def compile_rule(self, rule_content: str, rule_id: str = None) -> Dict[str, Any]:
         """
-        Compile rule to Java bytecode using Python ANTLR parser.
+        Generate Java code from rule content using Python ANTLR parser.
+
+        NOTE: Despite the name, this method only GENERATES Java code, it does NOT compile it.
+        Actual compilation happens separately via build_rule_code() or test_rule_code().
 
         Args:
-            rule_content: Rule content to compile
+            rule_content: Rule content to generate Java code from
             rule_id: Optional rule identifier
 
         Returns:
-            dict: Compilation result
+            dict: Code generation result with java_code and test_code
         """
         start_time = time.time()
 
@@ -105,45 +108,37 @@ class PythonRulesEngine:
             # Step 3: Generate Java code and tests using template generator
             production_code, test_code = self.code_generator.generate_with_tests(rule_content, rule_name)
 
-            # Step 4: Compile Java code
-            compilation_result = self._compile_java_code(production_code, rule_name)
+            # Step 4: Generate class name (WITHOUT actual Java compilation)
+            class_name = f"com.rules.{self._to_class_name(rule_name)}Rule"
 
-            compilation_time = int((time.time() - start_time) * 1000)
+            generation_time = int((time.time() - start_time) * 1000)
 
-            if compilation_result['success']:
-                # Cache the compiled rule
-                self.compiled_rules_cache[rule_id] = {
-                    'java_code': production_code,
-                    'test_code': test_code,
-                    'class_name': compilation_result['class_name'],
-                    'compiled_at': time.time()
-                }
+            # Cache the generated code
+            self.compiled_rules_cache[rule_id] = {
+                'java_code': production_code,
+                'test_code': test_code,
+                'class_name': class_name,
+                'compiled_at': time.time()
+            }
 
-                return {
-                    'success': True,
-                    'valid': True,
-                    'ruleId': rule_id,
-                    'ruleName': rule_name,
-                    'className': compilation_result['class_name'],
-                    'compilationTimeMs': compilation_time,
-                    'message': 'Rule compiled successfully',
-                    'java_code': production_code,
-                    'test_code': test_code
-                }
-            else:
-                return {
-                    'success': False,
-                    'valid': False,
-                    'errors': compilation_result['errors'],
-                    'message': 'Java compilation failed'
-                }
+            return {
+                'success': True,
+                'valid': True,
+                'ruleId': rule_id,
+                'ruleName': rule_name,
+                'className': class_name,
+                'compilationTimeMs': generation_time,
+                'message': 'Java code generated successfully',
+                'java_code': production_code,
+                'test_code': test_code
+            }
 
         except Exception as e:
             return {
                 'success': False,
                 'valid': False,
                 'errors': [str(e)],
-                'message': f'Compilation failed: {str(e)}'
+                'message': f'Code generation failed: {str(e)}'
             }
 
     def test_rule(self, rule_content: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
