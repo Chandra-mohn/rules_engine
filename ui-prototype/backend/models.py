@@ -105,6 +105,54 @@ class ProcessArea(db.Model):
     def actual_rules(self):
         return [rule for rule in self.rules if rule.item_type == 'rule']
 
+class RuleContext(db.Model):
+    """
+    Rule Context - Persistent test/execution data for rules.
+    Replaces schema_entity/schema_attribute tables.
+
+    Two types:
+    1. Schema Templates (is_schema_template=True) - Define available structure
+    2. Test Contexts (is_schema_template=False) - Actual test data
+    """
+    __tablename__ = 'rule_context'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False, unique=True)
+    description = db.Column(db.Text)
+    context_data = db.Column(db.JSON, nullable=False)
+
+    # Schema template flag
+    is_schema_template = db.Column(db.Boolean, default=False)
+
+    # Version tracking
+    version = db.Column(db.String(50))
+
+    # Optional client scoping
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    client = db.relationship('Client', backref='contexts')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'context_data': self.context_data,
+            'is_schema_template': self.is_schema_template,
+            'version': self.version,
+            'client_id': self.client_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+    def __repr__(self):
+        return f'<RuleContext {self.name} ({"Schema" if self.is_schema_template else "Test"})>'
+
 class Rule(db.Model):
     __tablename__ = 'rules'
 
@@ -126,9 +174,13 @@ class Rule(db.Model):
     schema_version = db.Column(db.String(20), default='modern')  # modern, legacy
     item_type = db.Column(db.String(15), default='rule')  # 'rule', 'actionset', 'mon_rule', 'non_mon_rule'
     java_file_path = db.Column(db.String(255))  # Path to Java implementation file (for actions only)
-    
+
+    # Context reference (NEW)
+    context_id = db.Column(db.Integer, db.ForeignKey('rule_context.id'))
+
     # Relationships
     history = db.relationship('RuleHistory', backref='rule', lazy=True, cascade='all, delete-orphan')
+    context = db.relationship('RuleContext', backref='rules')
     
     # Unique constraint: combination of process_area_id, name, and effective_date must be unique
     __table_args__ = (db.UniqueConstraint('process_area_id', 'name', 'effective_date', name='uq_rule_composite'),)
@@ -152,6 +204,7 @@ class Rule(db.Model):
             'schema_version': self.schema_version,
             'item_type': self.item_type,
             'java_file_path': self.java_file_path,
+            'context_id': self.context_id,
             # Include hierarchy information
             'process_area_code': self.process_area.code if self.process_area else None,
             'process_area_name': self.process_area.name if self.process_area else None,
@@ -267,6 +320,17 @@ class RuleHistorySchema(SQLAlchemyAutoSchema):
         load_instance = True
 
     created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+
+
+class RuleContextSchema(SQLAlchemyAutoSchema):
+    """Marshmallow schema for RuleContext model serialization."""
+    class Meta:
+        model = RuleContext
+        load_instance = True
+        include_fk = True
+
+    created_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
+    updated_at = fields.DateTime(format='%Y-%m-%dT%H:%M:%S')
 
 
 # Schema Management Tables

@@ -23,16 +23,16 @@ import {
   CloudDownloadOutlined,
   ToolOutlined,
   InfoCircleOutlined,
-  DatabaseOutlined,
   SaveOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
-import { rulesApi } from '../services/api';
+import { rulesApi, contextsApi } from '../services/api';
 import { rulesLanguageDefinition } from '../utils/rulesSyntax';
 import suggestionCache from '../services/suggestionCache';
 import SchemaViewer from './SchemaViewer';
-import SampleDataEditor from './SampleDataEditor';
+import ContextManager from './ContextManager';
+import ContextPanel from './ContextPanel';
 import { getRuleContext, getActionJavaSource, getAttributeSchema, determineContextType } from '../services/contextApi';
 
 const { TextArea } = Input;
@@ -45,7 +45,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const [validation, setValidation] = useState(null);
   const [editorContent, setEditorContent] = useState('');
   const [schemaViewerVisible, setSchemaViewerVisible] = useState(false);
-  const [sampleDataVisible, setSampleDataVisible] = useState(false);
   const [selectedSchema, setSelectedSchema] = useState('modern');
   const [parsedRuleName, setParsedRuleName] = useState('');
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
@@ -54,6 +53,14 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   const [panelMode, setPanelMode] = useState('validation'); // 'validation' or 'context'
   const [contextInfo, setContextInfo] = useState(null);
   const [loadingContext, setLoadingContext] = useState(false);
+  const [contexts, setContexts] = useState([]);
+  const [loadingContexts, setLoadingContexts] = useState(false);
+  const [contextManagerVisible, setContextManagerVisible] = useState(false);
+  const [contextPanelVisible, setContextPanelVisible] = useState(() => {
+    // Load panel state from localStorage
+    const saved = localStorage.getItem('contextPanelVisible');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
 
@@ -95,6 +102,20 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     }
   };
 
+  // Load contexts for the dropdown
+  const loadContexts = async () => {
+    setLoadingContexts(true);
+    try {
+      const response = await contextsApi.getContexts({ limit: 100 });
+      setContexts(response.data.contexts || []);
+    } catch (error) {
+      console.error('Failed to load contexts:', error);
+      message.error('Failed to load contexts');
+    } finally {
+      setLoadingContexts(false);
+    }
+  };
+
   // Initialize form and editor
   useEffect(() => {
     if (rule) {
@@ -102,6 +123,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         description: rule.description,
         status: rule.status,
         process_area_id: rule.process_area_id,
+        context_id: rule.context_id,
       };
 
       // Add name field for Actions and ActionSets
@@ -109,6 +131,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         formValues.name = rule.name;
       }
 
+      console.log('Setting form values, context_id:', rule.context_id);
       form.setFieldsValue(formValues);
       setEditorContent(rule.content || '');
       setValidation({
@@ -137,10 +160,33 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     }
   }, [rule, form]);
 
-  // Load process areas on component mount
+  // Load process areas and contexts on component mount
   useEffect(() => {
     loadProcessAreas();
+    loadContexts();
   }, []);
+
+  // Re-set context_id when contexts finish loading (to ensure dropdown has the option available)
+  useEffect(() => {
+    if (rule && rule.context_id && contexts.length > 0 && !loadingContexts) {
+      console.log('Re-setting context_id after contexts loaded:', rule.context_id);
+      console.log('Available contexts:', contexts.map(c => ({ id: c.id, name: c.name })));
+      form.setFieldsValue({ context_id: rule.context_id });
+    }
+  }, [contexts, loadingContexts, rule, form]);
+
+  // Auto-show/hide panel based on context selection and persist to localStorage
+  useEffect(() => {
+    const contextId = form.getFieldValue('context_id');
+    if (contextId && !contextPanelVisible) {
+      setContextPanelVisible(true);
+    }
+  }, [form.getFieldValue('context_id')]);
+
+  // Persist panel visibility to localStorage
+  useEffect(() => {
+    localStorage.setItem('contextPanelVisible', JSON.stringify(contextPanelVisible));
+  }, [contextPanelVisible]);
 
   // Load context information for a word
   const loadContextInfo = async (word, position, editorContent) => {
@@ -833,32 +879,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     });
   };
 
-  // Handle sample data
-  const handleSampleData = () => {
-    setSampleDataVisible(true);
-  };
-
-  // Handle test with sample data
-  const handleTestWithSampleData = async (testData) => {
-    try {
-      if (!editorContent.trim()) {
-        message.error('Please enter rule content before testing');
-        return;
-      }
-
-      // Call test API
-      const response = await rulesApi.testRuleContent(editorContent, testData);
-
-      // Show results - extract from nested result structure
-      const testResult = response.data.result || response.data;
-      showTestResults(testResult);
-
-      // Close the sample data modal
-      setSampleDataVisible(false);
-    } catch (error) {
-      message.error('Test failed: ' + (error.response?.data?.error || error.message));
-    }
-  };
 
 
 
@@ -896,164 +916,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     }
   }, [editorContent, selectedSchema, rule]);
 
-
-  // Show test results in a modal
-  const showTestResults = (testResult) => {
-    const { 
-      success, 
-      message: resultMessage, 
-      ruleName, 
-      executedActions = [], 
-      executedActionsCount = 0,
-      totalAvailableActions = 0,
-      conditions = [], 
-      timestamp 
-    } = testResult;
-
-    Modal.info({
-      title: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span>🧪 Rule Test Results</span>
-          <Tag color={success ? 'green' : 'red'}>
-            {success ? 'SUCCESS' : 'FAILED'}
-          </Tag>
-        </div>
-      ),
-      width: 900,
-      content: (
-        <div>
-          {/* Executive Summary */}
-          <Card 
-            style={{ 
-              marginBottom: '20px',
-              background: success ? (executedActionsCount > 0 ? '#f6ffed' : '#fff7e6') : '#fff2f0',
-              border: `1px solid ${success ? (executedActionsCount > 0 ? '#b7eb8f' : '#ffd591') : '#ffccc7'}`
-            }}
-          >
-            <div style={{ textAlign: 'center', padding: '8px 0' }}>
-              <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                {resultMessage}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666' }}>
-                Rule: <strong>{ruleName || 'Unnamed Rule'}</strong> | 
-                Actions: {executedActionsCount} of {totalAvailableActions} will execute
-              </div>
-            </div>
-          </Card>
-
-          {/* Actions to Execute */}
-          {executedActions && executedActions.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '18px' }}>⚡</span>
-                Actions to Execute ({executedActions.length})
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {executedActions.map((actionItem, index) => (
-                  <Card key={index} size="small" style={{ border: '1px solid #1890ff', background: '#e6f7ff' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                          <Tag color="blue" style={{ fontSize: '13px', fontWeight: 'bold' }}>
-                            {actionItem.action}
-                          </Tag>
-                          <span style={{ color: '#1890ff', fontWeight: '500' }}>
-                            {actionItem.description}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#666', marginLeft: '4px' }}>
-                          <strong>Reason:</strong> {actionItem.reason}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* No Actions Message */}
-          {(!executedActions || executedActions.length === 0) && (
-            <div style={{ marginBottom: '20px' }}>
-              <Card style={{ 
-                textAlign: 'center', 
-                background: success ? '#fff7e6' : '#fff2f0', 
-                border: `1px solid ${success ? '#ffd591' : '#ffccc7'}` 
-              }}>
-                <div style={{ padding: '16px' }}>
-                  <div style={{ 
-                    fontSize: '16px', 
-                    color: success ? '#d48806' : '#cf1322', 
-                    marginBottom: '8px' 
-                  }}>
-                    {success ? 'ℹ️ No Actions Will Be Executed' : '❌ Test Failed'}
-                  </div>
-                  <div style={{ color: '#666' }}>
-                    {success 
-                      ? 'None of the rule conditions were met with the provided test data.' 
-                      : 'The rule test encountered an error or validation failure.'
-                    }
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Detailed Condition Breakdown (Collapsible) */}
-          {conditions && conditions.length > 0 && (
-            <details style={{ marginBottom: '16px' }}>
-              <summary style={{ 
-                cursor: 'pointer', 
-                fontSize: '14px', 
-                color: '#666',
-                padding: '8px 0',
-                borderBottom: '1px solid #f0f0f0'
-              }}>
-                <strong>🔍 View Detailed Condition Evaluation ({conditions.length} conditions)</strong>
-              </summary>
-              <div style={{ marginTop: '12px', maxHeight: '200px', overflow: 'auto' }}>
-                {conditions.map((condition, index) => (
-                  <div key={index} style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    background: condition.evaluated ? '#f6ffed' : '#fff2f0',
-                    border: `1px solid ${condition.evaluated ? '#d9f7be' : '#ffccc7'}`,
-                    borderRadius: '4px',
-                    marginBottom: '4px'
-                  }}>
-                    <code style={{ 
-                      fontSize: '12px', 
-                      background: 'rgba(0,0,0,0.06)', 
-                      padding: '2px 6px', 
-                      borderRadius: '3px',
-                      flex: 1
-                    }}>
-                      {condition.condition}
-                    </code>
-                    <div style={{ marginLeft: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Tag color={condition.evaluated ? 'green' : 'red'} size="small">
-                        {condition.evaluated ? '✓ TRUE' : '✗ FALSE'}
-                      </Tag>
-                      {condition.executed && (
-                        <Tag color="blue" size="small">→ {condition.action}</Tag>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-
-          <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f0f0f0' }}>
-            Test executed at: {new Date(timestamp).toLocaleString()}
-          </div>
-        </div>
-      ),
-    });
-  };
-
   // Handle save
   const handleSave = async () => {
     try {
@@ -1090,7 +952,11 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         content: editorContent,
         schema_version: selectedSchema,
         process_area_id: values.process_area_id,
+        context_id: values.context_id || null,
       };
+
+      console.log('Saving rule with context_id:', values.context_id);
+      console.log('Form values:', values);
 
       // Include item_type for Actions and ActionSets
       if (rule?.item_type) {
@@ -1110,11 +976,13 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         // Update existing rule (must have valid ID)
         const response = await rulesApi.updateRule(rule.id, ruleData);
         savedRule = response.data;
+        console.log('Rule saved, context_id in response:', savedRule.context_id);
         message.success('Rule updated successfully');
       } else {
         // Create new rule (no rule or no valid ID)
         const response = await rulesApi.createRule(ruleData);
         savedRule = response.data;
+        console.log('Rule created, context_id in response:', savedRule.context_id);
         message.success('Rule created successfully');
       }
 
@@ -1168,7 +1036,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             onClick={onBack}
             className="action-button action-button-back"
             style={{
-              height: '40px',
+              height: '36px',
               minWidth: '120px',
               borderRadius: '6px',
               display: 'flex',
@@ -1190,7 +1058,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               loading={loading}
               className="action-button action-button-save"
               style={{
-                height: '40px',
+                height: '36px',
                 minWidth: '120px',
                 backgroundColor: '#1890ff',
                 borderColor: '#1890ff',
@@ -1210,7 +1078,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               loading={validating}
               className="action-button action-button-validate"
               style={{
-                height: '40px',
+                height: '36px',
                 minWidth: '120px',
                 backgroundColor: '#f6ffed',
                 borderColor: '#52c41a',
@@ -1239,7 +1107,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               loading={loading}
               className="action-button action-button-generate"
               style={{
-                height: '40px',
+                height: '36px',
                 minWidth: '180px',
                 backgroundColor: rule && isExecutableStatus(rule.status) ? '#f5f7fa' : '#f5f5f5',
                 borderColor: rule && isExecutableStatus(rule.status) ? '#4a90b8' : '#d9d9d9',
@@ -1273,7 +1141,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               loading={loading}
               className="action-button action-button-test"
               style={{
-                height: '40px',
+                height: '36px',
                 minWidth: '160px',
                 backgroundColor: rule && isExecutableStatus(rule.status) ? '#fff7e6' : '#f5f5f5',
                 borderColor: rule && isExecutableStatus(rule.status) ? '#fa8c16' : '#d9d9d9',
@@ -1309,7 +1177,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
               onClick={() => setSchemaViewerVisible(true)}
               className="action-button action-button-schema"
               style={{
-                height: '40px',
+                height: '36px',
                 minWidth: '140px',
                 backgroundColor: '#f8f6fa',
                 borderColor: '#8b5d99',
@@ -1331,40 +1199,14 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             >
               Schema Reference
             </Button>
-            <Button
-              icon={<DatabaseOutlined />}
-              onClick={handleSampleData}
-              className="action-button action-button-sample"
-              style={{
-                height: '40px',
-                minWidth: '120px',
-                backgroundColor: '#faf7f2',
-                borderColor: '#a67c5a',
-                color: '#8b6f47',
-                fontWeight: 500,
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#a67c5a';
-                e.target.style.color = 'white';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = '#faf7f2';
-                e.target.style.color = '#8b6f47';
-              }}
-            >
-              Sample Data
-            </Button>
           </Space>
         </div>
       </div>
 
-      <Row gutter={24}>
-        {/* Rule Metadata */}
-        <Col span={8}>
+      {/* Three Column Layout: Rule Info | Editor | Context Panel */}
+      <Row gutter={16}>
+        {/* Rule Information */}
+        <Col span={contextPanelVisible ? 6 : 8}>
           <Card title="Rule Information" size="small">
             <Form form={form} layout="vertical">
               {rule?.item_type === 'action' || rule?.item_type === 'actionset' ? (
@@ -1420,6 +1262,51 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                       {area.name}
                     </Option>
                   ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="context_id"
+                label={
+                  <Space>
+                    <span>Test Context</span>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => setContextManagerVisible(true)}
+                      style={{ padding: 0, height: 'auto' }}
+                    >
+                      Manage Contexts
+                    </Button>
+                  </Space>
+                }
+                help="Select a context to use for rule testing and validation"
+              >
+                <Select
+                  placeholder="Select a test context (optional)"
+                  loading={loadingContexts}
+                  showSearch
+                  allowClear
+                  onChange={(value) => {
+                    console.log('Context selection changed:', value);
+                    // Auto-show panel when context selected, hide when cleared
+                    if (value && !contextPanelVisible) {
+                      setContextPanelVisible(true);
+                    } else if (!value && contextPanelVisible) {
+                      setContextPanelVisible(false);
+                    }
+                  }}
+                  filterOption={(input, option) =>
+                    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                  }
+                >
+                  {contexts
+                    .filter(ctx => !ctx.is_schema_template)
+                    .map(context => (
+                      <Option key={context.id} value={context.id}>
+                        {context.name}
+                      </Option>
+                    ))}
                 </Select>
               </Form.Item>
 
@@ -1789,7 +1676,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         </Col>
 
         {/* Rule Editor */}
-        <Col span={16}>
+        <Col span={contextPanelVisible ? 10 : 16}>
           <Card title={getContentTitle()} size="small">
             <div style={{ height: 600, border: '1px solid #d9d9d9', borderRadius: 6 }}>
               <Editor
@@ -1845,21 +1732,34 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             </div>
           </Card>
         </Col>
+
+        {/* Context Panel */}
+        {contextPanelVisible && (
+          <Col span={8}>
+            <ContextPanel
+              contextId={form.getFieldValue('context_id')}
+              onClose={() => setContextPanelVisible(false)}
+            />
+          </Col>
+        )}
       </Row>
 
       {/* Schema Viewer Modal */}
       <SchemaViewer
-        open={schemaViewerVisible}
+        visible={schemaViewerVisible}
         onClose={() => setSchemaViewerVisible(false)}
         schemaVersion={selectedSchema}
+        contextId={form.getFieldValue('context_id')}
       />
 
-      {/* Sample Data Editor Modal */}
-      <SampleDataEditor
-        open={sampleDataVisible}
-        onClose={() => setSampleDataVisible(false)}
-        onTest={handleTestWithSampleData}
-        currentRuleContent={editorContent}
+      {/* Context Manager Modal */}
+      <ContextManager
+        visible={contextManagerVisible}
+        onClose={() => setContextManagerVisible(false)}
+        onContextCreated={() => {
+          loadContexts();
+          message.success('Context created! Select it from the dropdown above.');
+        }}
       />
 
     </div>

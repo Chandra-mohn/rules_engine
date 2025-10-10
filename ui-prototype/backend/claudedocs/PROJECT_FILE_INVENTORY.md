@@ -1,7 +1,5 @@
 # Project File Inventory Report
-**Generated**: 2025-10-09
-**Purpose**: Comprehensive file catalog with functional descriptions
-**Scope**: All source, configuration, and documentation files (excludes libraries, generated code, node_modules)
+**Updated**: 2025-10-09
 
 ---
 
@@ -32,16 +30,7 @@
 - **services/kafka_simulator.py** - Kafka message simulation for event-driven rule processing testing
 - **services/parallel_kafka_simulator.py** - Parallel Kafka simulator with concurrent message processing
 - **services/jar_packaging_system.py** - Java JAR artifact packaging with Maven integration
-- **services/streamlined_jar_system.py** - Simplified JAR packaging system with dependency management
-- **services/static_router_generator.py** - Static Java router code generation from rule definitions
-- **services/enhanced_static_router_generator.py** - Enhanced router generator with optimization and validation
-- **services/unified_router_generator.py** - Unified router generation combining static and dynamic routing
-- **services/dsl_router_demo.py** - Demonstration of DSL-based router generation patterns
 - **services/gap_analysis_service.py** - Gap analysis between expected and actual rule coverage
-- **services/hybrid_rules_integrator.py** - Integration layer for hybrid rule execution (Python + Java)
-- **services/minimal_rule_generator.py** - Minimal code generator for simple rule scenarios
-- **services/performance_foundation.py** - Performance measurement and profiling foundation utilities
-- **services/performance_validator.py** - Performance validation and benchmark testing utilities
 - **services/list_cache.py** - Caching layer for list data to reduce database queries
 
 ### Grammar Parser and Code Generation
@@ -64,25 +53,6 @@
 - **fixtures/__init__.py** - Fixtures package initialization
 - **fixtures/demo_data.py** - Demo data generation functions for testing and development
 
-### Test Files (Backend)
-- **test_code_generation.py** - Code generation pipeline testing
-- **test_e2e_code_generation.py** - End-to-end code generation workflow testing
-- **test_template_generator.py** - Template-based code generator testing
-- **test_python_antlr.py** - Python ANTLR parser integration testing
-- **test_function_library.py** - Function library and registry testing
-- **test_function_mvp.py** - Minimum viable product function testing
-- **test_function_parsing_final.py** - Final function parsing validation testing
-- **test_gap_analysis_ast.py** - AST-based gap analysis testing
-- **test_generator_demo.py** - Code generator demonstration and testing
-- **test_hybrid_integration.py** - Hybrid rule integration testing
-- **test_math_preprocessing.py** - Mathematical expression preprocessing testing
-- **test_new_generator_integration.py** - New generator integration testing
-- **test_parallel_performance.py** - Parallel processing performance testing
-- **test_regression_suite.py** - Comprehensive regression test suite
-- **test_batch_processing_simple.py** - Simple batch processing testing
-- **test_debug.py** - Debugging utilities and test helpers
-- **enhanced_regression_suite.py** - Enhanced regression testing with extended coverage
-
 ### Validation and Monitoring
 - **data_validator.py** - Data integrity validation across database schema
 - **data_integrity_monitor.py** - Continuous data integrity monitoring utilities
@@ -100,15 +70,6 @@
 
 ### Configuration and Dependencies
 - **requirements.txt** - Python package dependencies (Flask, SQLAlchemy, ANTLR runtime, etc.)
-
-### Test Results and Baselines (JSON)
-- **data_snapshot.json** - Database snapshot for testing baseline
-- **enhanced_regression_results.json** - Enhanced regression test results
-- **parallel_performance_results.json** - Parallel processing performance metrics
-- **parallel_performance_results_detailed.json** - Detailed parallel performance analysis
-- **regression_test_results.json** - Regression test execution results
-- **schema_baseline.json** - Schema validation baseline
-- **validation_baseline.json** - System validation baseline
 
 ---
 

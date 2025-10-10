@@ -152,6 +152,48 @@ export const rulesApi = {
 
 // ActionSets are called directly by name within rules - no separate API needed
 
+// Context API
+export const contextsApi = {
+  // Get all contexts with pagination and filtering
+  getContexts: (params = {}) => {
+    return api.get('/contexts', { params });
+  },
+
+  // Get a specific context by ID
+  getContext: (id) => {
+    return api.get(`/contexts/${id}`);
+  },
+
+  // Create a new context
+  createContext: (contextData) => {
+    return api.post('/contexts', contextData);
+  },
+
+  // Update an existing context
+  updateContext: (id, contextData) => {
+    return api.put(`/contexts/${id}`, contextData);
+  },
+
+  // Delete a context
+  deleteContext: (id) => {
+    return api.delete(`/contexts/${id}`);
+  },
+
+  // Clone a context with a new name
+  cloneContext: (id, newName, description = null) => {
+    return api.post(`/contexts/${id}/clone`, {
+      name: newName,
+      description: description,
+    });
+  },
+
+  // Get all schema templates (convenience method)
+  getSchemaTemplates: (clientId = null) => {
+    const params = clientId ? { client_id: clientId } : {};
+    return api.get('/contexts/schema-templates', { params });
+  },
+};
+
 // Schema API
 export const schemaApi = {
   // Get complete schema

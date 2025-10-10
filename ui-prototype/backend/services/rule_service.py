@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy import or_
 from datetime import datetime
-from models import db, Rule, RuleHistory, SchemaEntity, SchemaAttribute
+from models import db, Rule, RuleHistory, RuleContext
 from services.python_rules_engine import PythonRulesEngine
 from services.list_cache import ListService
 from config import Config
@@ -185,6 +185,7 @@ class RuleService:
             effective_date=effective_date,
             expiry_date=expiry_date,
             schema_version=data.get('schema_version', 'modern'),
+            context_id=data.get('context_id'),
             created_by=created_by,
             updated_by=created_by,
             # validation_status removed - status now handles validation + lifecycle
@@ -340,6 +341,8 @@ class RuleService:
             rule.process_area_id = data['process_area_id']
         if 'schema_version' in data:
             rule.schema_version = data['schema_version']
+        if 'context_id' in data:
+            rule.context_id = data['context_id']
 
         # Handle explicit status changes from UI
         if 'status' in data:
@@ -1214,45 +1217,68 @@ ENTRYPOINT ["java", "-Drules.library.path=/app/rules", "-jar", "app.jar"]
         return json.dumps(metadata, indent=2)
     
     def _get_schema_context(self) -> Dict[str, Any]:
-        """Get schema context for type-safe Java code generation."""
-        schema_entities = SchemaEntity.query.filter_by(is_active=True).all()
-        
+        """Get schema context from schema templates for type-safe Java code generation."""
+        schema_templates = RuleContext.query.filter_by(is_schema_template=True).all()
+
         schema_context = {
             'entities': {},
             'type_mappings': {
                 'number': 'int',
-                'string': 'String', 
+                'string': 'String',
                 'boolean': 'boolean',
                 'date': 'LocalDate',
                 'datetime': 'LocalDateTime'
             }
         }
-        
-        for entity in schema_entities:
-            entity_info = {
-                'name': entity.name,
-                'attributes': {}
-            }
-            
-            for attr in entity.attributes:
-                attr_info = {
-                    'name': attr.name,
-                    'data_type': attr.data_type,
-                    'java_type': attr.java_type or schema_context['type_mappings'].get(attr.data_type, 'Object'),
-                    'min_value': float(attr.min_value) if attr.min_value is not None else None,
-                    'max_value': float(attr.max_value) if attr.max_value is not None else None
+
+        for template in schema_templates:
+            context_data = template.context_data
+
+            # Each top-level key is an entity
+            for entity_name, entity_data in context_data.items():
+                if not isinstance(entity_data, dict):
+                    continue
+
+                entity_info = {
+                    'name': entity_name,
+                    'attributes': {}
                 }
-                
-                if attr.allowed_values:
-                    try:
-                        attr_info['allowed_values'] = json.loads(attr.allowed_values)
-                    except:
-                        pass
-                
-                entity_info['attributes'][attr.name] = attr_info
-            
-            schema_context['entities'][entity.name] = entity_info
-        
+
+                # Get metadata for attributes
+                metadata = entity_data.get('_metadata', {})
+
+                # Process each attribute
+                for attr_name, attr_value in entity_data.items():
+                    if attr_name == '_metadata':
+                        continue
+
+                    attr_meta = metadata.get(attr_name, {})
+                    data_type = attr_meta.get('type', 'string')
+                    java_type = attr_meta.get('javaType')
+
+                    attr_info = {
+                        'name': attr_name,
+                        'data_type': data_type,
+                        'java_type': java_type or schema_context['type_mappings'].get(data_type, 'Object'),
+                        'min_value': None,
+                        'max_value': None
+                    }
+
+                    # Get range if available
+                    if 'range' in attr_meta:
+                        range_val = attr_meta['range']
+                        if range_val and len(range_val) >= 2:
+                            attr_info['min_value'] = range_val[0]
+                            attr_info['max_value'] = range_val[1]
+
+                    # Get enum values if available
+                    if 'enum' in attr_meta:
+                        attr_info['allowed_values'] = attr_meta['enum']
+
+                    entity_info['attributes'][attr_name] = attr_info
+
+                schema_context['entities'][entity_name] = entity_info
+
         return schema_context
     
     def _generate_typed_java_code(self, rule_content: str, schema_context: Dict[str, Any]) -> tuple:

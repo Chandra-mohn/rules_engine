@@ -210,20 +210,37 @@ class GapAnalysisService:
             return existing_actions
 
     def _get_defined_attributes(self) -> Set[str]:
-        """Get all attributes defined in schema_entities and schema_attributes tables."""
+        """Get all attributes defined in schema template contexts (rule_context table)."""
         try:
-            # Query to get all defined attributes in format 'entity.attribute'
+            # Query to get all schema templates
             query = """
-            SELECT e.name || '.' || a.name as full_name
-            FROM schema_entities e
-            JOIN schema_attributes a ON e.id = a.entity_id
-            WHERE e.is_active = 1
+            SELECT context_data
+            FROM rule_context
+            WHERE is_schema_template = 1
             """
-            result = db.session.execute(query)
-            defined_attributes = {row[0] for row in result.fetchall()}
+            result = db.session.execute(db.text(query))
+
+            defined_attributes = set()
+
+            # Parse each schema template's context_data
+            for row in result.fetchall():
+                import json
+                context_data = json.loads(row[0])
+
+                # Each top-level key is an entity (e.g., "applicant", "transaction")
+                for entity_name, entity_data in context_data.items():
+                    if not isinstance(entity_data, dict):
+                        continue
+
+                    # Process each attribute (skip _metadata)
+                    for attr_name in entity_data.keys():
+                        if attr_name != '_metadata':
+                            # Add in format 'entity.attribute'
+                            defined_attributes.add(f"{entity_name}.{attr_name}")
+
             return defined_attributes
         except Exception as e:
-            # Fallback to empty set if schema tables don't exist or error occurs
+            # Fallback to empty set if error occurs
             return set()
 
     def _calculate_aggregates(self, analysis_results: List[Dict[str, Any]]) -> Dict[str, Any]:

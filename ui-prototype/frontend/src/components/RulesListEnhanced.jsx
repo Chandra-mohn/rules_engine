@@ -12,6 +12,7 @@ import {
   Row,
   Col,
   Typography,
+  Divider,
 } from 'antd';
 import {
   PlusOutlined,
@@ -22,12 +23,13 @@ import {
   ThunderboltOutlined,
   ArrowUpOutlined,
   BarChartOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import { rulesApi } from '../services/api';
-import SchemaSelector from './SchemaSelector';
 import CacheDebugger from './CacheDebugger';
 import suggestionCache from '../services/suggestionCache';
 import RulesTreeNavigation from './RulesTreeNavigation';
+import ContextManager from './ContextManager';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -44,7 +46,6 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
   const [filters, setFilters] = useState({
     status: null,
     search: '',
-    schema_version: 'modern',
     client_id: null,
     process_group_id: null,
     process_area_id: null,
@@ -54,6 +55,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
   const [currentHierarchy, setCurrentHierarchy] = useState(null);
   const [showCacheDebugger, setShowCacheDebugger] = useState(false);
   const [showSpecialButtons, setShowSpecialButtons] = useState(true);
+  const [contextManagerVisible, setContextManagerVisible] = useState(false);
 
   // Load rules data
   const loadRules = async (page = 1, pageSize = 10, filterParams = {}) => {
@@ -488,10 +490,10 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
           }}>
             <div>
               <Title level={4} style={{ margin: 0 }}>
-                {currentHierarchy && currentHierarchy.synthetic_type ? currentHierarchy.synthetic_type : 'Rules & ActionSets'}
+                {currentHierarchy && currentHierarchy.synthetic_type ? currentHierarchy.synthetic_type : ''}
                 {currentHierarchy && (
                   <span style={{ fontSize: '14px', fontWeight: 'normal', marginLeft: 8, color: '#666' }}>
-                    - {currentHierarchy.synthetic_type
+                    {currentHierarchy.synthetic_type
                         ? `${currentHierarchy.name}`
                         : (currentHierarchy.code ? `${currentHierarchy.code} (${currentHierarchy.name})` : currentHierarchy.name)
                     }
@@ -554,33 +556,6 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
               >
                 New ActionSet
               </Button>
-              <Button
-                icon={<PlusOutlined />}
-                onClick={() => onCreateRule('action')}
-                className="action-button action-button-action"
-                style={{
-                  height: '36px',
-                  minWidth: '140px',
-                  backgroundColor: '#f0f9ff',
-                  borderColor: '#0ea5e9',
-                  color: '#0ea5e9',
-                  fontWeight: 500,
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#0ea5e9';
-                  e.target.style.color = 'white';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = '#f0f9ff';
-                  e.target.style.color = '#0ea5e9';
-                }}
-              >
-                New Action
-              </Button>
               {showSpecialButtons && (
                 <>
                   <Button
@@ -639,6 +614,62 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
                   </Button>
                 </>
               )}
+              <Divider type="vertical" style={{ height: '36px', borderColor: '#d9d9d9' }} />
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => onCreateRule('action')}
+                className="action-button action-button-action"
+                style={{
+                  height: '36px',
+                  minWidth: '140px',
+                  backgroundColor: '#f0f9ff',
+                  borderColor: '#0ea5e9',
+                  color: '#0ea5e9',
+                  fontWeight: 500,
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0ea5e9';
+                  e.target.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#f0f9ff';
+                  e.target.style.color = '#0ea5e9';
+                }}
+              >
+                New Action
+              </Button>
+              <Button
+                icon={<DatabaseOutlined />}
+                onClick={() => setContextManagerVisible(true)}
+                className="action-button action-button-context"
+                style={{
+                  height: '36px',
+                  minWidth: '160px',
+                  backgroundColor: '#f0fdf4',
+                  borderColor: '#22c55e',
+                  color: '#16a34a',
+                  fontWeight: 500,
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#22c55e';
+                  e.target.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#f0fdf4';
+                  e.target.style.color = '#16a34a';
+                }}
+              >
+                Manage Contexts
+              </Button>
+              <Divider type="vertical" style={{ height: '36px', borderColor: '#d9d9d9' }} />
               <Button
                 icon={<BarChartOutlined />}
                 onClick={onGapAnalysis}
@@ -700,15 +731,6 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
               <Option value="VALID">Validated</Option>
               <Option value="DRAFT">Draft</Option>
             </Select>
-
-            <SchemaSelector
-              selectedSchema={filters.schema_version}
-              onSchemaChange={(value) => {
-                const newFilters = { ...filters, schema_version: value };
-                setFilters(newFilters);
-                loadRules(1, pagination.pageSize, newFilters);
-              }}
-            />
           </Space>
 
           {/* Rules Table */}
@@ -733,6 +755,15 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
           {showCacheDebugger && (
             <CacheDebugger />
           )}
+
+          {/* Context Manager Modal */}
+          <ContextManager
+            visible={contextManagerVisible}
+            onClose={() => setContextManagerVisible(false)}
+            onContextCreated={() => {
+              message.success('Context created successfully!');
+            }}
+          />
         </div>
       </Col>
     </Row>

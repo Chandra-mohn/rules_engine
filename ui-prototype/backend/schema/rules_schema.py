@@ -481,49 +481,70 @@ def get_schema_versions():
         return [{'version_name': 'modern', 'display_name': 'Modern Rules', 'is_default': True}]
 
 def get_schema_attributes(schema_version='modern'):
-    """Get attributes for a specific schema version from database."""
+    """Get attributes from schema template contexts (rule_context table)."""
     db_path = get_database_path()
     if not db_path:
         return get_all_attributes() if schema_version == 'modern' else []
-    
+
     try:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
+
+        # Get all schema templates from rule_context table
         cursor.execute("""
-            SELECT entity_name, attribute_name, data_type, description, examples 
-            FROM schema_attributes 
-            WHERE schema_version = ?
-            ORDER BY entity_name, attribute_name
-        """, (schema_version,))
-        
+            SELECT context_data
+            FROM rule_context
+            WHERE is_schema_template = 1
+            ORDER BY name
+        """)
+
         attributes = []
         for row in cursor.fetchall():
-            row_dict = dict(row)
-            examples = json.loads(row_dict['examples']) if row_dict['examples'] else []
-            
-            # For modern schema, use entity.property format
-            if schema_version == 'modern' and row_dict['entity_name']:
-                label = f"{row_dict['entity_name']}.{row_dict['attribute_name']}"
-            else:
-                # For legacy schema, use attribute name directly
-                label = row_dict['attribute_name']
-            
-            attributes.append({
-                'label': label,
-                'kind': 'property',
-                'detail': row_dict['data_type'],
-                'documentation': row_dict['description'],
-                'examples': examples,
-                'entity': row_dict['entity_name'],
-                'name': row_dict['attribute_name']
-            })
-        
+            context_data = json.loads(row['context_data'])
+
+            # Each top-level key is an entity (e.g., "applicant", "transaction")
+            for entity_name, entity_data in context_data.items():
+                if not isinstance(entity_data, dict):
+                    continue
+
+                # Get metadata if it exists
+                metadata = entity_data.get('_metadata', {})
+
+                # Process each attribute
+                for attr_name, attr_value in entity_data.items():
+                    if attr_name == '_metadata':
+                        continue
+
+                    # Get attribute metadata
+                    attr_meta = metadata.get(attr_name, {})
+                    data_type = attr_meta.get('type', 'string')
+                    description = attr_meta.get('description', f'{attr_name} field')
+
+                    # Generate examples from enum or sample value
+                    examples = []
+                    if 'enum' in attr_meta:
+                        examples = attr_meta['enum'][:3]  # First 3 enum values
+                    elif attr_value is not None:
+                        examples = [attr_value]
+
+                    # For modern schema, use entity.property format
+                    label = f"{entity_name}.{attr_name}"
+
+                    attributes.append({
+                        'label': label,
+                        'kind': 'property',
+                        'detail': data_type,
+                        'documentation': description,
+                        'examples': examples,
+                        'entity': entity_name,
+                        'name': attr_name
+                    })
+
         conn.close()
         return attributes
     except Exception as e:
-        print(f"Error fetching schema attributes for {schema_version}: {e}")
+        print(f"Error fetching schema attributes from contexts: {e}")
         return get_all_attributes() if schema_version == 'modern' else []
 
 def get_schema_actions(schema_version='modern'):
