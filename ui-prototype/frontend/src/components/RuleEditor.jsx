@@ -1207,7 +1207,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
       {/* Three Column Layout: Rule Info | Editor | Context Panel */}
       <Row gutter={16}>
         {/* Rule Information */}
-        <Col span={contextPanelVisible ? 6 : 8}>
+        <Col span={contextPanelVisible ? 5 : 8}>
           <Card title="Rule Information" size="small">
             <Form form={form} layout="vertical">
               {rule?.item_type === 'action' || rule?.item_type === 'actionset' ? (
@@ -1677,7 +1677,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         </Col>
 
         {/* Rule Editor */}
-        <Col span={contextPanelVisible ? 10 : 16}>
+        <Col span={contextPanelVisible ? 13 : 16}>
           <Card title={getContentTitle()} size="small">
             <div style={{ height: 600, border: '1px solid #d9d9d9', borderRadius: 6 }}>
               <Editor
@@ -1736,7 +1736,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
         {/* Context Panel */}
         {contextPanelVisible && (
-          <Col span={8}>
+          <Col span={6}>
             <ContextPanel
               contextId={form.getFieldValue('context_id')}
               onClose={() => setContextPanelVisible(false)}
