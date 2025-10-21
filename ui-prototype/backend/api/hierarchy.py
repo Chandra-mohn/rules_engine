@@ -1,184 +1,280 @@
 from flask import Blueprint, request, jsonify
-from models import Client, ProcessGroup, ProcessArea, ClientSchema, ProcessGroupSchema, ProcessAreaSchema, db
+from pathlib import Path
+import json
 from config import Config
 
 hierarchy_bp = Blueprint('hierarchy', __name__)
-client_schema = ClientSchema()
-clients_schema = ClientSchema(many=True)
-process_group_schema = ProcessGroupSchema()
-process_groups_schema = ProcessGroupSchema(many=True)
-process_area_schema = ProcessAreaSchema()
-process_areas_schema = ProcessAreaSchema(many=True)
+RULES_PATH = Path(__file__).parent.parent / 'rules'
+
+def scan_directory_recursive(path, depth=0, max_depth=10, parent_codes=None):
+    """Recursively scan directory structure with arbitrary depth."""
+    if depth > max_depth or not path.is_dir():
+        return None
+
+    if parent_codes is None:
+        parent_codes = []
+
+    folder_code = path.name
+    folder_name = folder_code
+
+    sample_rule = next(path.glob('rule-*.json'), None)
+    if sample_rule:
+        try:
+            with open(sample_rule, 'r') as f:
+                rule_data = json.load(f)
+                hierarchy = rule_data.get('hierarchy', {})
+                if depth == 0:
+                    folder_name = hierarchy.get('client_name', folder_code)
+                elif depth == 1:
+                    folder_name = hierarchy.get('process_group_name', folder_code)
+                elif depth == 2:
+                    folder_name = hierarchy.get('process_area_name', folder_code)
+        except:
+            pass
+
+    node_types = ['client', 'process_group', 'process_area', 'subarea']
+    node_type = node_types[depth] if depth < len(node_types) else f'level{depth}'
+
+    all_codes = parent_codes + [folder_code]
+    key = f"{node_type}-{'-'.join(all_codes)}"
+
+    node = {
+        'key': key,
+        'title': f'{folder_code} - {folder_name}',
+        'type': node_type,
+        'code': folder_code,
+        'name': folder_name,
+        'depth': depth,
+        'children': [],
+        'rule_count': 0
+    }
+
+    if depth > 0 and parent_codes:
+        node['parent_code'] = parent_codes[-1]
+    if depth > 1 and len(parent_codes) > 1:
+        node['client_code'] = parent_codes[0]
+
+    for subdir in sorted(path.iterdir()):
+        if not subdir.is_dir() or subdir.name.startswith('.'):
+            continue
+
+        child_node = scan_directory_recursive(subdir, depth + 1, max_depth, all_codes)
+        if child_node:
+            node['children'].append(child_node)
+            node['rule_count'] += child_node['rule_count']
+
+    rule_files = list(path.glob('rule-*.json'))
+    node['rule_count'] += len(rule_files)
+
+    return node
 
 @hierarchy_bp.route('/hierarchy/tree', methods=['GET'])
 def get_hierarchy_tree():
-    """Get complete hierarchy tree structure for navigation."""
+    """Get complete hierarchy tree structure with arbitrary depth support."""
     try:
-        # Get all clients with their process groups and process areas
-        clients = Client.query.filter_by(is_active=True).order_by(Client.name).all()
-        
         tree = []
-        for client in clients:
-            client_node = {
-                'key': f'client-{client.id}',
-                'title': f'{client.code} - {client.name}',
-                'type': 'client',
-                'id': client.id,
-                'code': client.code,
-                'name': client.name,
-                'children': []
-            }
-            
-            # Get process groups for this client
-            for pg in client.process_groups:
-                if pg.is_active:
-                    pg_node = {
-                        'key': f'process-group-{pg.id}',
-                        'title': f'{pg.code} - {pg.name}',
-                        'type': 'process_group',
-                        'id': pg.id,
-                        'code': pg.code,
-                        'name': pg.name,
-                        'client_id': client.id,
-                        'children': []
-                    }
-                    
-                    # Get process areas for this process group
-                    for pa in pg.process_areas:
-                        if pa.is_active:
-                            pa_node = {
-                                'key': f'process-area-{pa.id}',
-                                'title': f'{pa.code} - {pa.name}',
-                                'type': 'process_area',
-                                'id': pa.id,
-                                'code': pa.code,
-                                'name': pa.name,
-                                'process_group_id': pg.id,
-                                'children': []
-                            }
-                            
-                            # Get rules for this process area (just names for tree)
-                            for rule in pa.rules:
-                                rule_node = {
-                                    'key': f'rule-{rule.id}',
-                                    'title': rule.name,
-                                    'type': 'rule',
-                                    'id': rule.id,
-                                    'name': rule.name,
-                                    'status': rule.status,
-                                    'process_area_id': pa.id,
-                                    'isLeaf': True
-                                }
-                                pa_node['children'].append(rule_node)
-                            
-                            pg_node['children'].append(pa_node)
-                    
-                    client_node['children'].append(pg_node)
-            
-            tree.append(client_node)
-        
-        return jsonify({'tree': tree})
-        
+
+        if not RULES_PATH.exists():
+            return jsonify({'tree': []})
+
+        for top_dir in sorted(RULES_PATH.iterdir()):
+            if not top_dir.is_dir() or top_dir.name.startswith('.'):
+                continue
+
+            node = scan_directory_recursive(top_dir)
+            if node:
+                tree.append(node)
+
+        return jsonify({
+            'tree': tree,
+            'total_nodes': len(tree),
+            'supports_arbitrary_depth': True
+        })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @hierarchy_bp.route('/hierarchy/clients', methods=['GET'])
 def get_clients():
-    """Get all clients."""
+    """Get all clients by scanning folder structure."""
     try:
-        clients = Client.query.filter_by(is_active=True).order_by(Client.name).all()
-        return jsonify({'clients': [client.to_dict() for client in clients]})
+        clients = []
+
+        if not RULES_PATH.exists():
+            return jsonify({'clients': []})
+
+        for client_dir in sorted(RULES_PATH.iterdir()):
+            if not client_dir.is_dir() or client_dir.name.startswith('.'):
+                continue
+
+            client_code = client_dir.name
+            client_name = client_code
+
+            sample_rule = next(client_dir.rglob('rule-*.json'), None)
+            if sample_rule:
+                with open(sample_rule, 'r') as f:
+                    rule_data = json.load(f)
+                    client_name = rule_data.get('hierarchy', {}).get('client_name', client_code)
+
+            clients.append({
+                'code': client_code,
+                'name': client_name,
+                'is_active': True
+            })
+
+        return jsonify({'clients': clients})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@hierarchy_bp.route('/hierarchy/clients/<int:client_id>/process-groups', methods=['GET'])
-def get_process_groups_by_client(client_id):
-    """Get process groups for a specific client."""
+@hierarchy_bp.route('/hierarchy/clients/<string:client_code>/process-groups', methods=['GET'])
+def get_process_groups_by_client(client_code):
+    """Get process groups for a specific client by scanning folder structure."""
     try:
-        process_groups = ProcessGroup.query.filter_by(
-            client_id=client_id, 
-            is_active=True
-        ).order_by(ProcessGroup.name).all()
-        
-        return jsonify({'process_groups': [pg.to_dict() for pg in process_groups]})
+        process_groups = []
+        client_dir = RULES_PATH / client_code
+
+        if not client_dir.exists():
+            return jsonify({'process_groups': []})
+
+        for pg_dir in sorted(client_dir.iterdir()):
+            if not pg_dir.is_dir() or pg_dir.name.startswith('.'):
+                continue
+
+            pg_code = pg_dir.name
+            pg_name = pg_code
+
+            sample_rule = next(pg_dir.rglob('rule-*.json'), None)
+            if sample_rule:
+                with open(sample_rule, 'r') as f:
+                    rule_data = json.load(f)
+                    pg_name = rule_data.get('hierarchy', {}).get('process_group_name', pg_code)
+
+            process_groups.append({
+                'code': pg_code,
+                'name': pg_name,
+                'client_code': client_code,
+                'is_active': True
+            })
+
+        return jsonify({'process_groups': process_groups})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@hierarchy_bp.route('/hierarchy/process-groups/<int:process_group_id>/process-areas', methods=['GET'])
-def get_process_areas_by_process_group(process_group_id):
-    """Get process areas for a specific process group."""
+@hierarchy_bp.route('/hierarchy/process-groups/<string:client_code>/<string:process_group_code>/process-areas', methods=['GET'])
+def get_process_areas_by_process_group(client_code, process_group_code):
+    """Get process areas for a specific process group by scanning folder structure."""
     try:
-        process_areas = ProcessArea.query.filter_by(
-            process_group_id=process_group_id,
-            is_active=True
-        ).order_by(ProcessArea.name).all()
-        
-        return jsonify({'process_areas': [pa.to_dict() for pa in process_areas]})
+        process_areas = []
+        pg_dir = RULES_PATH / client_code / process_group_code
+
+        if not pg_dir.exists():
+            return jsonify({'process_areas': []})
+
+        for pa_dir in sorted(pg_dir.iterdir()):
+            if not pa_dir.is_dir() or pa_dir.name.startswith('.'):
+                continue
+
+            pa_code = pa_dir.name
+            pa_name = pa_code
+
+            sample_rule = next(pa_dir.glob('rule-*.json'), None)
+            if sample_rule:
+                with open(sample_rule, 'r') as f:
+                    rule_data = json.load(f)
+                    pa_name = rule_data.get('hierarchy', {}).get('process_area_name', pa_code)
+
+            process_areas.append({
+                'code': pa_code,
+                'name': pa_name,
+                'process_group_code': process_group_code,
+                'client_code': client_code,
+                'is_active': True
+            })
+
+        return jsonify({'process_areas': process_areas})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @hierarchy_bp.route('/hierarchy/process-areas', methods=['GET'])
 def get_all_process_areas():
-    """Get all process areas with hierarchy information."""
+    """Get all process areas by scanning folder structure."""
     try:
-        process_areas = db.session.query(ProcessArea)\
-            .join(ProcessGroup)\
-            .join(Client)\
-            .filter(ProcessArea.is_active == True)\
-            .filter(ProcessGroup.is_active == True)\
-            .filter(Client.is_active == True)\
-            .order_by(Client.name, ProcessGroup.name, ProcessArea.name)\
-            .all()
-        
-        return jsonify({'process_areas': [pa.to_dict() for pa in process_areas]})
+        process_areas = []
+
+        if not RULES_PATH.exists():
+            return jsonify({'process_areas': []})
+
+        for client_dir in sorted(RULES_PATH.iterdir()):
+            if not client_dir.is_dir() or client_dir.name.startswith('.'):
+                continue
+
+            client_code = client_dir.name
+
+            for pg_dir in sorted(client_dir.iterdir()):
+                if not pg_dir.is_dir() or pg_dir.name.startswith('.'):
+                    continue
+
+                pg_code = pg_dir.name
+
+                for pa_dir in sorted(pg_dir.iterdir()):
+                    if not pa_dir.is_dir() or pa_dir.name.startswith('.'):
+                        continue
+
+                    pa_code = pa_dir.name
+                    pa_name = pa_code
+                    pg_name = pg_code
+                    client_name = client_code
+
+                    sample_rule = next(pa_dir.glob('rule-*.json'), None)
+                    if sample_rule:
+                        with open(sample_rule, 'r') as f:
+                            rule_data = json.load(f)
+                            h = rule_data.get('hierarchy', {})
+                            pa_name = h.get('process_area_name', pa_code)
+                            pg_name = h.get('process_group_name', pg_code)
+                            client_name = h.get('client_name', client_code)
+
+                    process_areas.append({
+                        'code': pa_code,
+                        'name': pa_name,
+                        'process_group_code': pg_code,
+                        'process_group_name': pg_name,
+                        'client_code': client_code,
+                        'client_name': client_name,
+                        'is_active': True
+                    })
+
+        return jsonify({'process_areas': process_areas})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @hierarchy_bp.route('/hierarchy/breadcrumb/<path:node_type>/<int:node_id>', methods=['GET'])
 def get_breadcrumb(node_type, node_id):
-    """Get breadcrumb trail for navigation."""
+    """Get breadcrumb trail for navigation from file system."""
     try:
         breadcrumb = []
-        
+
         if node_type == 'rule':
-            from models import Rule
-            rule = Rule.query.get_or_404(node_id)
+            rule_found = None
+            for rule_file in RULES_PATH.rglob(f'rule-{node_id}.json'):
+                with open(rule_file, 'r') as f:
+                    rule_found = json.load(f)
+                break
+
+            if not rule_found:
+                return jsonify({'error': 'Rule not found'}), 404
+
+            h = rule_found.get('hierarchy', {})
             breadcrumb = [
-                {'type': 'client', 'id': rule.process_area.process_group.client.id, 
-                 'name': rule.process_area.process_group.client.name, 
-                 'code': rule.process_area.process_group.client.code},
-                {'type': 'process_group', 'id': rule.process_area.process_group.id,
-                 'name': rule.process_area.process_group.name, 
-                 'code': rule.process_area.process_group.code},
-                {'type': 'process_area', 'id': rule.process_area.id,
-                 'name': rule.process_area.name, 
-                 'code': rule.process_area.code},
-                {'type': 'rule', 'id': rule.id, 'name': rule.name}
+                {'type': 'client', 'name': h.get('client_name'), 'code': h.get('client_code')},
+                {'type': 'process_group', 'name': h.get('process_group_name'), 'code': h.get('process_group_code')},
+                {'type': 'process_area', 'name': h.get('process_area_name'), 'code': h.get('process_area_code')},
+                {'type': 'rule', 'id': rule_found['id'], 'name': rule_found['name']}
             ]
-        elif node_type == 'process_area':
-            pa = ProcessArea.query.get_or_404(node_id)
-            breadcrumb = [
-                {'type': 'client', 'id': pa.process_group.client.id, 
-                 'name': pa.process_group.client.name, 
-                 'code': pa.process_group.client.code},
-                {'type': 'process_group', 'id': pa.process_group.id,
-                 'name': pa.process_group.name, 
-                 'code': pa.process_group.code},
-                {'type': 'process_area', 'id': pa.id, 'name': pa.name, 'code': pa.code}
-            ]
-        elif node_type == 'process_group':
-            pg = ProcessGroup.query.get_or_404(node_id)
-            breadcrumb = [
-                {'type': 'client', 'id': pg.client.id, 'name': pg.client.name, 'code': pg.client.code},
-                {'type': 'process_group', 'id': pg.id, 'name': pg.name, 'code': pg.code}
-            ]
-        elif node_type == 'client':
-            client = Client.query.get_or_404(node_id)
-            breadcrumb = [
-                {'type': 'client', 'id': client.id, 'name': client.name, 'code': client.code}
-            ]
-        
+        elif node_type in ['process_area', 'process_group', 'client']:
+            return jsonify({'breadcrumb': [], 'message': 'Breadcrumb by ID not fully supported'})
+
         return jsonify({'breadcrumb': breadcrumb})
-        
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500

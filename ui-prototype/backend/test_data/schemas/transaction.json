@@ -1,0 +1,38 @@
+{
+  "name": "transaction",
+  "description": "Transaction information",
+  "is_active": true,
+  "attributes": [
+    {
+      "name": "amount",
+      "data_type": "number",
+      "java_type": "BigDecimal",
+      "min_value": 0,
+      "description": "Transaction amount",
+      "is_required": true
+    },
+    {
+      "name": "currency",
+      "data_type": "string",
+      "java_type": "String",
+      "allowed_values": ["USD", "EUR", "GBP", "CAD"],
+      "description": "Transaction currency",
+      "is_required": true
+    },
+    {
+      "name": "type",
+      "data_type": "string",
+      "java_type": "String",
+      "allowed_values": ["purchase", "cash_advance", "balance_transfer"],
+      "description": "Transaction type",
+      "is_required": true
+    },
+    {
+      "name": "merchantCategory",
+      "data_type": "string",
+      "java_type": "String",
+      "description": "Merchant category code",
+      "is_required": false
+    }
+  ]
+}

@@ -219,7 +219,7 @@ const ActionEditor = ({ action, onBack, onSave }) => {
               }
             >
               {processAreas.map(area => (
-                <Option key={area.id} value={area.id}>{area.name}</Option>
+                <Option key={area.code} value={area.code}>{area.name}</Option>
               ))}
             </Select>
           </Form.Item>

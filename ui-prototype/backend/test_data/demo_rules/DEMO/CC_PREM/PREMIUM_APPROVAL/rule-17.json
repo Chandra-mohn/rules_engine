@@ -1,0 +1,30 @@
+{
+  "id": 17,
+  "name": "Premium Card Processing",
+  "description": "Specialized workflow for premium credit card applications",
+  "content": "rule \"Premium Card Processing\":\n    if applicant.annualIncome >= 100000 and applicant.creditScore >= 750 then\n        instantApproval, assignPremiumBenefits, \"send platinum welcome package\"\n    if applicant.creditScore >= 700 and applicant.employmentStatus == \"employed\" then\n        approveApplication, \"assign standard benefits\"\n    else \"Standard Application Workflow\"",
+  "status": "PROD",
+  "item_type": "actionset",
+  "effective_date": null,
+  "expiry_date": null,
+  "version": 1,
+  "schema_version": "modern",
+  "java_file_path": null,
+  "validation_message": null,
+  "context_id": null,
+  "created_at": "2025-10-13T23:41:09.221918",
+  "updated_at": "2025-10-13T23:41:09.221918",
+  "created_by": "system",
+  "updated_by": "system",
+  "hierarchy": {
+    "client_id": 1,
+    "client_code": "DEMO",
+    "client_name": "Demo Bank",
+    "process_group_id": 2,
+    "process_group_code": "CC_PREM",
+    "process_group_name": "Premium Cards",
+    "process_area_id": 3,
+    "process_area_code": "PREMIUM_APPROVAL",
+    "process_area_name": "Premium Approval"
+  }
+}

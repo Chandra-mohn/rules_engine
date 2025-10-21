@@ -2,21 +2,17 @@ import os
 from pathlib import Path
 
 class Config:
-    # Database configuration
     BASE_DIR = Path(__file__).parent
-    DATABASE_PATH = BASE_DIR / 'database' / 'rules.db'
-    SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-    # Python ANTLR integration
+
+    RULES_DIR = BASE_DIR / 'rules'
+    LISTS_DIR = BASE_DIR / 'lists'
+    SCHEMAS_DIR = BASE_DIR / 'schemas'
+    CONTEXTS_DIR = BASE_DIR / 'contexts'
+
     ANTLR_GRAMMAR_PATH = BASE_DIR.parent / 'java-bridge' / 'src' / 'main' / 'antlr4'
-    
-    # API configuration
+
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
-    
-    # CORS configuration
-    CORS_ORIGINS = ['http://localhost:3000']  # React dev server
-    
-    # Pagination
+    CORS_ORIGINS = ['http://localhost:3000']
+
     DEFAULT_PAGE_SIZE = 10
     MAX_PAGE_SIZE = 100

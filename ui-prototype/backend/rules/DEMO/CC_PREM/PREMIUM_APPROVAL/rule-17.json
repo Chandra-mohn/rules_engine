@@ -1,0 +1,19 @@
+{
+  "id": 17,
+  "name": "Premium Card Processing",
+  "description": "Specialized workflow for premium credit card applications",
+  "content": "rule \"Premium Card Processing\":\n    if applicant.annualIncome >= 100000 and applicant.creditScore >= 750 then\n        instantApproval, assignPremiumBenefits, \"send platinum welcome package\"\n    if applicant.creditScore >= 700 and applicant.employmentStatus == \"employed\" then\n        approveApplication, \"assign standard benefits\"\n    else \"Standard Application Workflow\"",
+  "status": "PROD",
+  "item_type": "actionset",
+  "effective_date": null,
+  "expiry_date": null,
+  "version": 1,
+  "schema_version": "modern",
+  "java_file_path": null,
+  "validation_message": null,
+  "context_id": null,
+  "created_at": "2025-10-05T01:55:57.578573",
+  "updated_at": "2025-10-13T22:10:40.169445",
+  "created_by": "system",
+  "updated_by": "system"
+}

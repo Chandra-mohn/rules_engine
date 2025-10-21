@@ -1,0 +1,30 @@
+{
+  "id": 31,
+  "name": "sendEmail",
+  "description": "Send email notification to applicant or customer",
+  "content": "com/rules/actions/EmailAction.java",
+  "status": "VALID",
+  "item_type": "action",
+  "effective_date": null,
+  "expiry_date": null,
+  "version": 1,
+  "schema_version": "modern",
+  "java_file_path": null,
+  "validation_message": null,
+  "context_id": null,
+  "created_at": "2025-10-13T23:41:09.226429",
+  "updated_at": "2025-10-13T23:41:09.226429",
+  "created_by": "system",
+  "updated_by": "system",
+  "hierarchy": {
+    "client_id": 1,
+    "client_code": "DEMO",
+    "client_name": "Demo Bank",
+    "process_group_id": 1,
+    "process_group_code": "CC_STD",
+    "process_group_name": "Standard Cards",
+    "process_area_id": 1,
+    "process_area_code": "APPROVAL",
+    "process_area_name": "Application Approval"
+  }
+}

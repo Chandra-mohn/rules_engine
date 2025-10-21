@@ -202,6 +202,20 @@ class PythonRulesEngine:
                 'errors': [str(e)]
             }
 
+    def execute(self, rule_content: str, test_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Alias for test_rule() for API compatibility.
+        Execute rule with test data.
+
+        Args:
+            rule_content: Rule content to execute
+            test_data: Test data for rule execution
+
+        Returns:
+            dict: Execution result
+        """
+        return self.test_rule(rule_content, test_data)
+
     def get_autocomplete_suggestions(self, context: str, position: int) -> Dict[str, Any]:
         """
         Get intelligent autocomplete suggestions using Python ANTLR.
