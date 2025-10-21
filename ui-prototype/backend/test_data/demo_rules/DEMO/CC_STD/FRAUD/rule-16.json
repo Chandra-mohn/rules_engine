@@ -1,0 +1,30 @@
+{
+  "id": 16,
+  "name": "Risk Evaluation Suite",
+  "description": "Comprehensive risk assessment for fraud prevention",
+  "content": "rule riskEvaluation:\n    calculateRiskScore\n    if applicant.bankruptcyHistory == true then rejectApplication, logHighRiskApplicant\n    if applicant.employmentYears < 1 and applicant.age < 25 then requireCoSigner, scheduleManualReview\n    if applicant.monthlyIncome >= 5000 and applicant.creditScore >= 700 then approveApplication\n    else conditionalApproval",
+  "status": "VALID",
+  "item_type": "actionset",
+  "effective_date": null,
+  "expiry_date": null,
+  "version": 1,
+  "schema_version": "modern",
+  "java_file_path": null,
+  "validation_message": null,
+  "context_id": null,
+  "created_at": "2025-10-13T23:41:09.221918",
+  "updated_at": "2025-10-13T23:41:09.221918",
+  "created_by": "system",
+  "updated_by": "system",
+  "hierarchy": {
+    "client_id": 1,
+    "client_code": "DEMO",
+    "client_name": "Demo Bank",
+    "process_group_id": 1,
+    "process_group_code": "CC_STD",
+    "process_group_name": "Standard Cards",
+    "process_area_id": 2,
+    "process_area_code": "FRAUD",
+    "process_area_name": "Fraud Detection"
+  }
+}

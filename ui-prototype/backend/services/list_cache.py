@@ -7,15 +7,16 @@ import time
 import json
 import threading
 from typing import Optional, Set, Dict, Any, List
-from models import db, RuleList
+from pathlib import Path
+from datetime import datetime
 
 
 class ListCache:
     """Thread-safe cache for named rule lists with lazy loading."""
-    
+
     _instance = None
     _lock = threading.Lock()
-    
+
     def __new__(cls):
         if cls._instance is None:
             with cls._lock:
@@ -23,7 +24,7 @@ class ListCache:
                     cls._instance = super().__new__(cls)
                     cls._instance._initialize()
         return cls._instance
-    
+
     def _initialize(self):
         """Initialize the cache."""
         self._cache: Dict[str, Set] = {}
@@ -31,6 +32,8 @@ class ListCache:
         self._last_refresh = 0
         self._refresh_interval = 300  # 5 minutes
         self._cache_lock = threading.RLock()
+        self._lists_path = Path(__file__).parent.parent / 'lists'
+        self._lists_path.mkdir(exist_ok=True)
     
     def get_list(self, name: str, schema_version: str = 'both') -> Optional[Set]:
         """
@@ -102,42 +105,51 @@ class ListCache:
             self._load_from_database()
     
     def _load_from_database(self):
-        """Load all lists from database into cache."""
+        """Load all lists from files into cache."""
         try:
-            from flask import current_app
-            
-            # Need application context for database access
-            with current_app.app_context():
-                rule_lists = RuleList.query.all()
-                
-                new_cache = {}
-                new_metadata = {}
-                
-                for rule_list in rule_lists:
-                    try:
-                        values = json.loads(rule_list.list_values)
-                        new_cache[rule_list.name] = set(values)
-                        new_metadata[rule_list.name] = {
-                            'id': rule_list.id,
-                            'description': rule_list.description,
-                            'data_type': rule_list.data_type,
-                            'schema_version': rule_list.schema_version,
-                            'created_at': rule_list.created_at,
-                            'updated_at': rule_list.updated_at
-                        }
-                    except json.JSONDecodeError as e:
-                        print(f"Warning: Invalid JSON in rule list '{rule_list.name}': {e}")
-                        continue
-                
-                # Atomic update
-                self._cache = new_cache
-                self._metadata = new_metadata
-                self._last_refresh = time.time()
-                
-                print(f"ListCache: Loaded {len(self._cache)} named lists")
-                
+            new_cache = {}
+            new_metadata = {}
+
+            # Load all JSON files from lists directory
+            for file_path in self._lists_path.glob('*.json'):
+                if file_path.name == 'schema.json':
+                    continue
+
+                try:
+                    with open(file_path, 'r') as f:
+                        list_data = json.load(f)
+
+                    list_name = list_data['list_name']
+                    values = list_data.get('values', [])
+
+                    # Convert to set for fast membership testing
+                    # Extract just the codes from value objects
+                    value_codes = [v['code'] if isinstance(v, dict) else v for v in values]
+                    new_cache[list_name] = set(value_codes)
+
+                    new_metadata[list_name] = {
+                        'description': list_data.get('description', ''),
+                        'data_type': 'string',  # Default type
+                        'schema_version': list_data.get('schema_version', 'both'),
+                        'created_at': list_data.get('metadata', {}).get('created_at'),
+                        'updated_at': list_data.get('metadata', {}).get('updated_at')
+                    }
+                except json.JSONDecodeError as e:
+                    print(f"Warning: Invalid JSON in list file '{file_path.name}': {e}")
+                    continue
+                except Exception as e:
+                    print(f"Warning: Error loading list from '{file_path.name}': {e}")
+                    continue
+
+            # Atomic update
+            self._cache = new_cache
+            self._metadata = new_metadata
+            self._last_refresh = time.time()
+
+            print(f"ListCache: Loaded {len(self._cache)} named lists from files")
+
         except Exception as e:
-            print(f"Error loading lists from database: {e}")
+            print(f"Error loading lists from files: {e}")
             # Keep existing cache on error
     
     def _is_schema_compatible(self, list_schema: str, requested_schema: str) -> bool:
@@ -159,77 +171,102 @@ class ListCache:
 
 class ListService:
     """Service for managing named rule lists."""
-    
+
     def __init__(self):
         self.cache = ListCache()
-    
+        self.lists_path = Path(__file__).parent.parent / 'lists'
+        self.lists_path.mkdir(exist_ok=True)
+
     def get_list_values(self, name: str, schema_version: str = 'both') -> Optional[Set]:
         """Get list values for rule evaluation."""
         return self.cache.get_list(name, schema_version)
-    
-    def create_list(self, data: Dict[str, Any], created_by: str = 'system') -> RuleList:
+
+    def create_list(self, data: Dict[str, Any], created_by: str = 'system') -> Dict[str, Any]:
         """Create a new named list."""
-        rule_list = RuleList(
-            name=data['name'],
-            description=data.get('description', ''),
-            data_type=data['data_type'],
-            list_values=json.dumps(data['values']),
-            schema_version=data.get('schema_version', 'both'),
-            created_by=created_by,
-            updated_by=created_by
-        )
-        
-        db.session.add(rule_list)
-        db.session.commit()
-        
+        list_data = {
+            'list_name': data['name'],
+            'display_name': data.get('display_name', data['name']),
+            'description': data.get('description', ''),
+            'schema_version': data.get('schema_version', 'both'),
+            'values': data.get('values', []),
+            'metadata': {
+                'created_at': datetime.utcnow().isoformat(),
+                'updated_at': datetime.utcnow().isoformat(),
+                'created_by': created_by,
+                'updated_by': created_by,
+                'version': 1
+            }
+        }
+
+        # Write to file
+        file_path = self.lists_path / f"{data['name']}.json"
+        with open(file_path, 'w') as f:
+            json.dump(list_data, f, indent=2)
+
         # Invalidate cache to force refresh
         self.cache.invalidate(data['name'])
-        
-        return rule_list
+
+        return list_data
     
-    def update_list(self, list_id: int, data: Dict[str, Any], updated_by: str = 'system') -> Optional[RuleList]:
+    def update_list(self, list_name: str, data: Dict[str, Any], updated_by: str = 'system') -> Optional[Dict[str, Any]]:
         """Update an existing named list."""
-        rule_list = RuleList.query.get(list_id)
-        if not rule_list:
+        file_path = self.lists_path / f"{list_name}.json"
+        if not file_path.exists():
             return None
-        
-        old_name = rule_list.name
-        
+
+        # Read existing data
+        with open(file_path, 'r') as f:
+            list_data = json.load(f)
+
+        old_name = list_data['list_name']
+
+        # Update fields
         if 'name' in data:
-            rule_list.name = data['name']
+            list_data['list_name'] = data['name']
+        if 'display_name' in data:
+            list_data['display_name'] = data['display_name']
         if 'description' in data:
-            rule_list.description = data['description']
-        if 'data_type' in data:
-            rule_list.data_type = data['data_type']
+            list_data['description'] = data['description']
         if 'values' in data:
-            rule_list.list_values = json.dumps(data['values'])
+            list_data['values'] = data['values']
         if 'schema_version' in data:
-            rule_list.schema_version = data['schema_version']
-        
-        rule_list.updated_by = updated_by
-        
-        db.session.commit()
-        
+            list_data['schema_version'] = data['schema_version']
+
+        # Update metadata
+        list_data['metadata']['updated_at'] = datetime.utcnow().isoformat()
+        list_data['metadata']['updated_by'] = updated_by
+        list_data['metadata']['version'] = list_data['metadata'].get('version', 1) + 1
+
+        # Handle name change
+        if old_name != list_data['list_name']:
+            # Delete old file
+            file_path.unlink()
+            # Create new file
+            file_path = self.lists_path / f"{list_data['list_name']}.json"
+
+        # Write updated data
+        with open(file_path, 'w') as f:
+            json.dump(list_data, f, indent=2)
+
         # Invalidate cache entries
         self.cache.invalidate(old_name)
-        if old_name != rule_list.name:
-            self.cache.invalidate(rule_list.name)
-        
-        return rule_list
+        if old_name != list_data['list_name']:
+            self.cache.invalidate(list_data['list_name'])
+
+        return list_data
     
-    def delete_list(self, list_id: int) -> bool:
+    def delete_list(self, list_name: str) -> bool:
         """Delete a named list."""
-        rule_list = RuleList.query.get(list_id)
-        if not rule_list:
+        file_path = self.lists_path / f"{list_name}.json"
+        if not file_path.exists():
             return False
-        
-        name = rule_list.name
-        db.session.delete(rule_list)
-        db.session.commit()
-        
+
+        # Delete file
+        file_path.unlink()
+
         # Invalidate cache
-        self.cache.invalidate(name)
-        
+        self.cache.invalidate(list_name)
+
         return True
     
     def get_all_lists(self, schema_version: str = 'both') -> Dict[str, Dict[str, Any]]:

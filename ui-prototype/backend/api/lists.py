@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
-from models import RuleList
 from services.list_cache import ListService
 
 lists_bp = Blueprint('lists', __name__)
@@ -66,9 +65,9 @@ def create_list():
         
         # Create the list
         created_by = request.headers.get('X-User-ID', 'system')
-        rule_list = list_service.create_list(data, created_by)
-        
-        return jsonify(rule_list.to_dict()), 201
+        result = list_service.create_list(data, created_by)
+
+        return jsonify(result), 201
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -93,12 +92,12 @@ def update_list(list_id):
         
         # Update the list
         updated_by = request.headers.get('X-User-ID', 'system')
-        rule_list = list_service.update_list(list_id, data, updated_by)
-        
-        if not rule_list:
+        result = list_service.update_list(list_id, data, updated_by)
+
+        if not result:
             return jsonify({'error': 'List not found'}), 404
-        
-        return jsonify(rule_list.to_dict())
+
+        return jsonify(result)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

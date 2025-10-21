@@ -1,0 +1,30 @@
+{
+  "id": 20,
+  "name": "Rewards Program Selection",
+  "description": "Dynamic rewards program assignment based on spending patterns",
+  "content": "rule rewardsProgramSelection:\n    if applicant.creditScore >= 720 then\n        if applicant.annualIncome >= 75000 then premiumRewards, \"5% cashback tier\"\n        else standardRewards, \"2% cashback tier\"\n    if applicant.employmentStatus == \"student\" and applicant.age >= 21 then\n        studentRewards, \"1% cashback with bonus categories\"\n    else basicRewards",
+  "status": "DRAFT",
+  "item_type": "actionset",
+  "effective_date": null,
+  "expiry_date": null,
+  "version": 1,
+  "schema_version": "modern",
+  "java_file_path": null,
+  "validation_message": null,
+  "context_id": null,
+  "created_at": "2025-10-13T23:41:09.221920",
+  "updated_at": "2025-10-13T23:41:09.221920",
+  "created_by": "system",
+  "updated_by": "system",
+  "hierarchy": {
+    "client_id": 2,
+    "client_code": "PREMIUM",
+    "client_name": "Premium Card Co",
+    "process_group_id": 4,
+    "process_group_code": "REWARDS",
+    "process_group_name": "Rewards Cards",
+    "process_area_id": 6,
+    "process_area_code": "REWARDS_APPROVAL",
+    "process_area_name": "Rewards Approval"
+  }
+}

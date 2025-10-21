@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Flask
+instance/
+.webassets-cache
+
+# Database (deprecated - now using file storage)
+database/
+*.db
+*.sqlite
+*.sqlite3
+
+# Production Rules (user-specific working data)
+rules_data/
+
+# Test Data (committed - templates and demo data)
+# test_data/ should be committed!
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

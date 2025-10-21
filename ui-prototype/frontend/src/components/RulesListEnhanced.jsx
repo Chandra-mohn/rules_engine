@@ -482,13 +482,8 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
       <Col span={18}>
         <div>
           {/* Header */}
-          <div style={{
-            marginBottom: 16,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-            <div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 12 }}>
               <Title level={4} style={{ margin: 0 }}>
                 {currentHierarchy && currentHierarchy.synthetic_type ? currentHierarchy.synthetic_type : ''}
                 {currentHierarchy && (

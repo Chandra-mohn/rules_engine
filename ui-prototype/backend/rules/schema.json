@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Business Rule",
+  "description": "Schema for business rules in the rules engine system",
+  "type": "object",
+  "required": ["id", "name", "content", "status", "item_type"],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "description": "Unique identifier for the rule"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Rule name"
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Detailed description of the rule"
+    },
+    "content": {
+      "type": "string",
+      "description": "Rule DSL content"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["DRAFT", "VALID", "PEND", "SCHD", "PROD", "deleted"],
+      "default": "DRAFT",
+      "description": "Rule lifecycle status"
+    },
+    "item_type": {
+      "type": "string",
+      "enum": ["rule", "actionset", "mon_rule", "non_mon_rule", "action"],
+      "default": "rule",
+      "description": "Type of rule item"
+    },
+    "effective_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Date when rule becomes effective"
+    },
+    "expiry_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Date when rule expires"
+    },
+    "version": {
+      "type": "integer",
+      "default": 1,
+      "description": "Rule version number"
+    },
+    "schema_version": {
+      "type": "string",
+      "enum": ["modern", "legacy"],
+      "default": "modern",
+      "description": "DSL schema version"
+    },
+    "java_file_path": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Path to generated Java file"
+    },
+    "validation_message": {
+      "type": ["string", "null"],
+      "description": "Validation error messages"
+    },
+    "context_id": {
+      "type": ["string", "integer", "null"],
+      "description": "Reference to rule context for testing (context name or legacy integer ID)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp"
+    },
+    "created_by": {
+      "type": "string",
+      "maxLength": 50,
+      "default": "system",
+      "description": "User who created the rule"
+    },
+    "updated_by": {
+      "type": "string",
+      "maxLength": 50,
+      "default": "system",
+      "description": "User who last updated the rule"
+    },
+    "hierarchy": {
+      "type": "object",
+      "required": ["client_code", "process_group_code", "process_area_code"],
+      "properties": {
+        "client_id": {
+          "type": "integer"
+        },
+        "client_code": {
+          "type": "string"
+        },
+        "client_name": {
+          "type": "string"
+        },
+        "process_group_id": {
+          "type": "integer"
+        },
+        "process_group_code": {
+          "type": "string"
+        },
+        "process_group_name": {
+          "type": "string"
+        },
+        "process_area_id": {
+          "type": "integer"
+        },
+        "process_area_code": {
+          "type": "string"
+        },
+        "process_area_name": {
+          "type": "string"
+        }
+      },
+      "description": "Organizational hierarchy information"
+    }
+  }
+}

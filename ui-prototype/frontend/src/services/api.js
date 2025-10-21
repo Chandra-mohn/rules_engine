@@ -36,7 +36,24 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API Error:', error.response?.data || error.message);
+    // Only log unexpected errors (500s, network errors, etc.)
+    // Don't log expected validation errors (400s with specific error types)
+    const status = error.response?.status;
+    const errorType = error.response?.data?.error;
+
+    // Expected validation errors that shouldn't clutter the console
+    const expectedValidationErrors = [
+      'Cyclic dependency detected',
+      'A rule with this name already exists',
+    ];
+
+    const isExpectedValidation = status === 400 && expectedValidationErrors.includes(errorType);
+
+    if (!isExpectedValidation) {
+      // Log unexpected errors for debugging
+      console.error('API Error:', error.response?.data || error.message);
+    }
+
     return Promise.reject(error);
   }
 );

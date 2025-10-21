@@ -1,9 +1,5 @@
 Flask==2.3.3
-Flask-SQLAlchemy==3.0.5
 Flask-CORS==4.0.0
-Flask-Migrate==4.0.5
 python-dotenv==1.0.0
-marshmallow==3.20.1
-marshmallow-sqlalchemy==0.29.0
 requests==2.31.0
 antlr4-python3-runtime==4.13.2

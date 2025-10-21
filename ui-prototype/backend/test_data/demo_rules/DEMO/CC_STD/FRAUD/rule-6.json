@@ -1,0 +1,30 @@
+{
+  "id": 6,
+  "name": "monthlyIncomeCheck",
+  "description": "Monthly income validation for fraud detection",
+  "content": "rule monthlyIncomeCheck:\n    if applicant.monthlyIncome >= 4000 then approveApplication\n    if applicant.monthlyIncome < 2000 then rejectApplication\n    if applicant.monthlyIncome >= 2000 and applicant.creditScore >= 650 then conditionalApproval",
+  "status": "VALID",
+  "item_type": "rule",
+  "effective_date": null,
+  "expiry_date": null,
+  "version": 1,
+  "schema_version": "modern",
+  "java_file_path": null,
+  "validation_message": null,
+  "context_id": null,
+  "created_at": "2025-10-13T23:41:09.221311",
+  "updated_at": "2025-10-13T23:41:09.221311",
+  "created_by": "system",
+  "updated_by": "system",
+  "hierarchy": {
+    "client_id": 1,
+    "client_code": "DEMO",
+    "client_name": "Demo Bank",
+    "process_group_id": 1,
+    "process_group_code": "CC_STD",
+    "process_group_name": "Standard Cards",
+    "process_area_id": 2,
+    "process_area_code": "FRAUD",
+    "process_area_name": "Fraud Detection"
+  }
+}
