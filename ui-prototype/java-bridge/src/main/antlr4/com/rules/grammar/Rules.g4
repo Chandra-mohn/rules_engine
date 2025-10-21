@@ -45,8 +45,7 @@ list: '[' (value (',' value)*)? ']';
 
 action:
     IDENTIFIER ('(' parameterList? ')')?
-    | DQUOTED_STRING ('(' parameterList? ')')?  // Actions with special chars use double quotes
-    | SQUOTED_STRING ('(' parameterList? ')')?;  // Backwards compatibility
+    | DQUOTED_STRING ('(' parameterList? ')')?;  // Actions with special chars use double quotes
 
 parameterList: parameter (',' parameter)*;
 parameter: expression;

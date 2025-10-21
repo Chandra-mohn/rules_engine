@@ -61,8 +61,32 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     const saved = localStorage.getItem('contextPanelVisible');
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [fullRule, setFullRule] = useState(null); // Full rule data with all fields
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
+
+  // Fetch full rule details when only ID is provided (from tree navigation)
+  useEffect(() => {
+    const fetchFullRule = async () => {
+      // Check if rule prop has id but missing content (indicates partial data from tree navigation)
+      if (rule && rule.id && !rule.content) {
+        setLoading(true);
+        try {
+          const response = await rulesApi.getRule(rule.id);
+          setFullRule(response.data);
+        } catch (error) {
+          console.error('Failed to load full rule details:', error);
+          message.error('Failed to load rule details');
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setFullRule(rule);
+      }
+    };
+
+    fetchFullRule();
+  }, [rule]);
 
   // Parse rule name from content
   const parseRuleNameFromContent = (content) => {
@@ -118,28 +142,33 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
 
   // Initialize form and editor
   useEffect(() => {
-    if (rule) {
+    if (fullRule) {
+      // Extract process_area_id from either top level or hierarchy object
+      const processAreaId = fullRule.process_area_id || fullRule.hierarchy?.process_area_code;
+
+      // Handle legacy numeric context_ids from SQLite (file-based contexts use names)
+      const contextId = typeof fullRule.context_id === 'number' ? null : fullRule.context_id;
+
       const formValues = {
-        description: rule.description,
-        status: rule.status,
-        process_area_id: rule.process_area_id,
-        context_id: rule.context_id,
+        description: fullRule.description,
+        status: fullRule.status,
+        process_area_id: processAreaId,
+        context_id: contextId,
       };
 
       // Add name field for Actions and ActionSets
-      if (rule.item_type === 'action' || rule.item_type === 'actionset') {
-        formValues.name = rule.name;
+      if (fullRule.item_type === 'action' || fullRule.item_type === 'actionset') {
+        formValues.name = fullRule.name;
       }
 
-      console.log('Setting form values, context_id:', rule.context_id);
       form.setFieldsValue(formValues);
-      setEditorContent(rule.content || '');
+      setEditorContent(fullRule.content || '');
       setValidation({
-        valid: rule.validation_status === 'valid',
-        message: rule.validation_message,
+        valid: fullRule.validation_status === 'valid',
+        message: fullRule.validation_message,
       });
       // Set schema version from rule data or detect from content
-      setSelectedSchema(rule.schema_version || detectSchemaFromContent(rule.content) || 'modern');
+      setSelectedSchema(fullRule.schema_version || detectSchemaFromContent(fullRule.content) || 'modern');
     } else {
       // New rule defaults
       form.setFieldsValue({
@@ -158,7 +187,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         setEditorContent('rule newRule:\n    if condition then action');
       }
     }
-  }, [rule, form]);
+  }, [fullRule, rule, form]);
 
   // Load process areas and contexts on component mount
   useEffect(() => {
@@ -167,22 +196,21 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
   }, []);
 
   // Re-set context_id when contexts finish loading (to ensure dropdown has the option available)
+  // Skip numeric IDs (legacy SQLite contexts) as they don't exist in file-based system
   useEffect(() => {
-    if (rule && rule.context_id && contexts.length > 0 && !loadingContexts) {
-      console.log('Re-setting context_id after contexts loaded:', rule.context_id);
-      console.log('Available contexts:', contexts.map(c => ({ id: c.id, name: c.name })));
-      form.setFieldsValue({ context_id: rule.context_id });
+    if (fullRule && fullRule.context_id && typeof fullRule.context_id === 'string' && contexts.length > 0 && !loadingContexts) {
+      form.setFieldsValue({ context_id: fullRule.context_id });
     }
-  }, [contexts, loadingContexts, rule, form]);
+  }, [contexts, loadingContexts, fullRule, form]);
 
-  // Auto-show/hide panel based on context selection and persist to localStorage
+  // Auto-show panel on initial load if context is selected
   useEffect(() => {
     const contextId = form.getFieldValue('context_id');
     if (contextId && !contextPanelVisible) {
       setContextPanelVisible(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextPanelVisible]);
+  }, []);
 
   // Persist panel visibility to localStorage
   useEffect(() => {
@@ -410,9 +438,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
             if (autocompleteResponse.ok) {
               const autocompleteData = await autocompleteResponse.json();
               allSuggestions = autocompleteData.suggestions || [];
-
-              // Log context info for debugging
-              console.log('Autocomplete context:', autocompleteData.context_type, autocompleteData.cursor_info);
             } else {
               // Fallback to cache if API fails
               allSuggestions = suggestionCache.getSuggestions(textUntilPosition, textUntilPosition.length);
@@ -956,9 +981,6 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         context_id: values.context_id || null,
       };
 
-      console.log('Saving rule with context_id:', values.context_id);
-      console.log('Form values:', values);
-
       // Include item_type for Actions and ActionSets
       if (rule?.item_type) {
         ruleData.item_type = rule.item_type;
@@ -977,13 +999,11 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
         // Update existing rule (must have valid ID)
         const response = await rulesApi.updateRule(rule.id, ruleData);
         savedRule = response.data;
-        console.log('Rule saved, context_id in response:', savedRule.context_id);
         message.success('Rule updated successfully');
       } else {
         // Create new rule (no rule or no valid ID)
         const response = await rulesApi.createRule(ruleData);
         savedRule = response.data;
-        console.log('Rule created, context_id in response:', savedRule.context_id);
         message.success('Rule created successfully');
       }
 
@@ -1000,6 +1020,47 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
     } catch (error) {
       if (error.response?.status === 409) {
         message.error('A rule with this name already exists');
+      } else if (error.response?.status === 400 && error.response?.data?.error === 'Cyclic dependency detected') {
+        // Cyclic dependency detected - show detailed error
+        const cycleData = error.response.data;
+        Modal.error({
+          title: 'Cyclic Rule Call Detected',
+          content: (
+            <div>
+              <p><strong>Rule dependencies form a cycle, which is not allowed.</strong></p>
+              <p style={{ marginTop: '12px', marginBottom: '8px' }}>Cycle path:</p>
+              <div style={{
+                padding: '12px',
+                backgroundColor: '#fff1f0',
+                border: '1px solid #ffa39e',
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontSize: '13px'
+              }}>
+                {cycleData.cycle_path}
+              </div>
+              {cycleData.dependencies && cycleData.dependencies.length > 0 && (
+                <>
+                  <p style={{ marginTop: '12px', marginBottom: '8px' }}>Direct dependencies:</p>
+                  <div style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#f5f5f5',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '4px',
+                    fontFamily: 'monospace',
+                    fontSize: '12px'
+                  }}>
+                    {cycleData.dependencies.join(', ')}
+                  </div>
+                </>
+              )}
+              <p style={{ marginTop: '16px', color: '#666' }}>
+                <strong>Solution:</strong> Remove one of the circular references to break the cycle.
+              </p>
+            </div>
+          ),
+          width: 600
+        });
       } else {
         message.error('Failed to save rule: ' + (error.response?.data?.error || error.message));
       }
@@ -1259,7 +1320,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                   }
                 >
                   {processAreas.map(area => (
-                    <Option key={area.id} value={area.id}>
+                    <Option key={area.code} value={area.code}>
                       {area.name}
                     </Option>
                   ))}
@@ -1289,12 +1350,15 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                   showSearch
                   allowClear
                   onChange={(value) => {
-                    console.log('Context selection changed:', value);
                     // Auto-show panel when context selected, hide when cleared
                     if (value && !contextPanelVisible) {
                       setContextPanelVisible(true);
                     } else if (!value && contextPanelVisible) {
                       setContextPanelVisible(false);
+                    } else if (value && contextPanelVisible) {
+                      // Force ContextPanel to re-render with new contextId by briefly toggling visibility
+                      setContextPanelVisible(false);
+                      setTimeout(() => setContextPanelVisible(true), 0);
                     }
                   }}
                   filterOption={(input, option) =>
@@ -1304,7 +1368,7 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                   {contexts
                     .filter(ctx => !ctx.is_schema_template)
                     .map(context => (
-                      <Option key={context.id} value={context.id}>
+                      <Option key={context.name} value={context.name}>
                         {context.name}
                       </Option>
                     ))}
