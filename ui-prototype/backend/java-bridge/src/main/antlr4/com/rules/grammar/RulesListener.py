@@ -1,4 +1,4 @@
-# Generated from java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4 by ANTLR 4.13.2
+# Generated from Rules.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .RulesParser import RulesParser
@@ -41,6 +41,15 @@ class RulesListener(ParseTreeListener):
 
     # Exit a parse tree produced by RulesParser#ruleStep.
     def exitRuleStep(self, ctx:RulesParser.RuleStepContext):
+        pass
+
+
+    # Enter a parse tree produced by RulesParser#block.
+    def enterBlock(self, ctx:RulesParser.BlockContext):
+        pass
+
+    # Exit a parse tree produced by RulesParser#block.
+    def exitBlock(self, ctx:RulesParser.BlockContext):
         pass
 
 

@@ -235,7 +235,7 @@ const GapAnalysis = ({ onBack }) => {
       dataIndex: 'missing_actions',
       key: 'missing_actions',
       render: (missingActions) => (
-        missingActions.length > 0 ? (
+        missingActions && missingActions.length > 0 ? (
           <Tooltip title={missingActions.join(', ')}>
             <Tag color="red">{missingActions.length} Missing</Tag>
           </Tooltip>
@@ -243,15 +243,15 @@ const GapAnalysis = ({ onBack }) => {
           <Tag color="green">None</Tag>
         )
       ),
-      sorter: (a, b) => a.missing_actions.length - b.missing_actions.length,
+      sorter: (a, b) => (a.missing_actions?.length || 0) - (b.missing_actions?.length || 0),
     },
     {
       title: 'Attributes Used',
       dataIndex: 'extracted_attributes',
       key: 'attributes',
       render: (attributes) => (
-        <Tooltip title={attributes.join(', ')}>
-          <Text>{attributes.length} attributes</Text>
+        <Tooltip title={(attributes || []).join(', ')}>
+          <Text>{(attributes || []).length} attributes</Text>
         </Tooltip>
       ),
     },
@@ -260,8 +260,10 @@ const GapAnalysis = ({ onBack }) => {
       dataIndex: 'referenced_actions',
       key: 'actions',
       render: (actions, record) => {
-        const totalActions = actions.length + record.referenced_actionsets.length;
-        const allActions = [...actions, ...record.referenced_actionsets];
+        const safeActions = actions || [];
+        const safeActionsets = record.referenced_actionsets || [];
+        const totalActions = safeActions.length + safeActionsets.length;
+        const allActions = [...safeActions, ...safeActionsets];
         return (
           <Tooltip title={allActions.join(', ')}>
             <Text>{totalActions} actions</Text>
@@ -494,10 +496,10 @@ const GapAnalysis = ({ onBack }) => {
                       fontFamily: 'monospace',
                       fontSize: '12px'
                     }}>
-                      {record.rule.content}
+                      {record.rule?.content || 'No content available'}
                     </div>
                   </Col>
-                  {record.validation_errors.length > 0 && (
+                  {record.validation_errors && record.validation_errors.length > 0 && (
                     <Col span={24}>
                       <Text strong style={{ color: '#ff4d4f' }}>Validation Errors:</Text>
                       <ul style={{ color: '#ff4d4f', marginTop: '8px' }}>
@@ -507,7 +509,7 @@ const GapAnalysis = ({ onBack }) => {
                       </ul>
                     </Col>
                   )}
-                  {record.missing_actions.length > 0 && (
+                  {record.missing_actions && record.missing_actions.length > 0 && (
                     <Col span={12}>
                       <Text strong style={{ color: '#fa8c16' }}>Missing Actions:</Text>
                       <div style={{ marginTop: '8px' }}>
@@ -517,7 +519,7 @@ const GapAnalysis = ({ onBack }) => {
                       </div>
                     </Col>
                   )}
-                  {record.extracted_attributes.length > 0 && (
+                  {record.extracted_attributes && record.extracted_attributes.length > 0 && (
                     <Col span={12}>
                       <Text strong>Extracted Attributes:</Text>
                       <div style={{ marginTop: '8px' }}>
