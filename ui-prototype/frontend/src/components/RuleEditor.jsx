@@ -1490,19 +1490,24 @@ const RuleEditor = ({ rule, onBack, onSave }) => {
                     )}
 
                     {/* Other warnings (non-missing-item warnings) */}
-                    {validation.warnings?.some(w =>
-                      !w.includes('Unknown attribute') && !w.includes('Unknown action')
-                    ) && (
+                    {validation.warnings?.some(w => {
+                      const warnStr = typeof w === 'string' ? w : (w?.message || JSON.stringify(w));
+                      return !warnStr.includes('Unknown attribute') && !warnStr.includes('Unknown action');
+                    }) && (
                       <Alert
                         style={{ marginTop: 12 }}
                         message="Other Warnings"
                         description={
                           <ul style={{ marginBottom: 0 }}>
                             {validation.warnings
-                              .filter(w => !w.includes('Unknown attribute') && !w.includes('Unknown action'))
-                              .map((warning, index) => (
-                                <li key={index}>{warning}</li>
-                              ))}
+                              .filter(w => {
+                                const warnStr = typeof w === 'string' ? w : (w?.message || JSON.stringify(w));
+                                return !warnStr.includes('Unknown attribute') && !warnStr.includes('Unknown action');
+                              })
+                              .map((warning, index) => {
+                                const warnStr = typeof warning === 'string' ? warning : (warning?.message || JSON.stringify(warning));
+                                return <li key={index}>{warnStr}</li>;
+                              })}
                           </ul>
                         }
                         type="warning"

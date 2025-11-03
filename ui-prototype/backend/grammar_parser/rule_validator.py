@@ -118,7 +118,11 @@ class SemanticValidator(RulesListener):
     def enterRuleStep(self, ctx: RulesParser.RuleStepContext):
         """Validate rule step structure."""
         # Check for unreachable code, missing actions, etc.
-        if ctx.IF() and not ctx.actionList():
+        # Note: if/elseif/else structures have actions inside blocks, not at ruleStep level
+        # So we should NOT check ctx.actionList() for if/elseif/else structures
+        # Only check for standalone conditions without blocks
+        if ctx.IF() and not ctx.actionList() and not ctx.block():
+            # This would be: "if condition then" with nothing after "then"
             self.warnings.append({
                 'type': 'empty_condition',
                 'message': "Condition without any actions",
