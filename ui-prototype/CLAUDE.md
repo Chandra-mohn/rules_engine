@@ -472,11 +472,55 @@ This guide serves as permanent project memory for maintaining consistency across
 ?? ui-prototype/ACTIONSET_GRAMMAR_FIX.md
 ?? ui-prototype/backend/grammar_parser/
 ?? ui-prototype/backend/java-bridge/
-?? ui-prototype/java-bridge/src/main/antlr4/com/rules/grammar/RulesLexer.py
-?? ui-prototype/java-bridge/src/main/antlr4/com/rules/grammar/RulesListener.py
-?? ui-prototype/java-bridge/src/main/antlr4/com/rules/grammar/RulesParser.py
 
 ### Current Progress:
 - All regression prevention measures active
 - System health verified before compaction
 - Context snapshot saved to .context_snapshots/pre_compaction_2025-09-18_18-01-40
+
+---
+
+## CLEANUP - 2025-11-02 - ANTLR Python File Deduplication
+
+### Actions Taken:
+**Removed duplicate Python ANTLR generated files from `java-bridge/` directory:**
+- ❌ Deleted: `java-bridge/src/main/antlr4/com/rules/grammar/RulesLexer.py`
+- ❌ Deleted: `java-bridge/src/main/antlr4/com/rules/grammar/RulesListener.py`
+- ❌ Deleted: `java-bridge/src/main/antlr4/com/rules/grammar/RulesParser.py`
+
+**Retained active Python files in `backend/java-bridge/` directory:**
+- ✅ Active: `backend/java-bridge/src/main/antlr4/com/rules/grammar/RulesLexer.py`
+- ✅ Active: `backend/java-bridge/src/main/antlr4/com/rules/grammar/RulesListener.py`
+- ✅ Active: `backend/java-bridge/src/main/antlr4/com/rules/grammar/RulesParser.py`
+- ✅ Active: `backend/java-bridge/src/main/antlr4/com/rules/grammar/RulesVisitor.py`
+
+### Rationale:
+- Files were byte-for-byte identical (verified via MD5 checksums)
+- Python backend imports exclusively from `backend/java-bridge/` path
+- No Python code references the `java-bridge/` location
+- Cleanup eliminates confusion and reduces codebase by ~83KB
+- All functionality preserved and validated post-cleanup
+
+### File Location Architecture:
+
+**Rules.g4 Grammar Source** (maintained in both locations):
+1. **Java Build Source**: `java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4`
+   - Used by Maven ANTLR plugin for Java code generation
+   - Source of truth for grammar definition
+
+2. **Python Backend Copy**: `backend/java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4`
+   - Used for Python ANTLR parser generation
+   - Should be synced from Java source when grammar changes
+
+**Generated Python Files** (single location only):
+- **Location**: `backend/java-bridge/src/main/antlr4/com/rules/grammar/`
+- **Files**: RulesLexer.py, RulesParser.py, RulesListener.py, RulesVisitor.py
+- **Used By**: Backend validation and parsing (`backend/grammar_parser/`)
+
+**Import Pattern**:
+```python
+# In backend/grammar_parser/rules_parser.py and rule_validator.py
+antlr_path = Path(__file__).parent.parent / "java-bridge" / "src" / "main" / "antlr4"
+sys.path.insert(0, str(antlr_path))
+from com.rules.grammar.RulesParser import RulesParser
+```

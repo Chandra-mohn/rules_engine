@@ -74,36 +74,30 @@ class RuleDataExtractor(RulesListener):
     def _convert_rule_step(self, ctx):
         """Convert a rule step context to Java code."""
         if ctx.IF():
-            # Conditional step: if condition then actions (elseif condition then actions)* (else actions)? endif
+            # Conditional step: if condition then block (elseif condition then block)* (else block)? endif
 
             # Main if clause
             condition = self._convert_condition(ctx.condition(0))
-            then_actions = self._convert_action_list(ctx.actionList(0))
+            then_block = self._convert_block(ctx.block(0), indent_level=1)
 
             java_code = f"if ({condition}) {{\n"
-            java_code += "    matched = true;\n"
-            for action in then_actions:
-                java_code += self._generate_action_add(action)
+            java_code += then_block
 
             # Handle elseif clauses (multiple possible)
             num_conditions = len(ctx.condition())
             for i in range(1, num_conditions):
                 elseif_condition = self._convert_condition(ctx.condition(i))
-                elseif_actions = self._convert_action_list(ctx.actionList(i))
+                elseif_block = self._convert_block(ctx.block(i), indent_level=1)
 
                 java_code += "} else if (" + elseif_condition + ") {\n"
-                java_code += "    matched = true;\n"
-                for action in elseif_actions:
-                    java_code += self._generate_action_add(action)
+                java_code += elseif_block
 
             # Handle final else clause (optional)
             if ctx.ELSE():
-                # Else actions are in the last actionList
-                else_actions = self._convert_action_list(ctx.actionList(num_conditions))
+                # Else block is in the last block
+                else_block = self._convert_block(ctx.block(num_conditions), indent_level=1)
                 java_code += "} else {\n"
-                java_code += "    matched = true;\n"
-                for action in else_actions:
-                    java_code += self._generate_action_add(action)
+                java_code += else_block
 
             java_code += "}"
             return java_code
@@ -115,6 +109,55 @@ class RuleDataExtractor(RulesListener):
                 self.actions_list.append(action)  # Store for action template
                 java_code += self._generate_action_add(action)
             return java_code
+
+    def _convert_block(self, ctx, indent_level=0):
+        """Convert a block (nested rule steps or action list) to Java code.
+
+        Args:
+            ctx: Block context from ANTLR parser
+            indent_level: Current indentation level for proper code formatting
+
+        Returns:
+            str: Java code with proper indentation
+        """
+        if not ctx:
+            return ""
+
+        java_code = ""
+
+        # Check if block contains rule steps (nested if/then/else) or direct actions
+        if ctx.ruleStep():
+            # Block contains nested rule steps - recursively convert each
+            for rule_step_ctx in ctx.ruleStep():
+                step_code = self._convert_rule_step(rule_step_ctx)
+                # Indent each line of the generated step code
+                java_code += self._indent(step_code, indent_level)
+        elif ctx.actionList():
+            # Block contains direct action list
+            java_code += self._indent("matched = true;\n", indent_level)
+            actions = self._convert_action_list(ctx.actionList())
+            for action in actions:
+                action_code = self._generate_action_add(action)
+                java_code += self._indent(action_code, indent_level)
+
+        return java_code
+
+    def _indent(self, code, level):
+        """Add indentation to code block.
+
+        Args:
+            code: Code string to indent
+            level: Number of indentation levels (1 level = 4 spaces)
+
+        Returns:
+            str: Indented code
+        """
+        if not code:
+            return ""
+        indent = "    " * level
+        lines = code.split('\n')
+        indented_lines = [indent + line if line.strip() else line for line in lines]
+        return '\n'.join(indented_lines)
 
     def _convert_condition(self, ctx):
         """Convert condition to Java boolean expression."""

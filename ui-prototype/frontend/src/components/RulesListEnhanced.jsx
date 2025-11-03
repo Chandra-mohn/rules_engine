@@ -182,7 +182,7 @@ const RulesListEnhanced = ({ onEditRule, onCreateRule, onGapAnalysis }) => {
   const handleTest = (rule) => {
     message.info(`Testing rule: ${rule.name}`);
   };
-  
+
   // Handle execute
   const handleExecute = (rule) => {
     if (rule.status !== 'PROD') {

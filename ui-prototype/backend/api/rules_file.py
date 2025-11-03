@@ -609,3 +609,144 @@ def generate_production_code():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@rules_file_bp.route('/rules/gap-analysis', methods=['GET'])
+def get_gap_analysis():
+    """
+    Gap analysis endpoint to identify missing actions and validate rules.
+    Returns analysis of all rules with validation status and missing dependencies.
+    """
+    try:
+        # Get pagination params
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 20))
+        filters = request.args.getlist('filter')  # Get multiple filter values
+
+        # Get all rules
+        all_rules = rule_file_service.list_rules()
+
+        # Perform gap analysis on each rule
+        analysis_results = []
+
+        for rule in all_rules:
+            # Extract actions and attributes from rule content
+            content = rule.get('content', '')
+
+            # Simple regex-based extraction (can be enhanced with proper parsing)
+            actions_found = set(re.findall(r'\b([a-z][a-zA-Z0-9_]*)\s*\(', content))
+            attributes_found = set(re.findall(r'\b(customer|applicant|transaction|account)\.[a-zA-Z0-9_]+', content))
+
+            # For now, assume all found actions are valid (no missing actions)
+            # In a real implementation, this would check against a known set of actions
+            missing_actions = []
+
+            # Determine validation status based on whether rule has been tested/compiled
+            validation_status = 'valid' if rule.get('status') in ['VALID', 'PROD'] else 'error'
+
+            analysis_results.append({
+                'rule': {
+                    'id': rule.get('id'),
+                    'name': rule.get('name'),
+                    'item_type': rule.get('item_type', 'rule'),
+                    'status': rule.get('status', 'DRAFT'),
+                    'content': rule.get('content', '')  # Frontend expects this for expanded row
+                },
+                'validation_status': validation_status,
+                'validation_errors': [],  # Frontend expects this for expanded row
+                'missing_actions': missing_actions,
+                'extracted_attributes': list(attributes_found),  # Frontend expects this name
+                'referenced_actions': list(actions_found),  # Frontend expects this name
+                'referenced_actionsets': [],  # Frontend expects this field
+                'analyzed_at': datetime.now().isoformat()
+            })
+
+        # Apply filters if provided
+        if filters:
+            filtered_results = []
+            for result in analysis_results:
+                # Filter by item type
+                if 'rule' in filters and result['rule']['item_type'] == 'rule':
+                    filtered_results.append(result)
+                elif 'actionset' in filters and result['rule']['item_type'] == 'actionset':
+                    filtered_results.append(result)
+                elif 'action' in filters and result['rule']['item_type'] == 'action':
+                    filtered_results.append(result)
+                # Filter by status
+                elif result['rule']['status'] in filters:
+                    filtered_results.append(result)
+                # Filter by validation status
+                elif result['validation_status'] in filters:
+                    filtered_results.append(result)
+            analysis_results = filtered_results
+
+        # Calculate pagination
+        total = len(analysis_results)
+        total_pages = math.ceil(total / limit)
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        paginated_results = analysis_results[start_idx:end_idx]
+
+        # Calculate comprehensive aggregate statistics
+        type_distribution = {}
+        status_distribution = {}
+        all_actions = set()
+        all_attributes = set()
+
+        for result in analysis_results:
+            # Count by type
+            item_type = result['rule']['item_type']
+            type_distribution[item_type] = type_distribution.get(item_type, 0) + 1
+
+            # Count by status
+            status = result['rule']['status']
+            status_distribution[status] = status_distribution.get(status, 0) + 1
+
+            # Collect all actions and attributes
+            all_actions.update(result['referenced_actions'])
+            all_attributes.update(result['extracted_attributes'])
+
+        # Build aggregates structure matching frontend expectations
+        aggregates = {
+            'total_rules': len(all_rules),
+            'type_distribution': {
+                'rule': type_distribution.get('rule', 0),
+                'actionset': type_distribution.get('actionset', 0),
+                'mon_rule': type_distribution.get('mon_rule', 0),
+                'non_mon_rule': type_distribution.get('non_mon_rule', 0)
+            },
+            'status_distribution': {
+                'VALID': status_distribution.get('VALID', 0),
+                'DRAFT': status_distribution.get('DRAFT', 0),
+                'PROD': status_distribution.get('PROD', 0),
+                'ERROR': status_distribution.get('ERROR', 0)
+            },
+            'action_analysis': {
+                'unique_actions': len(all_actions),
+                'missing_actions': sum(1 for r in analysis_results if len(r['missing_actions']) > 0),
+                'most_referenced': []  # Frontend expects this field
+            },
+            'attribute_analysis': {
+                'missing_attributes': 0,
+                'most_common_attributes': []  # Frontend expects this field
+            }
+        }
+
+        return jsonify({
+            'success': True,
+            'results': paginated_results,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total': total,
+                'total_pages': total_pages
+            },
+            'aggregates': aggregates,
+            'generated_at': datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

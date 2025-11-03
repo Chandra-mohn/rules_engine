@@ -17,6 +17,39 @@ from com.rules.grammar.RulesParser import RulesParser
 from com.rules.grammar.RulesListener import RulesListener
 
 
+class NestingDepthValidator(RulesListener):
+    """Validates nesting depth of if-then-else blocks."""
+
+    MAX_NESTING_DEPTH = 32
+
+    def __init__(self):
+        self.errors = []
+        self.warnings = []
+        self.current_depth = 0
+        self.max_depth_reached = 0
+
+    def enterRuleStep(self, ctx: RulesParser.RuleStepContext):
+        """Track nesting depth as we enter rule steps."""
+        if ctx.IF():
+            self.current_depth += 1
+            self.max_depth_reached = max(self.max_depth_reached, self.current_depth)
+
+            if self.current_depth > self.MAX_NESTING_DEPTH:
+                self.errors.append({
+                    'type': 'excessive_nesting',
+                    'message': f"Nesting depth exceeds maximum of {self.MAX_NESTING_DEPTH} (currently at depth {self.current_depth})",
+                    'depth': self.current_depth,
+                    'line': ctx.start.line if ctx.start else 0,
+                    'column': ctx.start.column if ctx.start else 0,
+                    'severity': 'error'
+                })
+
+    def exitRuleStep(self, ctx: RulesParser.RuleStepContext):
+        """Decrease nesting depth as we exit rule steps."""
+        if ctx.IF():
+            self.current_depth -= 1
+
+
 class SemanticValidator(RulesListener):
     """Semantic validator that checks rule semantics beyond syntax."""
 
@@ -139,7 +172,24 @@ class RuleValidator:
                 'error_type': 'grammar'
             }
 
-        # Step 2: Semantic validation (only if grammar is valid)
+        # Step 2: Nesting depth validation (only if grammar is valid)
+        nesting_validator = NestingDepthValidator()
+
+        if syntax_result['parse_tree']:
+            walker = ParseTreeWalker()
+            walker.walk(nesting_validator, syntax_result['parse_tree'])
+
+        # If nesting depth errors exist, return immediately
+        if nesting_validator.errors:
+            return {
+                'valid': False,
+                'errors': nesting_validator.errors,
+                'warnings': nesting_validator.warnings,
+                'error_type': 'nesting_depth',
+                'max_depth_reached': nesting_validator.max_depth_reached
+            }
+
+        # Step 3: Semantic validation (only if nesting is valid)
         semantic_validator = SemanticValidator(available_actions, available_attributes)
 
         if syntax_result['parse_tree']:
