@@ -51,7 +51,8 @@ class TestScenarioGenerator(RulesListener):
         # Extract main if clause
         if ctx.condition(0):
             condition_info = self._analyze_condition(ctx.condition(0))
-            action_list = self._extract_action_names(ctx.actionList(0))
+            # Get actions from the block, not directly from ruleStep
+            action_list = self._extract_action_names_from_block(ctx.block(0))
 
             # Positive scenario: condition is true
             positive_scenario = {
@@ -79,7 +80,8 @@ class TestScenarioGenerator(RulesListener):
         num_conditions = len(ctx.condition())
         for i in range(1, num_conditions):
             condition_info = self._analyze_condition(ctx.condition(i))
-            action_list = self._extract_action_names(ctx.actionList(i))
+            # Get actions from the corresponding block
+            action_list = self._extract_action_names_from_block(ctx.block(i))
 
             scenario = {
                 'name': f'shouldMatchWhen_ElseIfBranch{i}True',
@@ -93,7 +95,8 @@ class TestScenarioGenerator(RulesListener):
 
         # Extract else clause if present
         if ctx.ELSE():
-            else_actions = self._extract_action_names(ctx.actionList(-1))
+            # Else block is the last block (after all condition blocks)
+            else_actions = self._extract_action_names_from_block(ctx.block(num_conditions))
             scenario = {
                 'name': 'shouldMatchWhen_ElseClauseReached',
                 'description': 'Should match when else clause is reached',
@@ -107,7 +110,7 @@ class TestScenarioGenerator(RulesListener):
     def _extract_action_scenarios(self, ctx):
         """Extract test scenarios from direct action rule."""
 
-        action_list = self._extract_action_names(ctx.actionList(0))
+        action_list = self._extract_action_names(ctx.actionList())
 
         scenario = {
             'name': 'shouldAlwaysExecute_DirectActions',
@@ -464,6 +467,20 @@ class TestScenarioGenerator(RulesListener):
     def _generate_default_values(self):
         """Generate default entity values."""
         return {entity: {} for entity in self.entities}
+
+    def _extract_action_names_from_block(self, block_ctx):
+        """Extract action names from a block (which may contain actionList or nested ruleSteps)."""
+
+        if not block_ctx:
+            return []
+
+        # If block contains an actionList, extract actions from it
+        if block_ctx.actionList():
+            return self._extract_action_names(block_ctx.actionList())
+
+        # If block contains nested ruleSteps, we don't extract actions
+        # (test scenarios for nested conditions should be handled separately)
+        return []
 
     def _extract_action_names(self, action_list_ctx):
         """Extract action names from action list."""

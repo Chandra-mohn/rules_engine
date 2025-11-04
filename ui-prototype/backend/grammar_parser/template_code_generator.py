@@ -103,7 +103,8 @@ class RuleDataExtractor(RulesListener):
             return java_code
         else:
             # Direct actions (no condition)
-            actions = self._convert_action_list(ctx.actionList(0))
+            # Note: actionList() without index because there's only one actionList per ruleStep
+            actions = self._convert_action_list(ctx.actionList())
             java_code = "matched = true;\n"
             for action in actions:
                 self.actions_list.append(action)  # Store for action template
