@@ -6,15 +6,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Account Settings Update
+ * Comma Free Test
  * Generated from DSL rule definition
  *
  * @generated template_code_generator.py v1.0.0
  * @complexity 1/10
  * @performance hot
- * @timestamp 2025-11-08T18:04:50Z
+ * @timestamp 2025-11-08T00:49:06Z
  */
-public class AccountSettingsUpdateRule {
+public class CommaFreeTestRule {
 
     // ==================================================================
     // Result Container
@@ -53,24 +53,12 @@ public class AccountSettingsUpdateRule {
         Map<String, Object> customer = (Map<String, Object>) context.get("customer");
 
         // Rule logic
-        if (_equals(_getFieldValue((Map<String, Object>)customer, "requestType"), _getFieldValue(context, "EMAIL_PREFERENCES"))) {
+        if (_equals(_getFieldValue((Map<String, Object>)customer, "status"), _getFieldValue(context, "active"))) {
             matched = true;
-                actions.add("updateEmailPreferences(" + _getFieldValue((Map<String, Object>)customer, "preferences") + ")");
-                actions.add("sendConfirmationEmail");
-            if (_equals(_getFieldValue((Map<String, Object>)customer, "requestType"), _getFieldValue(context, "ABC"))) {
-                matched = true;
-                    actions.add("sendConfirmationEmail");
-            }} else if ((_equals(_getFieldValue((Map<String, Object>)customer, "requestType"), _getFieldValue(context, "PAYMENT_METHOD"))) && (_equals(_getFieldValue((Map<String, Object>)customer, "verificationComplete"), true))) {
+                actions.add("approveTransaction");
             matched = true;
-                actions.add("updatePaymentMethod(" + _getFieldValue((Map<String, Object>)customer, "newPaymentMethod") + ")");
-                actions.add("notifyCustomer(" + "\"Payment method updated\"" + ")");
-        } else {
-            matched = true;
-                actions.add("requireIdentityVerification");
+                actions.add("sendNotification");
         }
-        matched = true;
-            actions.add("Additional Card Management");
-        
 
         return new RuleResult(matched, actions, finalAction);
     }

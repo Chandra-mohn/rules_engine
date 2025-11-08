@@ -1,4 +1,4 @@
-# Generated from Rules.g4 by ANTLR 4.13.2
+# Generated from /Users/chandramohn/workspace/rules_engine/ui-prototype/backend/java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .RulesParser import RulesParser
@@ -53,12 +53,30 @@ class RulesListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by RulesParser#actionList.
-    def enterActionList(self, ctx:RulesParser.ActionListContext):
+    # Enter a parse tree produced by RulesParser#blockItem.
+    def enterBlockItem(self, ctx:RulesParser.BlockItemContext):
         pass
 
-    # Exit a parse tree produced by RulesParser#actionList.
-    def exitActionList(self, ctx:RulesParser.ActionListContext):
+    # Exit a parse tree produced by RulesParser#blockItem.
+    def exitBlockItem(self, ctx:RulesParser.BlockItemContext):
+        pass
+
+
+    # Enter a parse tree produced by RulesParser#actionSequence.
+    def enterActionSequence(self, ctx:RulesParser.ActionSequenceContext):
+        pass
+
+    # Exit a parse tree produced by RulesParser#actionSequence.
+    def exitActionSequence(self, ctx:RulesParser.ActionSequenceContext):
+        pass
+
+
+    # Enter a parse tree produced by RulesParser#returnStatement.
+    def enterReturnStatement(self, ctx:RulesParser.ReturnStatementContext):
+        pass
+
+    # Exit a parse tree produced by RulesParser#returnStatement.
+    def exitReturnStatement(self, ctx:RulesParser.ReturnStatementContext):
         pass
 
 

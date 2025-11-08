@@ -108,9 +108,14 @@ class TestScenarioGenerator(RulesListener):
             self.scenarios.append(scenario)
 
     def _extract_action_scenarios(self, ctx):
-        """Extract test scenarios from direct action rule."""
+        """Extract test scenarios from direct action rule (ruleStep without IF)."""
 
-        action_list = self._extract_action_names(ctx.actionList())
+        # For ruleSteps without IF, this is not used in the new grammar
+        # since ruleStep now only contains IF statements.
+        # Direct actions at top-level would be blockItems at the rule level,
+        # which are not processed by enterRuleStep.
+        # This method is kept for backwards compatibility but should not be called.
+        action_list = []
 
         scenario = {
             'name': 'shouldAlwaysExecute_DirectActions',
@@ -469,18 +474,34 @@ class TestScenarioGenerator(RulesListener):
         return {entity: {} for entity in self.entities}
 
     def _extract_action_names_from_block(self, block_ctx):
-        """Extract action names from a block (which may contain actionList or nested ruleSteps)."""
+        """Extract action names from a block (which may contain actionSequence or nested ruleSteps)."""
 
         if not block_ctx:
             return []
 
-        # If block contains an actionList, extract actions from it
-        if block_ctx.actionList():
-            return self._extract_action_names(block_ctx.actionList())
+        # New structure: block contains blockItem+ (ruleStep | actionSequence | returnStatement)
+        # Extract actions from all actionSequence items
+        actions = []
+        if hasattr(block_ctx, 'blockItem') and block_ctx.blockItem():
+            for blockItem_ctx in block_ctx.blockItem():
+                if blockItem_ctx.actionSequence():
+                    actions.extend(self._extract_action_names_from_sequence(blockItem_ctx.actionSequence()))
 
-        # If block contains nested ruleSteps, we don't extract actions
-        # (test scenarios for nested conditions should be handled separately)
-        return []
+        return actions
+
+    def _extract_action_names_from_sequence(self, action_sequence_ctx):
+        """Extract action names from actionSequence (single or comma-separated actions)."""
+        if not action_sequence_ctx:
+            return []
+
+        actions = []
+        for action_ctx in action_sequence_ctx.action():
+            if action_ctx.IDENTIFIER():
+                actions.append(action_ctx.IDENTIFIER().getText())
+            elif action_ctx.DQUOTED_STRING():
+                actions.append(action_ctx.DQUOTED_STRING().getText().strip('"'))
+
+        return actions
 
     def _extract_action_names(self, action_list_ctx):
         """Extract action names from action list."""

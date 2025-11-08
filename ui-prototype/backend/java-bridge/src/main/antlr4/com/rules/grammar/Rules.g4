@@ -3,16 +3,17 @@ grammar Rules;
 // Parser rules
 ruleSet: rule+ EOF;
 
-rule: RULE ruleName COLON ruleStep+;
+rule: RULE ruleName COLON blockItem+;
 ruleName: DQUOTED_STRING | SQUOTED_STRING | IDENTIFIER;  // Rule names can use either quote type
 
 ruleStep:
-    IF condition THEN block (ELSEIF condition THEN block)* (ELSE block)? ENDIF
-    | actionList;
+    IF condition THEN block (ELSEIF condition THEN block)* (ELSE block)? ENDIF;
 
-block: ruleStep+ | actionList;
+block: blockItem+;
+blockItem: ruleStep | actionSequence | returnStatement;
 
-actionList: action (',' action)*;
+actionSequence: action (',' action)*;  // Supports both comma-free (1 action) and comma-separated (backwards compat)
+returnStatement: RETURN;
 
 condition: orExpression;
 
@@ -59,6 +60,7 @@ THEN: 'then';
 ELSEIF: 'elseif';
 ELSE: 'else';
 ENDIF: 'endif';
+RETURN: 'return';
 AND: 'and';
 OR: 'or';
 NOT: 'not';

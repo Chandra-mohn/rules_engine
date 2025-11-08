@@ -119,9 +119,8 @@ class SemanticValidator(RulesListener):
         """Validate rule step structure."""
         # Check for unreachable code, missing actions, etc.
         # Note: if/elseif/else structures have actions inside blocks, not at ruleStep level
-        # So we should NOT check ctx.actionList() for if/elseif/else structures
         # Only check for standalone conditions without blocks
-        if ctx.IF() and not ctx.actionList() and not ctx.block():
+        if ctx.IF() and not ctx.block():
             # This would be: "if condition then" with nothing after "then"
             self.warnings.append({
                 'type': 'empty_condition',
@@ -433,13 +432,7 @@ class CursorContextFinder(RulesListener):
                     self.in_condition = True
                     self.context_type = 'condition'
 
-            if ctx.actionList():
-                for action_list in ctx.actionList():
-                    action_start = action_list.start.start
-                    action_stop = action_list.stop.stop
-                    if action_start <= self.cursor_position <= action_stop:
-                        self.in_action = True
-                        self.context_type = 'action'
+            # Action context is now tracked via enterAction(), not from ruleStep
 
     def enterAttribute(self, ctx: RulesParser.AttributeContext):
         """Extract current entity context."""

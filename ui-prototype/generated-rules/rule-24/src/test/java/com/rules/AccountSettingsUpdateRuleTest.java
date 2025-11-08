@@ -10,7 +10,7 @@ import java.util.*;
 /**
  * Unit tests for Account Settings Update
  * Generated from DSL rule definition
- * Complexity Score: 3/10
+ * Complexity Score: 1/10
  */
 @DisplayName("Account Settings Update - Test Suite")
 public class AccountSettingsUpdateRuleTest {
@@ -34,6 +34,9 @@ public class AccountSettingsUpdateRuleTest {
 
         // Assert
         assertEquals(true, result.isMatched(), "Rule should match");
+        assertEquals(2, result.getActions().size(), "Expected 2 action(s)");
+        assertEquals("updateEmailPreferences", result.getActions().get(0), "Action 0 should be updateEmailPreferences");
+        assertEquals("sendConfirmationEmail", result.getActions().get(1), "Action 1 should be sendConfirmationEmail");
         assertNull(result.getFinalAction(), "Final action should be null");
     }
 
@@ -63,6 +66,9 @@ public class AccountSettingsUpdateRuleTest {
 
         // Assert
         assertEquals(true, result.isMatched(), "Rule should match");
+        assertEquals(2, result.getActions().size(), "Expected 2 action(s)");
+        assertEquals("updatePaymentMethod", result.getActions().get(0), "Action 0 should be updatePaymentMethod");
+        assertEquals("notifyCustomer", result.getActions().get(1), "Action 1 should be notifyCustomer");
         assertNull(result.getFinalAction(), "Final action should be null");
     }
 
@@ -78,24 +84,8 @@ public class AccountSettingsUpdateRuleTest {
 
         // Assert
         assertEquals(true, result.isMatched(), "Rule should match");
-        assertNull(result.getFinalAction(), "Final action should be null");
-    }
-
-    @Test
-    @DisplayName("Should always execute direct actions")
-    void shouldAlwaysExecute_DirectActions() {
-        // Arrange
-        // TODO: Set up test data for entities: customer
-        context.put("customer", new HashMap<>());
-
-        // Act
-        AccountSettingsUpdateRule.RuleResult result = AccountSettingsUpdateRule.evaluate(context);
-
-        // Assert
-        assertEquals(true, result.isMatched(), "Rule should match");
-        assertEquals(2, result.getActions().size(), "Expected 2 action(s)");
-        assertTrue(result.getActions().get(0).startsWith("updateEmailPreferences("), "Action 0 should be updateEmailPreferences");
-        assertEquals("sendConfirmationEmail", result.getActions().get(1), "Action 1 should be sendConfirmationEmail");
+        assertEquals(1, result.getActions().size(), "Expected 1 action(s)");
+        assertEquals("requireIdentityVerification", result.getActions().get(0), "Action 0 should be requireIdentityVerification");
         assertNull(result.getFinalAction(), "Final action should be null");
     }
 
@@ -111,6 +101,8 @@ public class AccountSettingsUpdateRuleTest {
 
         // Assert
         assertEquals(true, result.isMatched(), "Rule should match");
+        assertEquals(1, result.getActions().size(), "Expected 1 action(s)");
+        assertEquals("sendConfirmationEmail", result.getActions().get(0), "Action 0 should be sendConfirmationEmail");
         assertNull(result.getFinalAction(), "Final action should be null");
     }
 
@@ -126,73 +118,6 @@ public class AccountSettingsUpdateRuleTest {
 
         // Assert
         assertEquals(false, result.isMatched(), "Rule should not match");
-    }
-
-    @Test
-    @DisplayName("Should always execute direct actions")
-    void shouldAlwaysExecute_DirectActions() {
-        // Arrange
-        // TODO: Set up test data for entities: customer
-        context.put("customer", new HashMap<>());
-
-        // Act
-        AccountSettingsUpdateRule.RuleResult result = AccountSettingsUpdateRule.evaluate(context);
-
-        // Assert
-        assertEquals(true, result.isMatched(), "Rule should match");
-        assertEquals(1, result.getActions().size(), "Expected 1 action(s)");
-        assertEquals("sendConfirmationEmail", result.getActions().get(0), "Action 0 should be sendConfirmationEmail");
-        assertNull(result.getFinalAction(), "Final action should be null");
-    }
-
-    @Test
-    @DisplayName("Should always execute direct actions")
-    void shouldAlwaysExecute_DirectActions() {
-        // Arrange
-        // TODO: Set up test data for entities: customer
-        context.put("customer", new HashMap<>());
-
-        // Act
-        AccountSettingsUpdateRule.RuleResult result = AccountSettingsUpdateRule.evaluate(context);
-
-        // Assert
-        assertEquals(true, result.isMatched(), "Rule should match");
-        assertEquals(2, result.getActions().size(), "Expected 2 action(s)");
-        assertTrue(result.getActions().get(0).startsWith("updatePaymentMethod("), "Action 0 should be updatePaymentMethod");
-        assertTrue(result.getActions().get(1).startsWith("notifyCustomer("), "Action 1 should be notifyCustomer");
-        assertNull(result.getFinalAction(), "Final action should be null");
-    }
-
-    @Test
-    @DisplayName("Should always execute direct actions")
-    void shouldAlwaysExecute_DirectActions() {
-        // Arrange
-        // TODO: Set up test data for entities: customer
-        context.put("customer", new HashMap<>());
-
-        // Act
-        AccountSettingsUpdateRule.RuleResult result = AccountSettingsUpdateRule.evaluate(context);
-
-        // Assert
-        assertEquals(true, result.isMatched(), "Rule should match");
-        assertEquals(1, result.getActions().size(), "Expected 1 action(s)");
-        assertEquals("requireIdentityVerification", result.getActions().get(0), "Action 0 should be requireIdentityVerification");
-        assertNull(result.getFinalAction(), "Final action should be null");
-    }
-
-    @Test
-    @DisplayName("Should always execute direct actions")
-    void shouldAlwaysExecute_DirectActions() {
-        // Arrange
-        // TODO: Set up test data for entities: customer
-        context.put("customer", new HashMap<>());
-
-        // Act
-        AccountSettingsUpdateRule.RuleResult result = AccountSettingsUpdateRule.evaluate(context);
-
-        // Assert
-        assertEquals(true, result.isMatched(), "Rule should match");
-        assertNull(result.getFinalAction(), "Final action should be null");
     }
 
     // Helper method: Create entity map from key-value pairs

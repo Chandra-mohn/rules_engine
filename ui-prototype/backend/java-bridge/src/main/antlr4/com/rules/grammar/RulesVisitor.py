@@ -1,4 +1,4 @@
-# Generated from java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4 by ANTLR 4.13.2
+# Generated from /Users/chandramohn/workspace/rules_engine/ui-prototype/backend/java-bridge/src/main/antlr4/com/rules/grammar/Rules.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .RulesParser import RulesParser
@@ -29,8 +29,23 @@ class RulesVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by RulesParser#actionList.
-    def visitActionList(self, ctx:RulesParser.ActionListContext):
+    # Visit a parse tree produced by RulesParser#block.
+    def visitBlock(self, ctx:RulesParser.BlockContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by RulesParser#blockItem.
+    def visitBlockItem(self, ctx:RulesParser.BlockItemContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by RulesParser#actionSequence.
+    def visitActionSequence(self, ctx:RulesParser.ActionSequenceContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by RulesParser#returnStatement.
+    def visitReturnStatement(self, ctx:RulesParser.ReturnStatementContext):
         return self.visitChildren(ctx)
 
 

@@ -33,9 +33,10 @@ class RuleDataExtractor(RulesListener):
         self.current_step = None
         self.estimated_steps = 0
         self.actions_list = []  # For direct actions
+        self.rule_step_depth = 0  # Track nesting depth
 
     def enterRule(self, ctx):
-        """Extract rule name."""
+        """Extract rule name and process top-level block items."""
         if ctx.ruleName():
             # Try IDENTIFIER first
             if hasattr(ctx.ruleName(), 'IDENTIFIER') and ctx.ruleName().IDENTIFIER():
@@ -47,6 +48,32 @@ class RuleDataExtractor(RulesListener):
             else:
                 self.rule_name = ctx.ruleName().getText().strip('"\'')
 
+    def exitRule(self, ctx):
+        """Process top-level blockItems in the rule."""
+        # Rule now contains blockItem+ instead of ruleStep+
+        # We need to convert these top-level blockItems
+        if hasattr(ctx, 'blockItem') and ctx.blockItem():
+            # Clear any rule_steps collected by enterRuleStep/exitRuleStep
+            self.rule_steps = []
+
+            # Process each top-level blockItem
+            for blockItem_ctx in ctx.blockItem():
+                if blockItem_ctx.ruleStep():
+                    # Top-level conditional
+                    java_code = self._convert_rule_step(blockItem_ctx.ruleStep())
+                    self.rule_steps.append(java_code)
+                elif blockItem_ctx.actionSequence():
+                    # Top-level action(s) - comma-separated or single
+                    java_code = "matched = true;\n"
+                    actions = self._convert_action_sequence(blockItem_ctx.actionSequence())
+                    for action in actions:
+                        java_code += self._generate_action_add(action)
+                    self.rule_steps.append(java_code)
+                elif blockItem_ctx.returnStatement():
+                    # Top-level return
+                    java_code = "return new RuleResult(true, actions, finalAction);\n"
+                    self.rule_steps.append(java_code)
+
     def enterAttribute(self, ctx):
         """Extract entity names from attributes (e.g., 'applicant' from 'applicant.creditScore')."""
         if ctx.attributeIdentifier() and len(ctx.attributeIdentifier()) > 0:
@@ -57,22 +84,31 @@ class RuleDataExtractor(RulesListener):
 
     def enterRuleStep(self, ctx):
         """Process each rule step (if-then-else or direct actions)."""
+        self.rule_step_depth += 1
         self.estimated_steps += 1
-        self.current_step = {
-            'type': 'conditional' if ctx.IF() else 'direct',
-            'has_else': ctx.ELSE() is not None if ctx.IF() else False,
-            'java_code': None
-        }
+
+        # Only track top-level rule steps (depth == 1)
+        # Nested rule steps are handled by _convert_block recursion
+        if self.rule_step_depth == 1:
+            self.current_step = {
+                'type': 'conditional' if ctx.IF() else 'direct',
+                'has_else': ctx.ELSE() is not None if ctx.IF() else False,
+                'java_code': None
+            }
 
     def exitRuleStep(self, ctx):
         """Convert completed rule step to Java code."""
-        if self.current_step:
+        # Only process top-level rule steps (depth == 1)
+        if self.rule_step_depth == 1 and self.current_step:
             java_code = self._convert_rule_step(ctx)
             self.rule_steps.append(java_code)
             self.current_step = None
 
+        self.rule_step_depth -= 1
+
     def _convert_rule_step(self, ctx):
         """Convert a rule step context to Java code."""
+        # RuleStep now only handles IF statements (actions moved to blockItem level)
         if ctx.IF():
             # Conditional step: if condition then block (elseif condition then block)* (else block)? endif
 
@@ -101,18 +137,12 @@ class RuleDataExtractor(RulesListener):
 
             java_code += "}"
             return java_code
-        else:
-            # Direct actions (no condition)
-            # Note: actionList() without index because there's only one actionList per ruleStep
-            actions = self._convert_action_list(ctx.actionList())
-            java_code = "matched = true;\n"
-            for action in actions:
-                self.actions_list.append(action)  # Store for action template
-                java_code += self._generate_action_add(action)
-            return java_code
+
+        # RuleStep should only contain IF statements now
+        return ""
 
     def _convert_block(self, ctx, indent_level=0):
-        """Convert a block (nested rule steps or action list) to Java code.
+        """Convert a block (blockItem+ structure) to Java code.
 
         Args:
             ctx: Block context from ANTLR parser
@@ -126,20 +156,23 @@ class RuleDataExtractor(RulesListener):
 
         java_code = ""
 
-        # Check if block contains rule steps (nested if/then/else) or direct actions
-        if ctx.ruleStep():
-            # Block contains nested rule steps - recursively convert each
-            for rule_step_ctx in ctx.ruleStep():
-                step_code = self._convert_rule_step(rule_step_ctx)
-                # Indent each line of the generated step code
-                java_code += self._indent(step_code, indent_level)
-        elif ctx.actionList():
-            # Block contains direct action list
-            java_code += self._indent("matched = true;\n", indent_level)
-            actions = self._convert_action_list(ctx.actionList())
-            for action in actions:
-                action_code = self._generate_action_add(action)
-                java_code += self._indent(action_code, indent_level)
+        # New structure: block contains blockItem+ (ruleStep | actionSequence | returnStatement)
+        if hasattr(ctx, 'blockItem') and ctx.blockItem():
+            for blockItem_ctx in ctx.blockItem():
+                if blockItem_ctx.ruleStep():
+                    # Nested conditional - recurse
+                    step_code = self._convert_rule_step(blockItem_ctx.ruleStep())
+                    java_code += self._indent(step_code, indent_level)
+                elif blockItem_ctx.actionSequence():
+                    # Action sequence (comma-separated or single)
+                    java_code += self._indent("matched = true;\n", indent_level)
+                    actions = self._convert_action_sequence(blockItem_ctx.actionSequence())
+                    for action in actions:
+                        action_code = self._generate_action_add(action)
+                        java_code += self._indent(action_code, indent_level)
+                elif blockItem_ctx.returnStatement():
+                    # Early exit
+                    java_code += self._indent("return new RuleResult(true, actions, finalAction);\n", indent_level)
 
         return java_code
 
@@ -352,30 +385,54 @@ class RuleDataExtractor(RulesListener):
         args_str = ", ".join(args)
         return f"{func_name}({args_str})"
 
+    def _convert_single_action(self, action_ctx):
+        """Convert single action context to action object.
+
+        Args:
+            action_ctx: Single action context from ANTLR parser
+
+        Returns:
+            dict: Action object with 'name' and 'params' fields
+        """
+        action_name = None
+        if hasattr(action_ctx, 'IDENTIFIER') and action_ctx.IDENTIFIER():
+            action_name = action_ctx.IDENTIFIER().getText()
+        elif hasattr(action_ctx, 'DQUOTED_STRING') and action_ctx.DQUOTED_STRING():
+            action_name = action_ctx.DQUOTED_STRING().getText().strip('"')
+        elif hasattr(action_ctx, 'STRING') and action_ctx.STRING():
+            action_name = action_ctx.STRING().getText().strip('"\'')
+
+        # Handle parameterized actions
+        params = []
+        if hasattr(action_ctx, 'parameterList') and action_ctx.parameterList():
+            for param in action_ctx.parameterList().parameter():
+                params.append({
+                    'expression': self._convert_expression(param.expression()),
+                    'is_literal': self._is_literal_expression(param.expression())
+                })
+
+        return {
+            'name': action_name,
+            'params': params
+        }
+
     def _convert_action_list(self, ctx):
         """Convert action list to array of action objects with name and parameters."""
         actions = []
         for action_ctx in ctx.action():
-            action_name = None
-            if hasattr(action_ctx, 'IDENTIFIER') and action_ctx.IDENTIFIER():
-                action_name = action_ctx.IDENTIFIER().getText()
-            elif hasattr(action_ctx, 'STRING') and action_ctx.STRING():
-                action_name = action_ctx.STRING().getText().strip('"\'')
+            actions.append(self._convert_single_action(action_ctx))
+        return actions
 
-            # Handle parameterized actions
-            params = []
-            if hasattr(action_ctx, 'parameterList') and action_ctx.parameterList():
-                for param in action_ctx.parameterList().parameter():
-                    params.append({
-                        'expression': self._convert_expression(param.expression()),
-                        'is_literal': self._is_literal_expression(param.expression())
-                    })
+    def _convert_action_sequence(self, ctx):
+        """Convert action sequence to array of action objects.
 
-            actions.append({
-                'name': action_name,
-                'params': params
-            })
-
+        Action sequence supports both:
+        - Single action (comma-free): action
+        - Multiple actions (backwards compat): action, action, action
+        """
+        actions = []
+        for action_ctx in ctx.action():
+            actions.append(self._convert_single_action(action_ctx))
         return actions
 
     def _is_literal_expression(self, expr_ctx):

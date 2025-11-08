@@ -434,8 +434,7 @@ class RuleInfoExtractor(RulesListener):
         """Check for conditions and actions."""
         if ctx.IF():
             self.has_conditions = True
-        if ctx.actionList():
-            self.has_actions = True
+        # Actions are now tracked via enterAction(), not from ruleStep
 
     def enterAttribute(self, ctx):
         """Extract attribute references."""
