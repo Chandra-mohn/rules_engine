@@ -1,0 +1,6 @@
+# Points-based rewards card approval for high spenders
+
+rule rewardsPointsRule:
+    if applicant.creditScore >= 700 and applicant.annualIncome >= 60000 then approveApplication
+    if applicant.employmentStatus == "employed" and applicant.employmentYears >= 3 then approveApplication
+    if applicant.creditScore < 680 then rejectApplication

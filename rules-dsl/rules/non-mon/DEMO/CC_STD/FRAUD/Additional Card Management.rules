@@ -1,0 +1,11 @@
+# Manage additional card requests and lost card disabling
+
+rule "Additional Card Management":
+    if request.type == "ADD_CARD" and account.cardCount < 3 then
+        issueAdditionalCard(request.cardType),
+        updateAccountStatus("ACTIVE")
+    else if request.type == "DISABLE_CARD" and request.reason == "LOST" then
+        disableCard(request.cardNumber),
+        alertFraudDepartment(request.cardNumber)
+    else
+        rejectRequest("Card limit reached")

@@ -1,0 +1,10 @@
+# Authorize credit card purchase transactions
+
+rule "Purchase Authorization":
+    if transaction.amount <= account.creditLimit and transaction.merchant.riskLevel == "LOW" then
+        approveTransaction(transaction.amount),
+        updateAccountBalance(transaction.amount)
+    else if transaction.amount > account.creditLimit then
+        declineTransaction("Insufficient credit limit")
+    else
+        declineTransaction("High risk merchant")

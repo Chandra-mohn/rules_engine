@@ -1,0 +1,40 @@
+{
+  "entity_name": "applicant",
+  "display_name": "Applicant",
+  "description": "Credit card applicant information",
+  "schema_version": "v2",
+  "attributes": [
+    {
+      "name": "creditScore",
+      "type": "number",
+      "description": "FICO credit score (300-850)",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "income",
+      "type": "number",
+      "description": "Annual income in USD",
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "age",
+      "type": "number",
+      "description": "Applicant age in years",
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "employmentStatus",
+      "type": "string",
+      "description": "Current employment status",
+      "required": false,
+      "default": null
+    }
+  ],
+  "metadata": {
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-10-20T00:00:00Z"
+  }
+}

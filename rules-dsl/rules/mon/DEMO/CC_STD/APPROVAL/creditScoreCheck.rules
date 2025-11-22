@@ -1,0 +1,5 @@
+# Basic credit score validation for standard cards
+
+rule creditScoreCheck:
+    if applicant.creditScore >= 700 then approveApplication
+    if applicant.creditScore < 600 then rejectApplication

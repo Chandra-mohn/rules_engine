@@ -1,0 +1,6 @@
+# High income requirement for platinum cards
+
+rule platinumIncomeCheck:
+    if applicant.annualIncome >= 150000 then approveApplication
+    if applicant.annualIncome < 100000 then rejectApplication
+    if applicant.annualIncome >= 100000 and applicant.creditScore >= 750 then conditionalApproval

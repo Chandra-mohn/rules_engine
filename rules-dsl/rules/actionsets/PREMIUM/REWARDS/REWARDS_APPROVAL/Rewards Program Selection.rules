@@ -1,0 +1,9 @@
+# Dynamic rewards program assignment based on spending patterns
+
+rule rewardsProgramSelection:
+    if applicant.creditScore >= 720 then
+        if applicant.annualIncome >= 75000 then premiumRewards, "5% cashback tier"
+        else standardRewards, "2% cashback tier"
+    if applicant.employmentStatus == "student" and applicant.age >= 21 then
+        studentRewards, "1% cashback with bonus categories"
+    else basicRewards

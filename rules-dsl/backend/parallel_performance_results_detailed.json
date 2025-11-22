@@ -1,0 +1,95 @@
+{
+  "scaling": {
+    "1": {
+      "tps": 36079.17385504577,
+      "execution_time": 1.51784086227417,
+      "success_rate": 99.9,
+      "efficiency_percent": 72.15834771009153,
+      "scaling_factor": 1.0,
+      "workers_used": 1
+    },
+    "2": {
+      "tps": 71170.36509611315,
+      "execution_time": 0.8228418827056885,
+      "success_rate": 99.9,
+      "efficiency_percent": 71.17036509611316,
+      "scaling_factor": 1.9726162628349593,
+      "workers_used": 2
+    },
+    "4": {
+      "tps": 134915.71356630532,
+      "execution_time": 0.48979687690734863,
+      "success_rate": 99.9,
+      "efficiency_percent": 67.45785678315266,
+      "scaling_factor": 3.7394346696615672,
+      "workers_used": 4
+    },
+    "8": {
+      "tps": 225069.00660686468,
+      "execution_time": 0.33991193771362305,
+      "success_rate": 99.9,
+      "efficiency_percent": 56.267251651716165,
+      "scaling_factor": 6.238197346511253,
+      "workers_used": 8
+    },
+    "16": {
+      "tps": 140529.9920044217,
+      "execution_time": 0.48540806770324707,
+      "success_rate": 99.9,
+      "efficiency_percent": 17.566249000552713,
+      "scaling_factor": 3.895044619619754,
+      "workers_used": 16
+    },
+    "24": {
+      "tps": 138210.26990868466,
+      "execution_time": 0.48842287063598633,
+      "success_rate": 99.9,
+      "efficiency_percent": 11.517522492390388,
+      "scaling_factor": 3.8307492977518827,
+      "workers_used": 25
+    },
+    "32": {
+      "tps": 138947.97897331076,
+      "execution_time": 0.48815107345581055,
+      "success_rate": 99.9,
+      "efficiency_percent": 8.684248685831923,
+      "scaling_factor": 3.8511962477732435,
+      "workers_used": 33
+    }
+  },
+  "50k_validation": {
+    "8": {
+      "description": "8 workers - Conservative",
+      "tps": 213085.34862502437,
+      "target_met": true,
+      "sla_compliant": true,
+      "processing_time": 0.3753988742828369,
+      "success_rate": 99.99
+    },
+    "16": {
+      "description": "16 workers - Optimal",
+      "tps": 130731.1661079631,
+      "target_met": true,
+      "sla_compliant": true,
+      "processing_time": 0.7648520469665527,
+      "success_rate": 99.99
+    },
+    "24": {
+      "description": "24 workers - High Performance",
+      "tps": 128941.82914276228,
+      "target_met": true,
+      "sla_compliant": true,
+      "processing_time": 0.9305591583251953,
+      "success_rate": 99.99
+    }
+  },
+  "production": {
+    "tps": 95648.16117420039,
+    "processing_time": 2.0282669067382812,
+    "success_rate": 97.0,
+    "sla_compliant": true,
+    "hourly_capacity": 344333380.2271214,
+    "daily_capacity": 4132000562.725457
+  },
+  "resilience": true
+}

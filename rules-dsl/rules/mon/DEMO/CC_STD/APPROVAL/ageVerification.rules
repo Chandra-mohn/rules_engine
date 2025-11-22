@@ -1,0 +1,5 @@
+# Minimum age requirement for credit cards
+
+rule ageVerification:
+    if applicant.age < 18 then rejectApplication
+    if applicant.age >= 18 then approveApplication

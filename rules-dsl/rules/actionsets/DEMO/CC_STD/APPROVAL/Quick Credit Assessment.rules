@@ -1,0 +1,7 @@
+# Fast credit scoring for instant decisions
+
+rule quickCreditAssessment:
+    calculateRiskScore
+    if applicant.creditScore >= 750 and applicant.annualIncome >= 60000 then instantApproval
+    if applicant.creditScore < 550 then immediateReject
+    else "Standard Application Workflow"

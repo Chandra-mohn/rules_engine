@@ -1,0 +1,8 @@
+# Complete workflow for standard credit card applications
+
+rule "Standard Application Workflow":
+    validateApplicantInfo
+    if applicant.creditScore >= 700 then approveApplication, sendWelcomeEmail
+    if applicant.creditScore < 600 then rejectApplication, sendRejectionLetter
+    else conditionalApproval, requestDocumentation
+    updateCustomerRecord

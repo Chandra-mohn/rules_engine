@@ -1,0 +1,13 @@
+rule RecourseMerchant:
+    getServiceDomain('Fullfilcreditcard')
+    reportLog('editRecourseFlag', recourseCode)
+    reportLog('editRecourseMrch', RecourseMerchantIdentifier)
+    if trnmRecourseFlag != recourseCode or trnmRecourseMerchant != RecourseMerchantIdentifier
+    then
+        reportLog('nonMonChangedMe', 'Y'),
+        updateServiceDomain('recourceCode', trnmRecourseFlag),
+        reportLog('edit2RecourceFlag', trnmRecourseFlag),
+        updateServiceDomain('recourseMerchantIdentifier', trnmRecourseMerchant),
+        reportLog('edit2RecourseMerc', trnmRecourseMerchant)
+    endif
+    

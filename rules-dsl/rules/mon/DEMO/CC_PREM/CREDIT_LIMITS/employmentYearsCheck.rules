@@ -1,0 +1,6 @@
+# Employment stability check for credit limit determination
+
+rule employmentYearsCheck:
+    if applicant.employmentYears >= 2 then approveApplication
+    if applicant.employmentYears < 1 then rejectApplication
+    if applicant.employmentYears >= 1 and applicant.employmentYears < 2 then conditionalApproval

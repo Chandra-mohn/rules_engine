@@ -1,0 +1,6 @@
+# Combined risk factor assessment for fraud detection
+
+rule riskAssessment:
+    if applicant.creditScore < 600 and applicant.annualIncome < 30000 then rejectApplication
+    if applicant.age < 21 and applicant.employmentYears < 1 then rejectApplication
+    if applicant.creditScore >= 650 and applicant.employmentYears >= 3 then approveApplication

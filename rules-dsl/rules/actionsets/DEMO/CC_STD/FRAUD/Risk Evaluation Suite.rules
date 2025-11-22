@@ -1,0 +1,8 @@
+# Comprehensive risk assessment for fraud prevention
+
+rule riskEvaluation:
+    calculateRiskScore
+    if applicant.bankruptcyHistory == true then rejectApplication, logHighRiskApplicant
+    if applicant.employmentYears < 1 and applicant.age < 25 then requireCoSigner, scheduleManualReview
+    if applicant.monthlyIncome >= 5000 and applicant.creditScore >= 700 then approveApplication
+    else conditionalApproval

@@ -1,0 +1,20 @@
+---
+context: Premium High Value Context
+---
+
+# Process international purchases with foreign exchange fees
+
+rule "International Transaction Processing":
+    if transaction.location.country != 'US' and transaction.amount <= account.internationalLimit then
+        approveTransaction(transaction.amount),
+        applyForeignExchangeFee(transaction.amount * 0.025),
+        updateAccountBalance(transaction.amount + transaction.amount * 0.025)
+    elseif transaction.location.country != 'US' and transaction.amount > account.internationalLimit then
+        declineTransaction("International transaction limit exceeded")
+    else
+        approveTransaction(transaction.amount)
+    endif
+    if applicant.creditScore > 720
+    then
+        approveTransaction
+    endif

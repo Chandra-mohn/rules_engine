@@ -1,0 +1,6 @@
+# Cashback rewards card approval criteria
+
+rule rewardsCashbackRule:
+    if applicant.creditScore >= 680 and applicant.monthlyIncome >= 3000 then approveApplication
+    if applicant.creditScore < 650 then rejectApplication
+    if applicant.employmentStatus == "student" and applicant.age >= 21 then conditionalApproval

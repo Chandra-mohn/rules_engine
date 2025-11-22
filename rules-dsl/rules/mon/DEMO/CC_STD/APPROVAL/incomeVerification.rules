@@ -1,0 +1,6 @@
+# Annual income threshold for standard cards
+
+rule incomeVerification:
+    if applicant.annualIncome >= 50000 then approveApplication
+    if applicant.annualIncome < 25000 then rejectApplication
+    if applicant.annualIncome >= 25000 and applicant.annualIncome < 50000 then conditionalApproval

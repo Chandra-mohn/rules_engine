@@ -1,3 +1,0 @@
-rule "MPD T @abc":
-  if "CH CO CALL" = Y then "MIN PAY"
-  if "LATE FEE CODE" <> F AND "LATE FEE HIST" <> F AND "LATE FEE HIST COM 3" <> F then "MIN PAY DUE"

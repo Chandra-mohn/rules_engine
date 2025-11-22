@@ -1,0 +1,31 @@
+# Rules DSL Workspace Configuration
+# VS Code extension reads this file to configure paths
+
+rulesEngine:
+  # Schema version for DSL grammar
+  schemaVersion: v2
+
+  # Convention-based discovery paths
+  paths:
+    # Entity schemas for autocomplete
+    schemas: ./rules/schemas/
+
+    # Test contexts for rule execution
+    contexts: ./rules/contexts/
+
+    # Rules base directory (mon/, non-mon/, actionsets/)
+    rules: ./rules/
+
+    # Value lists for validation
+    lists: ./rules/lists/
+
+  # Backend configuration
+  backend:
+    # Flask backend URL
+    url: http://localhost:5002
+
+    # ANTLR validation endpoint
+    validateEndpoint: /api/validate
+
+    # Code generation endpoint
+    generateEndpoint: /api/generate

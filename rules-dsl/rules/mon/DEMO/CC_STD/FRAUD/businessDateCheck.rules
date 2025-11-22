@@ -1,0 +1,5 @@
+# Business date validation for fraud prevention
+
+rule businessDateCheck:
+    if applicant.applicationDate after business_date then conditionalApproval
+    if applicant.applicationDate before business_date then rejectApplication

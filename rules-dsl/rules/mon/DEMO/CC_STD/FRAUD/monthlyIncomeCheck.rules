@@ -1,0 +1,6 @@
+# Monthly income validation for fraud detection
+
+rule monthlyIncomeCheck:
+    if applicant.monthlyIncome >= 4000 then approveApplication
+    if applicant.monthlyIncome < 2000 then rejectApplication
+    if applicant.monthlyIncome >= 2000 and applicant.creditScore >= 650 then conditionalApproval

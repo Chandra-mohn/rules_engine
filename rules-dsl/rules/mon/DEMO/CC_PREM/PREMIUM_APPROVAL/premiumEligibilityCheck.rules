@@ -1,0 +1,6 @@
+# Premium card eligibility requirements
+
+rule premiumEligibilityCheck:
+    if applicant.creditScore >= 750 and applicant.annualIncome >= 80000 and applicant.employmentYears >= 5 then premiumApproval
+    if applicant.creditScore >= 720 and applicant.annualIncome >= 60000 then approveApplication
+    if applicant.creditScore < 700 then rejectApplication

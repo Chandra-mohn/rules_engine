@@ -1,0 +1,16 @@
+---
+context: 2
+---
+
+# Apply monthly maintenance fees based on account tier
+
+rule "Monthly Fee Application":
+    if account.tier == 'PREMIUM' and account.monthlySpend < 1000 then
+        applyMonthlyFee(25.00),
+        notifyCustomer('Monthly maintenance fee applied')
+    elseif account.tier == 'STANDARD' and account.balance < 500 then
+        applyMonthlyFee(10.00),
+        notifyCustomer('Low balance fee applied')
+    else
+        waiveFee('Spending threshold met')
+    endif

@@ -1,0 +1,6 @@
+# Employment status validation for premium cards
+
+rule employmentStatusCheck:
+    if applicant.employmentStatus == "unemployed" then rejectApplication
+    if applicant.employmentStatus == "employed" then approveApplication
+    if applicant.employmentStatus == "self-employed" then conditionalApproval

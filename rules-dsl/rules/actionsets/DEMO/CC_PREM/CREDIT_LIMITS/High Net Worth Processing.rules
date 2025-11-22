@@ -1,0 +1,6 @@
+# Expedited processing for high-value clients
+
+rule highNetWorthProcessing:
+    if applicant.annualIncome >= 250000 then fastTrackApproval, assignPrivateBanker
+    if applicant.creditScore >= 800 and applicant.employmentYears >= 5 then premiumApproval
+    else conditionalApproval, schedulePersonalConsultation

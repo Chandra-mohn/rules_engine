@@ -1,0 +1,8 @@
+# Specialized workflow for premium credit card applications
+
+rule "Premium Card Processing":
+    if applicant.annualIncome >= 100000 and applicant.creditScore >= 750 then
+        instantApproval, assignPremiumBenefits, "send platinum welcome package"
+    if applicant.creditScore >= 700 and applicant.employmentStatus == "employed" then
+        approveApplication, "assign standard benefits"
+    else "Standard Application Workflow"

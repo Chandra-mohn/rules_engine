@@ -1,0 +1,8 @@
+# Process credit limit increase requests
+
+rule "Credit Limit Increase Request":
+    if account.creditScore > 750 and account.requestedLimit <= account.income * 0.3 then
+        setCreditLimit(account.requestedLimit),
+        logCreditChange("Automatic approval")
+    else
+        requireManualReview("High limit request")

@@ -1,0 +1,8 @@
+# Comprehensive qualification process for platinum cards
+
+rule "Platinum Tier Qualification":
+    if applicant.annualIncome >= 200000 and applicant.creditScore >= 780 then
+        platinumApproval, "assign concierge services", setupPlatinumBenefits
+    if applicant.annualIncome >= 150000 and applicant.creditScore >= 750 then
+        conditionalPlatinum, requestFinancialVerification
+    else rejectPlatinum, "suggest premium alternative"

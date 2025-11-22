@@ -1,0 +1,5 @@
+# High credit limit for qualified applicants
+
+rule highValueApplicant:
+    if applicant.creditScore >= 800 and applicant.annualIncome >= 100000 then fastTrackApproval
+    if applicant.creditScore >= 750 and applicant.annualIncome >= 75000 then approveApplication

@@ -1,0 +1,17 @@
+# Process account settings and preference changes
+
+rule "Account Settings Update":
+    if customer.requestType == "EMAIL_PREFERENCES" then
+        updateEmailPreferences(customer.preferences),
+        sendConfirmationEmail
+        if customer.requestType == "ABC" then
+            sendConfirmationEmail
+        endif
+    elseif customer.requestType == "PAYMENT_METHOD" and customer.verificationComplete == true 
+    then
+        updatePaymentMethod(customer.newPaymentMethod),
+        notifyCustomer("Payment method updated")
+    else
+        requireIdentityVerification
+    endif
+    "Additional Card Management"

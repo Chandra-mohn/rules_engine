@@ -1,0 +1,8 @@
+# Validate customer address change requests
+
+rule "Address Update Validation":
+    if applicant.addressChangeRequest == true and applicant.documentationProvided == true then
+        updateCustomerAddress(applicant.newAddress),
+        notifyCustomer("Address updated successfully")
+    else
+        requestAdditionalDocumentation
