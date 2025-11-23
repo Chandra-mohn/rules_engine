@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { FlaskClient } from './flask-client';
+import { CLIClient } from './cli-client';
 import { RulesCompletionProvider } from './providers/completion';
 import { RulesHoverProvider } from './providers/hover';
 import { RulesDiagnosticProvider } from './providers/diagnostics';
@@ -26,9 +26,9 @@ export function activate(context: vscode.ExtensionContext) {
     const workspaceConfig = new WorkspaceConfig();
     workspaceConfig.load();
 
-    // Initialize Flask client
-    const flaskUrl = vscode.workspace.getConfiguration('rules').get<string>('backend.url') || 'http://localhost:5002';
-    const flaskClient = new FlaskClient(flaskUrl);
+    // Initialize CLI client for code generation and validation
+    // Pass extension context for reliable path resolution
+    const cliClient = new CLIClient(context);
 
     // Create Output Channel for build logs
     const buildOutputChannel = vscode.window.createOutputChannel('Rules DSL Build');
@@ -239,11 +239,25 @@ export function activate(context: vscode.ExtensionContext) {
 
             const content = editor.document.getText();
             try {
-                const result = await flaskClient.validate(content);
-                if (result.valid) {
-                    vscode.window.showInformationMessage('✅ Rule is valid');
+                const result = await cliClient.validateOnly(content);
+
+                // Check validation result
+                const hasErrors = result.validation?.syntax_errors?.length > 0;
+                const hasWarnings = result.validation?.warnings?.length > 0;
+                const hasInfo = result.validation?.info?.length > 0;
+
+                if (result.success && result.validation?.syntax_valid) {
+                    if (hasWarnings || hasInfo) {
+                        const issueCount = (result.validation.warnings?.length || 0) + (result.validation.info?.length || 0);
+                        vscode.window.showInformationMessage(`✅ Rule is syntactically valid (${issueCount} warnings/info)`);
+                    } else {
+                        vscode.window.showInformationMessage('✅ Rule is valid');
+                    }
+                } else if (hasErrors) {
+                    const errorMsg = result.validation?.syntax_errors?.[0]?.message || 'Syntax errors detected';
+                    vscode.window.showErrorMessage(`❌ Validation failed: ${errorMsg}`);
                 } else {
-                    vscode.window.showErrorMessage(`❌ Validation failed: ${result.error}`);
+                    vscode.window.showErrorMessage(`❌ Validation failed: ${result.error || 'Unknown error'}`);
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`❌ Validation error: ${error}`);
@@ -259,19 +273,29 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            const content = editor.document.getText();
+            const ruleFilePath = editor.document.uri.fsPath;
+
             try {
-                const result = await flaskClient.generateCode(content);
-                if (result.success) {
-                    // Show generated code in new editor
-                    const doc = await vscode.workspace.openTextDocument({
-                        content: result.javaCode,
-                        language: 'java'
-                    });
-                    await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
-                    vscode.window.showInformationMessage('✅ Java code generated');
+                const result = await cliClient.generateCode(ruleFilePath);
+
+                if (result.success && result.files) {
+                    // Open the main Java file
+                    const mainFilePath = result.files.production;
+                    if (mainFilePath && require('fs').existsSync(mainFilePath)) {
+                        const doc = await vscode.workspace.openTextDocument(mainFilePath);
+                        await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+                        vscode.window.showInformationMessage(`✅ Java code generated: ${result.className}`);
+                    } else {
+                        vscode.window.showInformationMessage(`✅ ${result.artifactCount} files generated in ${result.outputDirectory}`);
+                    }
                 } else {
-                    vscode.window.showErrorMessage(`❌ Generation failed: ${result.error}`);
+                    const errorMsg = result.error || 'Unknown error';
+                    if (result.traceback) {
+                        vscode.window.showErrorMessage(`❌ Generation failed: ${errorMsg}\n\nSee output for details`);
+                        console.error('Generation traceback:', result.traceback);
+                    } else {
+                        vscode.window.showErrorMessage(`❌ Generation failed: ${errorMsg}`);
+                    }
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`❌ Generation error: ${error}`);
@@ -293,9 +317,12 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            const content = editor.document.getText();
             const fileName = vscode.workspace.asRelativePath(editor.document.uri);
+            const filePath = editor.document.uri.fsPath;
             const startTime = Date.now();
+
+            // Save file first to ensure CLI reads latest content
+            await editor.document.save();
 
             // Clear previous output and show channel
             buildOutputChannel.clear();
@@ -303,129 +330,62 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Write build header
             buildOutputChannel.appendLine(`${getTimestamp()} Building rule: ${fileName}`);
-            buildOutputChannel.appendLine(`${getTimestamp()} Connecting to backend (${flaskUrl})...`);
+            buildOutputChannel.appendLine(`${getTimestamp()} Using CLI code generation (no backend required)`);
 
             // Update status bar
             buildStatusBar.text = '$(sync~spin) Building...';
             buildStatusBar.tooltip = 'Building rule...';
 
             try {
-                buildOutputChannel.appendLine(`${getTimestamp()} Running semantic validation...`);
-                const result = await flaskClient.validateSemantic(content);
+                buildOutputChannel.appendLine(`${getTimestamp()} Generating Java code...`);
+                const genStartTime = Date.now();
 
-                const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+                const result = await cliClient.generateCode(filePath);
+                const genDuration = ((Date.now() - genStartTime) / 1000).toFixed(2);
 
-                // Update diagnostics with semantic errors
-                diagnosticProvider.updateSemanticDiagnostics(
-                    editor.document,
-                    result.errors,
-                    result.warnings
-                );
+                if (result.success) {
+                    buildOutputChannel.appendLine(`${getTimestamp()} ✅ Code generation succeeded (${genDuration}s)`);
+                    buildOutputChannel.appendLine('');
+                    buildOutputChannel.appendLine(`${getTimestamp()} Generated Files:`);
+                    buildOutputChannel.appendLine(`${getTimestamp()}   Rule name: ${result.ruleName}`);
+                    buildOutputChannel.appendLine(`${getTimestamp()}   Class name: ${result.className}`);
+                    buildOutputChannel.appendLine(`${getTimestamp()}   Output directory: ${result.outputDirectory}`);
+                    buildOutputChannel.appendLine(`${getTimestamp()}   Files generated: ${result.artifactCount}`);
 
-                const errorCount = result.errors.length;
-                const warningCount = result.warnings.length;
+                    if (result.files) {
+                        buildOutputChannel.appendLine(`${getTimestamp()}     - ${result.files.production}`);
+                        buildOutputChannel.appendLine(`${getTimestamp()}     - ${result.files.test}`);
+                    }
 
-                // Write build results to output
-                buildOutputChannel.appendLine('');
-                if (result.valid && errorCount === 0) {
-                    buildOutputChannel.appendLine(`${getTimestamp()} Build completed with ${warningCount} warning${warningCount > 1 ? 's' : ''}`);
+                    buildOutputChannel.appendLine('');
+                    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
+                    buildOutputChannel.appendLine(`${getTimestamp()} ✅ Build completed (${totalDuration}s)`);
+
+                    buildStatusBar.text = '$(check) Build: Success';
+                    buildStatusBar.tooltip = `Build completed in ${totalDuration}s - Click to show output`;
+                    vscode.window.showInformationMessage(`✅ Build successful - Java code generated in ${result.outputDirectory}`);
                 } else {
-                    buildOutputChannel.appendLine(`${getTimestamp()} Build completed with ${errorCount} error${errorCount > 1 ? 's' : ''}, ${warningCount} warning${warningCount > 1 ? 's' : ''}`);
-                }
-                buildOutputChannel.appendLine('');
+                    buildOutputChannel.appendLine(`${getTimestamp()} ❌ Code generation failed (${genDuration}s)`);
+                    buildOutputChannel.appendLine(`${getTimestamp()}   Error: ${result.error || 'Unknown error'}`);
 
-                // Write detailed errors
-                if (errorCount > 0) {
-                    for (const error of result.errors) {
-                        buildOutputChannel.appendLine(`${getTimestamp()} ERROR in ${fileName}:${error.line}:${error.column}`);
-                        buildOutputChannel.appendLine(`${getTimestamp()}   ${error.message}`);
-                        if (error.suggestion) {
-                            buildOutputChannel.appendLine(`${getTimestamp()}   💡 ${error.suggestion}`);
-                        }
-                        buildOutputChannel.appendLine('');
+                    if (result.traceback) {
+                        buildOutputChannel.appendLine(`${getTimestamp()}   Type: ${result.traceback}`);
                     }
-                }
 
-                // Write detailed warnings
-                if (warningCount > 0) {
-                    for (const warning of result.warnings) {
-                        buildOutputChannel.appendLine(`${getTimestamp()} WARNING in ${fileName}:${warning.line}:${warning.column}`);
-                        buildOutputChannel.appendLine(`${getTimestamp()}   ${warning.message}`);
-                        if (warning.suggestion) {
-                            buildOutputChannel.appendLine(`${getTimestamp()}   💡 ${warning.suggestion}`);
-                        }
-                        buildOutputChannel.appendLine('');
-                    }
-                }
-
-                // Write build summary
-                if (result.valid && errorCount === 0) {
-                    buildOutputChannel.appendLine(`${getTimestamp()} Build succeeded (${duration}s)`);
-                    buildStatusBar.text = warningCount > 0
-                        ? `$(warning) Build: ${warningCount} warning${warningCount > 1 ? 's' : ''}`
-                        : '$(check) Build: Success';
-                    buildStatusBar.tooltip = `Build completed in ${duration}s - Click to show output`;
-
-                    // Quick success notification
-                    if (warningCount === 0) {
-                        vscode.window.showInformationMessage('✅ Build successful');
-                    }
-                } else {
-                    buildOutputChannel.appendLine(`${getTimestamp()} Build failed (${duration}s)`);
-                    buildStatusBar.text = `$(error) Build: ${errorCount} error${errorCount > 1 ? 's' : ''}`;
-                    buildStatusBar.tooltip = `Build failed with ${errorCount} error${errorCount > 1 ? 's' : ''} - Click to show output`;
+                    buildStatusBar.text = '$(error) Build: Failed';
+                    buildStatusBar.tooltip = 'Code generation failed - Click to show output';
+                    vscode.window.showErrorMessage(`❌ Build failed: ${result.error}`);
                 }
 
             } catch (error: any) {
+                const duration = ((Date.now() - startTime) / 1000).toFixed(2);
                 buildOutputChannel.appendLine('');
-                buildOutputChannel.appendLine(`${getTimestamp()} ❌ Build Error`);
+                buildOutputChannel.appendLine(`${getTimestamp()} ❌ Build Error (${duration}s)`);
+                buildOutputChannel.appendLine(`${getTimestamp()}   ${error.message || error}`);
 
-                // Provide detailed error information
-                if (error.code === 'ECONNREFUSED') {
-                    buildOutputChannel.appendLine(`${getTimestamp()}    Cannot connect to backend`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    Backend URL: ${flaskUrl}`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    Error: Connection refused (${error.code})`);
-                    buildOutputChannel.appendLine('');
-                    buildOutputChannel.appendLine(`${getTimestamp()} 💡 Suggestions:`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    1. Start the Flask backend: cd backend && python app.py`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    2. Check backend is running on port ${new URL(flaskUrl).port || '5002'}`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    3. Verify backend URL in settings (rules.backend.url)`);
-                } else if (error.response?.status === 404) {
-                    buildOutputChannel.appendLine(`${getTimestamp()}    Endpoint not found`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    Endpoint: POST /api/validate/semantic`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    HTTP Status: 404 Not Found`);
-                    buildOutputChannel.appendLine('');
-                    buildOutputChannel.appendLine(`${getTimestamp()} 💡 Suggestions:`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    The backend endpoint /api/validate/semantic is not implemented yet.`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    This feature requires backend support.`);
-                } else if (error.response?.status) {
-                    buildOutputChannel.appendLine(`${getTimestamp()}    HTTP ${error.response.status}: ${error.response.statusText || 'Error'}`);
-                    buildOutputChannel.appendLine(`${getTimestamp()}    URL: ${error.config?.url || flaskUrl}`);
-                    if (error.response.data?.error) {
-                        buildOutputChannel.appendLine(`${getTimestamp()}    Message: ${error.response.data.error}`);
-                    }
-                } else if (error.message) {
-                    buildOutputChannel.appendLine(`${getTimestamp()}    ${error.message}`);
-                    if (error.stack) {
-                        buildOutputChannel.appendLine(`${getTimestamp()}    Stack: ${error.stack.split('\n')[0]}`);
-                    }
-                } else {
-                    buildOutputChannel.appendLine(`${getTimestamp()}    ${String(error)}`);
-                }
-
-                buildOutputChannel.appendLine('');
-                buildOutputChannel.appendLine(`${getTimestamp()} Build failed`);
                 buildStatusBar.text = '$(error) Build: Error';
                 buildStatusBar.tooltip = 'Build failed - Click to show details';
-
-                // Show brief error notification
-                if (error.code === 'ECONNREFUSED') {
-                    vscode.window.showErrorMessage('❌ Build failed: Cannot connect to backend');
-                } else if (error.response?.status === 404) {
-                    vscode.window.showErrorMessage('❌ Build failed: Endpoint not implemented');
-                } else {
-                    vscode.window.showErrorMessage('❌ Build failed: See output for details');
-                }
+                vscode.window.showErrorMessage(`❌ Build failed: ${error.message}`);
             }
         })
     );

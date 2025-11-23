@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+# Add backend directory to Python path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from flask import Flask
 from flask_cors import CORS
 from api.rules_file import rules_file_bp as rules_bp

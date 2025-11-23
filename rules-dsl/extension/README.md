@@ -19,9 +19,9 @@
   - Unmatched `endif` without corresponding `if`
   - Missing `rule` or `actionset` definition
 
-### ANTLR Features (Remote, Production-Grade)
-- ✅ **Full Validation** - Grammar validation via Flask backend
-- ✅ **Code Generation** - Generate Java code from rules
+### ANTLR Features (CLI-Based, Production-Grade)
+- ✅ **Full Validation** - Grammar validation via Python CLI
+- ✅ **Code Generation** - Generate Java code from rules via CLI
 - ✅ **Context Attachment** - Attach test contexts to rules
 
 ---
@@ -82,7 +82,7 @@ rules/mon/DEMO/CC_STD/APPROVAL/creditScoreCheck.rules
 
 ```json
 {
-  "rules.backend.url": "http://localhost:5002",
+  "rules.python.path": "python3",
   "rules.workspace.configPath": "./rules.config.yaml"
 }
 ```
@@ -108,7 +108,7 @@ rulesEngine:
 
 ## 🏗️ Architecture
 
-### Hybrid LSP + ANTLR
+### Hybrid LSP + CLI
 
 ```
 ┌─────────────────────────────────────┐
@@ -124,18 +124,19 @@ rulesEngine:
 │  Works Offline: ✅ Yes               │
 └──────────────┬──────────────────────┘
                │
-               │ HTTP/REST (localhost:5002)
+               │ Python CLI (subprocess)
                │ Only for: Validation & Code Generation
                ↓
 ┌─────────────────────────────────────┐
-│      Flask Backend (Python)          │
+│   Python CLI (generate_code_cli.py)  │
 │                                      │
-│  REMOTE FEATURES (Production):      │
+│  CLI-BASED FEATURES (Fast):         │
 │  • Full ANTLR grammar validation     │
 │  • Java code generation              │
-│  • Rule testing & execution          │
+│  • Semantic validation               │
 │                                      │
-│  Triggered: On save, manual command  │
+│  Triggered: Manual command only      │
+│  Performance: < 200ms                │
 └─────────────────────────────────────┘
 ```
 
@@ -147,11 +148,13 @@ rulesEngine:
 extension/
 ├── src/
 │   ├── extension.ts              # Entry point
-│   ├── flask-client.ts           # HTTP client for ANTLR
+│   ├── cli-client.ts             # Python CLI client
 │   ├── workspace-config.ts       # Schema and context loader
 │   └── providers/
 │       ├── completion.ts         # IntelliSense provider
-│       └── hover.ts              # Hover documentation provider
+│       ├── hover.ts              # Hover documentation provider
+│       ├── schema-tree.ts        # Schema tree view
+│       └── context-tree.ts       # Context tree view
 ├── syntaxes/
 │   └── rules.tmLanguage.json    # TextMate grammar
 ├── out/                          # Compiled JavaScript
@@ -174,15 +177,10 @@ extension/
    - Hover over `applicant` → Should see entity documentation
 6. **Test Validation**:
    - Cmd+Shift+P → "Rules: Validate Current Rule"
-   - Should validate via Flask (requires backend running)
-
-### Backend Setup (for Validation)
-
-```bash
-cd /Users/chandramohn/workspace/rules_engine/rules-dsl/backend
-source venv/bin/activate.fish  # Fish shell
-python app.py  # Runs on port 5002
-```
+   - Should validate via CLI (no backend required)
+7. **Test Code Generation**:
+   - Cmd+Shift+P → "Rules: Generate Java Code"
+   - Should generate Java files via CLI (no backend required)
 
 ---
 

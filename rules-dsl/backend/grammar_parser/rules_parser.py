@@ -11,7 +11,8 @@ from antlr4 import *
 from antlr4.error.ErrorListener import ErrorListener
 
 # Add the ANTLR generated files to the path
-antlr_path = Path(__file__).parent.parent / "java-bridge" / "src" / "main" / "antlr4"
+# Extension backend uses ANTLR files from ui-prototype backend
+antlr_path = Path(__file__).parent.parent.parent.parent / "ui-prototype" / "backend" / "java-bridge" / "src" / "main" / "antlr4"
 sys.path.insert(0, str(antlr_path))
 
 from com.rules.grammar.RulesLexer import RulesLexer

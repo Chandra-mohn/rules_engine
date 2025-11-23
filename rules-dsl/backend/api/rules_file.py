@@ -4,9 +4,8 @@ CRUD operations for rules stored as JSON files in hierarchical folder structure
 """
 
 from flask import Blueprint, request, jsonify
-from services.rule_file_service import RuleFileService
-from services.python_rules_engine import PythonRulesEngine
-from services.cycle_detector import RuleCycleDetector
+from services.rules_file_service import RulesFileService
+from grammar_parser.template_code_generator import TemplateCodeGenerator
 from config import Config
 import math
 import re
@@ -15,10 +14,9 @@ from datetime import datetime
 
 rules_file_bp = Blueprint('rules_file', __name__)
 
-# Initialize file service and rules engine
-rule_file_service = RuleFileService()
-rules_engine = PythonRulesEngine()
-cycle_detector = RuleCycleDetector(rule_file_service)
+# Initialize file service and code generator
+rule_file_service = RulesFileService()
+code_generator = TemplateCodeGenerator()
 
 
 def parse_rule_name_from_content(content: str) -> str:
@@ -550,24 +548,60 @@ def generate_production_code():
     try:
         import json
         import os
+        import re
         data = request.get_json()
 
-        if not data or 'ruleId' not in data:
-            return jsonify({'error': 'ruleId is required'}), 400
-
-        rule_id = data['ruleId']
+        # Accept either ruleId or filePath (for VS Code extension integration)
+        file_path = data.get('filePath', '')
         rule_content = data.get('ruleContent', '')
-        rule_name = data.get('ruleName', f'rule{rule_id}')
+        rule_name = data.get('ruleName', '')
 
         if not rule_content:
             return jsonify({'error': 'ruleContent is required'}), 400
 
-        # Generate Java code using Python rules engine
-        result = rules_engine.compile_rule(rule_content, str(rule_id))
+        # Helper function to remove spaces from path components
+        def sanitize_name(name):
+            """Remove spaces and special characters from names."""
+            return re.sub(r'\s+', '', name)
 
-        if result.get('success'):
-            # Write generated files to disk using Maven standard directory structure
-            base_dir = Path(__file__).parent.parent.parent / 'generated-rules' / f'rule-{rule_id}'
+        # Extract hierarchical structure from file path
+        # Expected format: rules/{client}/{process_group}/{process_area}/{rulename}.rules
+        # Or fallback: {rulename}.rules
+        if file_path:
+            path_parts = Path(file_path).parts
+
+            # Try to extract hierarchy (skip 'rules' prefix if present)
+            start_idx = 1 if len(path_parts) > 0 and path_parts[0] == 'rules' else 0
+
+            if len(path_parts) >= start_idx + 4:
+                # Full hierarchy: client/group/area/rulename.rules
+                client_code = sanitize_name(path_parts[start_idx])
+                process_group = sanitize_name(path_parts[start_idx + 1])
+                process_area = sanitize_name(path_parts[start_idx + 2])
+                rule_filename = Path(path_parts[start_idx + 3]).stem  # Remove .rules extension
+                rule_name = sanitize_name(rule_filename)
+
+                base_dir = Path(__file__).parent.parent.parent / 'generated-rules' / client_code / process_group / process_area / rule_name
+            else:
+                # Fallback: use just the rule name
+                rule_filename = Path(file_path).stem if file_path else rule_name
+                rule_name = sanitize_name(rule_filename) if rule_filename else 'DefaultRule'
+                base_dir = Path(__file__).parent.parent.parent / 'generated-rules' / 'default' / rule_name
+        else:
+            # No file path provided, use rule name only
+            rule_name = sanitize_name(rule_name) if rule_name else 'DefaultRule'
+            base_dir = Path(__file__).parent.parent.parent / 'generated-rules' / 'default' / rule_name
+
+        # Determine item type from content
+        item_type = 'rule'  # Default
+        if re.search(r'^\s*actionset\s+', rule_content, re.MULTILINE):
+            item_type = 'actionset'
+        elif re.search(r'^\s*action\s+', rule_content, re.MULTILINE):
+            item_type = 'action'
+
+        # Generate Java code using template code generator
+        try:
+            production_code, test_code = code_generator.generate_with_tests(rule_content, rule_name, item_type)
 
             # Create src/main/java directory for production code
             src_main_dir = base_dir / 'src' / 'main' / 'java' / 'com' / 'rules'
@@ -577,34 +611,42 @@ def generate_production_code():
             src_test_dir = base_dir / 'src' / 'test' / 'java' / 'com' / 'rules'
             src_test_dir.mkdir(parents=True, exist_ok=True)
 
+            # Extract class name from generated code (first public class declaration)
+            class_match = re.search(r'public\s+class\s+(\w+)', production_code)
+            if class_match:
+                class_name = class_match.group(1)
+            else:
+                # Fallback: convert rule name to class name
+                class_name = ''.join(word.capitalize() for word in rule_name.replace('_', ' ').replace('-', ' ').split())
+                if not class_name.endswith('Rule'):
+                    class_name += 'Rule'
+
             # Write main Java file
-            class_name = result['className'].split('.')[-1]
             java_file = src_main_dir / f"{class_name}.java"
-            java_file.write_text(result['java_code'])
+            java_file.write_text(production_code)
 
             # Write test file
             test_file = src_test_dir / f"{class_name}Test.java"
-            test_file.write_text(result['test_code'])
+            test_file.write_text(test_code)
 
             files = {
-                str(java_file.relative_to(base_dir)): result['java_code'],
-                str(test_file.relative_to(base_dir)): result['test_code']
+                str(java_file.relative_to(base_dir)): production_code,
+                str(test_file.relative_to(base_dir)): test_code
             }
 
             return jsonify({
                 'success': True,
                 'files': files,
-                'ruleId': rule_id,
                 'ruleName': rule_name,
-                'packageName': '.'.join(result['className'].split('.')[:-1]),
+                'packageName': 'com.rules',
                 'outputDirectory': str(base_dir),
                 'artifactCount': len(files)
             })
-        else:
+        except Exception as e:
             return jsonify({
                 'success': False,
-                'message': result.get('message', 'Code generation failed'),
-                'errors': result.get('errors', [])
+                'message': f'Code generation failed: {str(e)}',
+                'errors': [str(e)]
             }), 500
 
     except Exception as e:

@@ -7,13 +7,15 @@ Walks ANTLR parse tree to extract structured data, then generates via Python tem
 from pathlib import Path
 import sys
 
-# Import ANTLR generated classes
-sys.path.append(str(Path(__file__).parent.parent / 'java-bridge' / 'src' / 'main' / 'antlr4' / 'com' / 'rules' / 'grammar'))
+# Import ANTLR generated classes from ui-prototype backend
+antlr_grammar_path = Path(__file__).parent.parent.parent.parent / 'ui-prototype' / 'backend' / 'java-bridge' / 'src' / 'main' / 'antlr4' / 'com' / 'rules' / 'grammar'
+sys.path.append(str(antlr_grammar_path))
 from RulesParser import RulesParser
 from RulesListener import RulesListener
 
-# Import Python template functions
-sys.path.append(str(Path(__file__).parent.parent / 'templates' / 'java'))
+# Import Python template functions from ui-prototype backend
+templates_path = Path(__file__).parent.parent.parent.parent / 'ui-prototype' / 'backend' / 'templates' / 'java'
+sys.path.append(str(templates_path))
 from standard_rule_template import generate_standard_rule, generate_actionset, generate_action
 from test_template import generate_standard_rule_test, generate_actionset_test, generate_action_test
 

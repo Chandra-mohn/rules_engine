@@ -1,5 +1,13 @@
 import * as vscode from 'vscode';
-import { SemanticError } from '../flask-client';
+
+export interface SemanticError {
+    type: string;
+    message: string;
+    line: number;
+    column: number;
+    severity: string;
+    suggestion?: string;
+}
 
 export class RulesDiagnosticProvider {
     private diagnosticCollection: vscode.DiagnosticCollection;

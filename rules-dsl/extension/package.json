@@ -150,10 +150,10 @@
     "configuration": {
       "title": "Rules DSL",
       "properties": {
-        "rules.backend.url": {
+        "rules.python.path": {
           "type": "string",
-          "default": "http://localhost:5002",
-          "description": "Flask backend URL for ANTLR validation"
+          "default": "python3",
+          "description": "Path to Python interpreter for CLI code generation"
         },
         "rules.workspace.configPath": {
           "type": "string",
@@ -180,7 +180,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "axios": "^1.5.0",
     "js-yaml": "^4.1.0"
   }
 }
