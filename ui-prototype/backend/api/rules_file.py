@@ -384,6 +384,253 @@ def validate_rule():
         return jsonify({'error': str(e)}), 500
 
 
+def _strip_frontmatter(content: str) -> str:
+    """
+    Strip YAML frontmatter from rule content.
+
+    Frontmatter format:
+        ---
+        key: value
+        ---
+
+    Args:
+        content: Rule content potentially with frontmatter
+
+    Returns:
+        Content with frontmatter removed
+    """
+    # Check if starts with frontmatter (don't strip whitespace)
+    if not content.lstrip().startswith('---'):
+        return content
+
+    lines = content.split('\n')
+    frontmatter_end = -1
+
+    # Find the second --- (end of frontmatter)
+    dash_count = 0
+    for i, line in enumerate(lines):
+        if line.strip() == '---':
+            dash_count += 1
+            if dash_count == 2:
+                frontmatter_end = i
+                break
+
+    if frontmatter_end > 0:
+        # Return content after frontmatter (preserving trailing newlines)
+        return '\n'.join(lines[frontmatter_end + 1:])
+
+    # If no closing ---, return original (malformed frontmatter)
+    return content
+
+
+@rules_file_bp.route('/validate/semantic', methods=['POST'])
+def validate_semantic():
+    """
+    Semantic validation endpoint for VS Code extension build feature.
+    Validates rules for:
+    - Undefined entity fields
+    - Missing actions/actionsets
+    - Cyclic ActionSet calls
+    - Type checking
+
+    Returns validation results with line numbers, suggestions, and severity.
+    """
+    try:
+        data = request.get_json()
+        if not data or 'content' not in data:
+            return jsonify({'error': 'Content is required'}), 400
+
+        original_content = data['content']
+        line_offset = 0
+
+        # Strip YAML frontmatter if present (--- ... ---)
+        rule_content = _strip_frontmatter(original_content)
+
+        # Calculate line offset (how many lines were removed)
+        # Count lines in original vs stripped (lines = newlines + 1 for last line)
+        original_lines = len(original_content.split('\n'))
+        stripped_lines = len(rule_content.split('\n'))
+        line_offset = original_lines - stripped_lines
+
+        # Step 1: Parse rule name for cycle detection
+        rule_name = parse_rule_name_from_content(rule_content)
+
+        # Step 2: Build validation context from schemas
+        from services.schema_file_service import SchemaFileService
+        schema_service = SchemaFileService()
+
+        # Get all available attributes from schemas
+        available_attributes = []
+        schemas = schema_service.list_schemas()
+        for schema in schemas:
+            entity_name = schema.get('name', '')
+            for attr in schema.get('attributes', []):
+                attr_name = attr.get('name', '')
+                if attr_name:
+                    available_attributes.append(f"{entity_name}.{attr_name}")
+
+        # Get all available actions (primitive actions + defined actionsets)
+        from services.cycle_detector import RuleCycleDetector
+        available_actions = list(RuleCycleDetector.PRIMITIVE_ACTIONS)
+
+        # Add all defined actionsets/rules as available actions
+        all_rules = rule_file_service.list_rules()
+        for rule in all_rules:
+            item_type = rule.get('item_type', 'rule')
+            if item_type in ('actionset', 'action'):
+                available_actions.append(rule.get('name', ''))
+
+        # Step 3: Perform semantic validation with context
+        validation_context = {
+            'available_actions': available_actions,
+            'available_attributes': available_attributes
+        }
+
+        validation_result = rules_engine.validate_rule(rule_content, validation_context)
+
+        # Step 4: Check for cyclic dependencies if rule name found
+        cycle_errors = []
+        if rule_name:
+            cycle_result = cycle_detector.detect_cycles(rule_name, rule_content)
+            if cycle_result['has_cycle']:
+                cycle_path = ' → '.join(cycle_result['cycle_path'])
+                cycle_errors.append({
+                    'line': 1,
+                    'column': 1,
+                    'severity': 'error',
+                    'message': f"Cyclic dependency detected: {cycle_path}",
+                    'suggestion': 'Remove the circular call chain to fix this error',
+                    'type': 'cyclic_dependency'
+                })
+
+        # Step 5: Format response for VS Code extension
+        errors = []
+        warnings = []
+
+        # Add cycle errors first (highest priority)
+        errors.extend(cycle_errors)
+
+        # Add validation errors (adjust line numbers for stripped frontmatter)
+        for err in validation_result.get('errors', []):
+            error_entry = {
+                'line': err.get('line', 1) + line_offset,
+                'column': err.get('column', 1),
+                'severity': err.get('severity', 'error'),
+                'message': err.get('message', 'Unknown error'),
+                'type': err.get('type', 'validation_error')
+            }
+
+            # Add helpful suggestions based on error type
+            if err.get('type') == 'undefined_action':
+                action_name = err.get('action', '')
+                # Find similar actions for "did you mean" suggestions
+                similar = _find_similar_names(action_name, available_actions)
+                if similar:
+                    error_entry['suggestion'] = f"Did you mean: {', '.join(similar[:3])}?"
+                else:
+                    error_entry['suggestion'] = 'Check available actions in your schema'
+
+            errors.append(error_entry)
+
+        # Add validation warnings (adjust line numbers for stripped frontmatter)
+        for warn in validation_result.get('warnings', []):
+            warning_entry = {
+                'line': warn.get('line', 1) + line_offset,
+                'column': warn.get('column', 1),
+                'severity': 'warning',
+                'message': warn.get('message', 'Unknown warning'),
+                'type': warn.get('type', 'validation_warning')
+            }
+
+            # Add helpful suggestions for undefined attributes
+            if warn.get('type') == 'undefined_attribute':
+                attr_name = warn.get('attribute', '')
+                similar = _find_similar_names(attr_name, available_attributes)
+                if similar:
+                    warning_entry['suggestion'] = f"Did you mean: {', '.join(similar[:3])}?"
+                else:
+                    warning_entry['suggestion'] = 'Check available attributes in your entity schemas'
+
+            warnings.append(warning_entry)
+
+        # Return result
+        is_valid = len(errors) == 0
+
+        return jsonify({
+            'valid': is_valid,
+            'errors': errors,
+            'warnings': warnings
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'valid': False,
+            'errors': [{
+                'line': 1,
+                'column': 1,
+                'severity': 'error',
+                'message': f'Semantic validation failed: {str(e)}',
+                'type': 'internal_error'
+            }],
+            'warnings': []
+        }), 500
+
+
+def _find_similar_names(target: str, candidates: list, max_distance: int = 3) -> list:
+    """
+    Find similar names using Levenshtein distance for "did you mean" suggestions.
+
+    Args:
+        target: Target name to match
+        candidates: List of candidate names
+        max_distance: Maximum edit distance to consider (default: 3)
+
+    Returns:
+        List of similar names sorted by similarity
+    """
+    def levenshtein_distance(s1: str, s2: str) -> int:
+        """Calculate Levenshtein distance between two strings."""
+        if len(s1) < len(s2):
+            return levenshtein_distance(s2, s1)
+        if len(s2) == 0:
+            return len(s1)
+
+        previous_row = range(len(s2) + 1)
+        for i, c1 in enumerate(s1):
+            current_row = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = previous_row[j + 1] + 1
+                deletions = current_row[j] + 1
+                substitutions = previous_row[j] + (c1 != c2)
+                current_row.append(min(insertions, deletions, substitutions))
+            previous_row = current_row
+
+        return previous_row[-1]
+
+    # Calculate distances for all candidates
+    similarities = []
+    target_lower = target.lower()
+
+    for candidate in candidates:
+        # Skip exact matches
+        if candidate == target:
+            continue
+
+        # Calculate case-insensitive distance
+        distance = levenshtein_distance(target_lower, candidate.lower())
+
+        # Only include if within max distance
+        if distance <= max_distance:
+            similarities.append((candidate, distance))
+
+    # Sort by distance (closest first)
+    similarities.sort(key=lambda x: x[1])
+
+    # Return just the names
+    return [name for name, _ in similarities]
+
+
 @rules_file_bp.route('/rules/test', methods=['POST'])
 def test_rule_content():
     """Test rule execution with sample data without requiring a saved rule."""

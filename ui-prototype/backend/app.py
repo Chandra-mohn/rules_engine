@@ -9,6 +9,7 @@ from api.java_files import java_files_bp
 from config import Config
 from cli_commands_file import register_commands
 import os
+import sys
 
 def create_app():
     """Application factory pattern."""
@@ -41,4 +42,7 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    # Port 5002 for VS Code extension compatibility
+    # (Main UI app uses 5001, extension uses 5002)
+    port = 5002 if '--extension' in sys.argv else 5001
+    app.run(debug=True, host='0.0.0.0', port=port)

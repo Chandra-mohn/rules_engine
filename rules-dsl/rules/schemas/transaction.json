@@ -5,6 +5,13 @@
   "schema_version": "v2",
   "attributes": [
     {
+      "name": "type",
+      "type": "string",
+      "description": "Transaction type (PURCHASE, CASH_ADVANCE, etc.)",
+      "required": true,
+      "default": "PURCHASE"
+    },
+    {
       "name": "amount",
       "type": "number",
       "description": "Transaction amount",

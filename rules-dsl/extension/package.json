@@ -1,0 +1,186 @@
+{
+  "name": "rules-dsl",
+  "displayName": "Rules DSL Language Support",
+  "description": "Language support for Rules Engine DSL with ANTLR validation",
+  "version": "0.1.0",
+  "publisher": "rules-engine",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:rules"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "rules",
+        "aliases": [
+          "Rules DSL",
+          "rules"
+        ],
+        "extensions": [
+          ".rules"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "rules",
+        "scopeName": "source.rules",
+        "path": "./syntaxes/rules.tmLanguage.json"
+      }
+    ],
+    "views": {
+      "rules-explorer": [
+        {
+          "id": "rulesSchemas",
+          "name": "Schemas"
+        },
+        {
+          "id": "rulesContexts",
+          "name": "Test Contexts"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "rules-explorer",
+          "title": "Rules Engine",
+          "icon": "$(symbol-ruler)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "rules.validate",
+        "title": "Rules: Validate Current Rule"
+      },
+      {
+        "command": "rules.generate",
+        "title": "Rules: Generate Java Code"
+      },
+      {
+        "command": "rules.build",
+        "title": "Rules: Build (Semantic Validation)"
+      },
+      {
+        "command": "rules.attachContext",
+        "title": "Rules: Attach Test Context"
+      },
+      {
+        "command": "rules.insertAttribute",
+        "title": "Insert Attribute"
+      },
+      {
+        "command": "rules.insertContextField",
+        "title": "Insert Context Field"
+      },
+      {
+        "command": "rules.attachContextFromTree",
+        "title": "Attach Context to Current Rule"
+      },
+      {
+        "command": "rules.findAttribute",
+        "title": "Rules: Find Attribute Across Entities"
+      },
+      {
+        "command": "rules.refreshSchemas",
+        "title": "Refresh Schemas",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "rules.refreshContexts",
+        "title": "Refresh Contexts",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "rules.showHelp",
+        "title": "Rules: Show Keyboard Shortcuts"
+      },
+      {
+        "command": "rules.showBuildOutput",
+        "title": "Rules: Show Build Output"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "rules.findAttribute",
+        "key": "alt+r s",
+        "when": "editorTextFocus && editorLangId == 'rules'"
+      },
+      {
+        "command": "rules.attachContext",
+        "key": "alt+r c",
+        "when": "editorTextFocus && editorLangId == 'rules'"
+      },
+      {
+        "command": "rules.validate",
+        "key": "alt+r v",
+        "when": "editorTextFocus && editorLangId == 'rules'"
+      },
+      {
+        "command": "rules.generate",
+        "key": "alt+r g",
+        "when": "editorTextFocus && editorLangId == 'rules'"
+      },
+      {
+        "command": "rules.build",
+        "key": "alt+r b",
+        "when": "editorTextFocus && editorLangId == 'rules'"
+      },
+      {
+        "command": "rules.refreshSchemas",
+        "key": "alt+r r"
+      },
+      {
+        "command": "rules.refreshContexts",
+        "key": "alt+r t"
+      },
+      {
+        "command": "rules.showHelp",
+        "key": "alt+r h"
+      }
+    ],
+    "configuration": {
+      "title": "Rules DSL",
+      "properties": {
+        "rules.backend.url": {
+          "type": "string",
+          "default": "http://localhost:5002",
+          "description": "Flask backend URL for ANTLR validation"
+        },
+        "rules.workspace.configPath": {
+          "type": "string",
+          "default": "./rules.config.yaml",
+          "description": "Path to workspace configuration file"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "js-yaml": "^4.1.0"
+  }
+}

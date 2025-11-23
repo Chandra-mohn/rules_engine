@@ -1,0 +1,82 @@
+{
+  "entity_name": "account",
+  "display_name": "Account",
+  "description": "Credit card account information",
+  "schema_version": "v2",
+  "attributes": [
+    {
+      "name": "creditLimit",
+      "type": "number",
+      "description": "Account credit limit",
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "cashAdvanceLimit",
+      "type": "number",
+      "description": "Cash advance limit",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "internationalLimit",
+      "type": "number",
+      "description": "International transaction limit",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "balance",
+      "type": "number",
+      "description": "Current account balance",
+      "required": true,
+      "default": 0
+    },
+    {
+      "name": "tier",
+      "type": "string",
+      "description": "Account tier (PREMIUM, STANDARD, etc.)",
+      "required": false,
+      "default": "STANDARD"
+    },
+    {
+      "name": "monthlySpend",
+      "type": "number",
+      "description": "Monthly spending amount",
+      "required": false,
+      "default": 0
+    },
+    {
+      "name": "creditScore",
+      "type": "number",
+      "description": "Account holder credit score",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "requestedLimit",
+      "type": "number",
+      "description": "Requested credit limit for increase",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "income",
+      "type": "number",
+      "description": "Account holder income",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "cardCount",
+      "type": "number",
+      "description": "Number of cards on account",
+      "required": false,
+      "default": 1
+    }
+  ],
+  "metadata": {
+    "created_at": "2025-11-22T00:00:00Z",
+    "updated_at": "2025-11-22T00:00:00Z"
+  }
+}

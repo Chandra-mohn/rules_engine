@@ -2,7 +2,7 @@
 context: Premium High Value Context
 ---
 
-# Process cash advance requests with fees
+// Process cash advance requests with fees
 
 rule "Cash Advance Processing":
     if transaction.type == "CASH_ADVANCE" and transaction.amount <= account.cashAdvanceLimit then
@@ -11,3 +11,4 @@ rule "Cash Advance Processing":
         updateAccountBalance(transaction.amount + transaction.amount * 0.03)
     else
         declineTransaction("Cash advance limit exceeded")
+   endif 
