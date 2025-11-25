@@ -12,11 +12,40 @@
     "Other"
   ],
   "activationEvents": [
+    "onView:cobol-migration.workbench",
     "onCommand:cobol-migration.openWorkbench",
     "onCommand:cobol-migration.convertToDSL"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "COBOL Migration",
+      "properties": {
+        "cobol-migration.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Path to Python 3 executable for COBOL transpiler"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cobol-migration-container",
+          "title": "COBOL Migration",
+          "icon": "$(file-code)"
+        }
+      ]
+    },
+    "views": {
+      "cobol-migration-container": [
+        {
+          "id": "cobol-migration.workbench",
+          "name": "Migration Workbench",
+          "type": "webview"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "cobol-migration.openWorkbench",

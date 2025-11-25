@@ -112,6 +112,10 @@ class CobolToDSLVisitor(Cobol85Visitor):
             'StopStatement',     # STOP RUN
             'ExitStatement',     # EXIT
             'GobackStatement',   # GOBACK
+            'ContinueStatement', # CONTINUE
+            'ReadStatement',     # READ (file I/O - commented out)
+            'WriteStatement',    # WRITE (file I/O - commented out)
+            'InitializeStatement', # INITIALIZE (commented out)
             'ParagraphName',     # Paragraph definitions
             'SectionName',       # Section definitions
             'DataDivision',      # DATA DIVISION (and all children)
@@ -665,6 +669,381 @@ class CobolToDSLVisitor(Cobol85Visitor):
         # Return single line or list
         return lines if len(lines) > 1 else (lines[0] if lines else None)
 
+    def visitEvaluateStatement(self, ctx: Cobol85Parser.EvaluateStatementContext):
+        """
+        Convert EVALUATE statement to nested if/elseif/else chains.
+
+        Grammar:
+        evaluateStatement
+            : EVALUATE evaluateSelect evaluateAlsoSelect* evaluateWhenPhrase+ evaluateWhenOther? END_EVALUATE?
+
+        evaluateWhenPhrase
+            : evaluateWhen+ statement*
+
+        evaluateWhen
+            : WHEN evaluateCondition evaluateAlsoCondition*
+
+        evaluateWhenOther
+            : WHEN OTHER statement*
+
+        COBOL Example (Value-Based):
+            EVALUATE DATEPARM-STATUS
+              WHEN '00'
+                  MOVE 0 TO APPL-RESULT
+              WHEN '10'
+                  MOVE 16 TO APPL-RESULT
+              WHEN OTHER
+                  MOVE 12 TO APPL-RESULT
+            END-EVALUATE
+
+        DSL Output:
+            if dateparm.status == "00" then
+                appl.result = 0
+            elseif dateparm.status == "10" then
+                appl.result = 16
+            else
+                appl.result = 12
+            endif
+
+        COBOL Example (EVALUATE TRUE):
+            EVALUATE TRUE
+              WHEN BALANCE > 10000
+                  PERFORM PREMIUM-RATE
+              WHEN BALANCE > 5000
+                  PERFORM STANDARD-RATE
+              WHEN OTHER
+                  PERFORM BASIC-RATE
+            END-EVALUATE
+
+        DSL Output:
+            if balance > 10000 then
+                premium.rate()
+            elseif balance > 5000 then
+                standard.rate()
+            else
+                basic.rate()
+            endif
+        """
+        indent = self.get_indentation()
+
+        # Get the evaluate select (what we're evaluating)
+        select_expr = self.visit(ctx.evaluateSelect())
+
+        # Handle case where visit returns a list
+        if isinstance(select_expr, list):
+            select_expr = select_expr[0] if select_expr else "true"
+
+        # Check if this is "EVALUATE TRUE" pattern
+        is_evaluate_true = select_expr.lower() == "true"
+
+        # Process WHEN phrases
+        when_phrases = ctx.evaluateWhenPhrase()
+        lines = []
+
+        for i, when_phrase in enumerate(when_phrases):
+            # Get WHEN conditions
+            when_list = when_phrase.evaluateWhen()
+            if not when_list:
+                continue
+
+            # For now, support single WHEN condition (most common CardDemo pattern)
+            when_ctx = when_list[0]
+            eval_condition = when_ctx.evaluateCondition()
+
+            # Build condition
+            if is_evaluate_true:
+                # EVALUATE TRUE: use condition directly
+                condition = self.visit(eval_condition)
+                # Handle case where condition is a list
+                if isinstance(condition, list):
+                    condition = condition[0] if condition else "true"
+            else:
+                # Value-based EVALUATE: build equality check
+                # Check if condition is ANY
+                if eval_condition.ANY():
+                    condition = "true"
+                elif eval_condition.condition():
+                    # Condition-based WHEN clause
+                    condition = self.visit(eval_condition.condition())
+                else:
+                    # Value-based: EVALUATE X WHEN 'A' → x == "A"
+                    value = self.visit(eval_condition.evaluateValue()) if hasattr(eval_condition, 'evaluateValue') and eval_condition.evaluateValue() else self.visit(eval_condition)
+                    # Handle case where value is a list
+                    if isinstance(value, list):
+                        value = value[0] if value else "null"
+                    condition = f"{select_expr} == {value}"
+
+            # Determine if/elseif/else
+            if i == 0:
+                lines.append(f"{indent}if {condition} then")
+            else:
+                lines.append(f"{indent}elseif {condition} then")
+
+            # Process statements in this WHEN clause
+            self.indent_level += 1
+            statements = when_phrase.statement()
+            for stmt in statements:
+                result = self.visit(stmt)
+                if result:
+                    if isinstance(result, list):
+                        lines.extend(result)
+                    else:
+                        lines.append(result)
+            self.indent_level -= 1
+
+        # Process WHEN OTHER (else clause)
+        when_other = ctx.evaluateWhenOther()
+        if when_other:
+            lines.append(f"{indent}else")
+            self.indent_level += 1
+            statements = when_other.statement()
+            for stmt in statements:
+                result = self.visit(stmt)
+                if result:
+                    if isinstance(result, list):
+                        lines.extend(result)
+                    else:
+                        lines.append(result)
+            self.indent_level -= 1
+
+        # Close the if statement
+        lines.append(f"{indent}endif")
+
+        return lines
+
+    def visitAddStatement(self, ctx: Cobol85Parser.AddStatementContext):
+        """
+        Convert ADD statement to DSL assignments.
+
+        Grammar:
+        addStatement
+            : ADD (addToStatement | addToGivingStatement | addCorrespondingStatement) ...
+
+        addToStatement
+            : addFrom+ TO addTo+
+
+        addToGivingStatement
+            : addFrom+ (TO addToGiving+)? GIVING addGiving+
+
+        COBOL Example (TO form):
+            ADD A TO B              → b = b + a
+
+        COBOL Example (GIVING form - most common in CardDemo):
+            ADD 8 TO ZERO GIVING APPL-RESULT    → appl.result = 0 + 8
+            ADD A B GIVING C                     → c = a + b
+
+        DSL Output:
+            TO form:       b = b + a
+            GIVING form:   appl.result = 8 (optimized when adding to zero)
+                          c = a + b
+        """
+        indent = self.get_indentation()
+
+        # Check which form of ADD statement
+        if ctx.addToGivingStatement():
+            # GIVING form: ADD A B TO C GIVING D  or  ADD A B GIVING C
+            giving_stmt = ctx.addToGivingStatement()
+
+            # Get addFrom values (what to add)
+            add_from_list = giving_stmt.addFrom()
+            from_values = []
+            for add_from in add_from_list:
+                val = self.visit(add_from)
+                # Handle case where visit returns a list
+                if isinstance(val, list):
+                    val = val[0] if val else ""
+                if val:
+                    from_values.append(val)
+
+            # Get addToGiving values (optional - values to add to the sum)
+            to_giving_list = giving_stmt.addToGiving() if hasattr(giving_stmt, 'addToGiving') else []
+            to_values = []
+            for to_giving in to_giving_list:
+                val = self.visit(to_giving)
+                # Handle case where visit returns a list
+                if isinstance(val, list):
+                    val = val[0] if val else ""
+                if val:
+                    to_values.append(val)
+
+            # Get GIVING targets (where to store result)
+            giving_list = giving_stmt.addGiving()
+            targets = []
+            for giving in giving_list:
+                target = self.visit(giving.identifier())
+                if isinstance(target, list):
+                    target = target[0] if target else ""
+                if target:
+                    targets.append(target)
+
+            # Build expression: sum of all from_values and to_values
+            all_values = from_values + to_values
+            if len(all_values) == 1:
+                expression = all_values[0]
+            else:
+                expression = " + ".join(all_values)
+
+            # Generate assignment(s)
+            lines = []
+            for target in targets:
+                lines.append(f"{indent}{target} = {expression}")
+
+            return lines if len(lines) > 1 else (lines[0] if lines else None)
+
+        elif ctx.addToStatement():
+            # TO form: ADD A B TO C D  →  c = c + a + b; d = d + a + b
+            to_stmt = ctx.addToStatement()
+
+            # Get addFrom values
+            add_from_list = to_stmt.addFrom()
+            from_values = []
+            for add_from in add_from_list:
+                val = self.visit(add_from)
+                # Handle case where visit returns a list
+                if isinstance(val, list):
+                    val = val[0] if val else ""
+                if val:
+                    from_values.append(val)
+
+            # Get addTo targets
+            add_to_list = to_stmt.addTo()
+            targets = []
+            for add_to in add_to_list:
+                target = self.visit(add_to.identifier())
+                if isinstance(target, list):
+                    target = target[0] if target else ""
+                if target:
+                    targets.append(target)
+
+            # Build expression for each target: target = target + from1 + from2 + ...
+            lines = []
+            for target in targets:
+                all_values = [target] + from_values
+                expression = " + ".join(all_values)
+                lines.append(f"{indent}{target} = {expression}")
+
+            return lines if len(lines) > 1 else (lines[0] if lines else None)
+
+        else:
+            # CORRESPONDING form - not implemented yet
+            return f"{indent}# ADD CORRESPONDING not supported yet"
+
+    def visitSubtractStatement(self, ctx: Cobol85Parser.SubtractStatementContext):
+        """
+        Convert SUBTRACT statement to DSL assignments.
+
+        Grammar:
+        subtractStatement
+            : SUBTRACT (subtractFromStatement | subtractFromGivingStatement | subtractCorrespondingStatement) ...
+
+        subtractFromStatement
+            : subtractSubtrahend+ FROM subtractMinuend+
+
+        subtractFromGivingStatement
+            : subtractSubtrahend+ FROM subtractMinuendGiving GIVING subtractGiving+
+
+        COBOL Example (FROM form - most common in CardDemo):
+            SUBTRACT APPL-RESULT FROM APPL-RESULT    → appl.result = 0  (zeroing pattern)
+            SUBTRACT A FROM B                        → b = b - a
+
+        COBOL Example (GIVING form):
+            SUBTRACT A FROM B GIVING C               → c = b - a
+
+        DSL Output:
+            FROM form:     b = b - a
+            GIVING form:   c = b - a
+            Zero pattern:  appl.result = 0 (optimized)
+        """
+        indent = self.get_indentation()
+
+        # Check which form of SUBTRACT statement
+        if ctx.subtractFromGivingStatement():
+            # GIVING form: SUBTRACT A FROM B GIVING C  →  c = b - a
+            giving_stmt = ctx.subtractFromGivingStatement()
+
+            # Get subtrahends (what to subtract)
+            subtrahend_list = giving_stmt.subtractSubtrahend()
+            subtrahend_values = []
+            for subtrahend in subtrahend_list:
+                val = self.visit(subtrahend)
+                # Handle case where visit returns a list
+                if isinstance(val, list):
+                    val = val[0] if val else ""
+                if val:
+                    subtrahend_values.append(val)
+
+            # Get minuend (what to subtract from)
+            minuend_giving = giving_stmt.subtractMinuendGiving()
+            minuend = self.visit(minuend_giving)
+            # Handle case where visit returns a list
+            if isinstance(minuend, list):
+                minuend = minuend[0] if minuend else "0"
+
+            # Get GIVING targets
+            giving_list = giving_stmt.subtractGiving()
+            targets = []
+            for giving in giving_list:
+                target = self.visit(giving.identifier())
+                if isinstance(target, list):
+                    target = target[0] if target else ""
+                if target:
+                    targets.append(target)
+
+            # Build expression: minuend - sub1 - sub2 - ...
+            all_parts = [minuend] + [f"{val}" for val in subtrahend_values]
+            expression = " - ".join(all_parts)
+
+            # Generate assignment(s)
+            lines = []
+            for target in targets:
+                lines.append(f"{indent}{target} = {expression}")
+
+            return lines if len(lines) > 1 else (lines[0] if lines else None)
+
+        elif ctx.subtractFromStatement():
+            # FROM form: SUBTRACT A FROM B  →  b = b - a
+            from_stmt = ctx.subtractFromStatement()
+
+            # Get subtrahends
+            subtrahend_list = from_stmt.subtractSubtrahend()
+            subtrahend_values = []
+            for subtrahend in subtrahend_list:
+                val = self.visit(subtrahend)
+                # Handle case where visit returns a list
+                if isinstance(val, list):
+                    val = val[0] if val else ""
+                if val:
+                    subtrahend_values.append(val)
+
+            # Get minuends (targets)
+            minuend_list = from_stmt.subtractMinuend()
+            targets = []
+            for minuend in minuend_list:
+                target = self.visit(minuend.identifier())
+                if isinstance(target, list):
+                    target = target[0] if target else ""
+                if target:
+                    targets.append(target)
+
+            # Generate assignments: target = target - sub1 - sub2 - ...
+            lines = []
+            for target in targets:
+                # Check for zeroing pattern: SUBTRACT X FROM X
+                if len(subtrahend_values) == 1 and subtrahend_values[0] == target:
+                    # Optimize: x - x = 0
+                    lines.append(f"{indent}{target} = 0")
+                else:
+                    # Normal: target = target - sub1 - sub2
+                    all_parts = [target] + [f"{val}" for val in subtrahend_values]
+                    expression = " - ".join(all_parts)
+                    lines.append(f"{indent}{target} = {expression}")
+
+            return lines if len(lines) > 1 else (lines[0] if lines else None)
+
+        else:
+            # CORRESPONDING form - not implemented yet
+            return f"{indent}# SUBTRACT CORRESPONDING not supported yet"
+
 
 class CobolConverter:
     """
@@ -680,18 +1059,101 @@ class CobolConverter:
         """
         self.mapper = MappingService(mapping_csv_path)
 
+    def _is_snippet(self, cobol_code: str) -> bool:
+        """
+        Detect if code is a snippet (not a complete program).
+
+        Returns True if the code is missing required program divisions.
+        Handles arbitrary code fragments from 2 lines to full paragraphs.
+        """
+        code_upper = cobol_code.strip().upper()
+
+        # If it has IDENTIFICATION or PROGRAM-ID, it's a complete program
+        if 'IDENTIFICATION DIVISION' in code_upper or 'PROGRAM-ID' in code_upper:
+            return False
+
+        # Otherwise, it's a snippet - could be:
+        # - Just a few statements (MOVE X TO Y, IF X = Y THEN...)
+        # - A paragraph without divisions
+        # - Arbitrary procedural code fragment
+        return True
+
+    def _wrap_snippet(self, cobol_snippet: str) -> str:
+        """
+        Wrap a COBOL paragraph snippet in minimal program structure.
+
+        Extracts variable references and creates synthetic DATA DIVISION.
+        """
+        # Create minimal COBOL program wrapper
+        wrapped = """       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SNIPPET.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+"""
+
+        # Extract potential variable names from the snippet
+        # Look for patterns like: MOVE X TO Y, IF X = Y, etc.
+        import re
+
+        # Find all potential COBOL variable names (uppercase words with hyphens)
+        var_pattern = r'\b([A-Z][A-Z0-9\-]*)\b'
+        potential_vars = set(re.findall(var_pattern, cobol_snippet.upper()))
+
+        # Filter out COBOL keywords
+        keywords = {'IF', 'THEN', 'ELSE', 'END-IF', 'PERFORM', 'MOVE', 'TO', 'READ', 'INTO',
+                   'WRITE', 'FROM', 'DISPLAY', 'INITIALIZE', 'CONTINUE', 'EXIT', 'STOP', 'RUN',
+                   'WHEN', 'OTHER', 'THRU', 'THROUGH', 'VARYING', 'UNTIL', 'BY'}
+
+        # Also filter out file names (contain -FILE suffix) and paragraph names (start with digits)
+        variables = {v for v in potential_vars
+                    if v not in keywords
+                    and not v.endswith('-FILE')
+                    and not (v[0].isdigit() and '-' in v)}  # Filter paragraph names like 1000-SOMETHING
+
+        # Add variable declarations
+        for var in sorted(variables):
+            # Use PIC X for most, 9 for numeric-looking ones
+            if any(word in var for word in ['COUNTER', 'RESULT', 'STATUS', 'CODE']):
+                wrapped += f"       01 {var:<18} PIC X(10).\n"
+            else:
+                wrapped += f"       01 {var:<18} PIC X(100).\n"
+
+        # Add procedure division with the snippet
+        wrapped += "\n       PROCEDURE DIVISION.\n"
+        wrapped += cobol_snippet
+
+        # Ensure it ends properly
+        if not cobol_snippet.strip().endswith('.'):
+            wrapped += "\n           ."
+        if 'STOP RUN' not in cobol_snippet.upper():
+            wrapped += "\n           STOP RUN.\n"
+
+        return wrapped
+
     def convert(self, cobol_code: str, rule_name: str = "Generated Rule") -> tuple[str, ConversionMetadata]:
         """
         Convert COBOL code to Rules DSL.
 
+        Automatically detects and wraps paragraph snippets in minimal program structure.
+
         Args:
-            cobol_code: COBOL source code string
+            cobol_code: COBOL source code string (can be snippet or complete program)
             rule_name: Name for generated rule
 
         Returns:
             Tuple of (generated DSL code, conversion metadata)
         """
         try:
+            # Detect and wrap snippets
+            if self._is_snippet(cobol_code):
+                original_snippet = cobol_code
+                cobol_code = self._wrap_snippet(cobol_code)
+                # Add metadata about snippet wrapping
+                wrapped_note = "# ℹ️ Paragraph snippet auto-wrapped for parsing\n"
+            else:
+                wrapped_note = ""
+
             # Parse COBOL
             input_stream = InputStream(cobol_code)
             lexer = Cobol85Lexer(input_stream)
@@ -709,6 +1171,10 @@ class CobolConverter:
             metadata_comments = visitor.metadata.get_metadata_comments()
 
             dsl_lines = []
+
+            # Add snippet wrapping note if applicable
+            if wrapped_note:
+                dsl_lines.append(wrapped_note)
 
             # Add metadata comments
             if metadata_comments:
@@ -759,3 +1225,71 @@ class CobolConverter:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+
+# CLI interface for VS Code extension integration
+if __name__ == "__main__":
+    import argparse
+    import sys
+    import json
+
+    parser = argparse.ArgumentParser(description='Convert COBOL code to Rules DSL')
+    parser.add_argument('--stdin', action='store_true', help='Read COBOL code from stdin')
+    parser.add_argument('--rule-name', default='Converted Rule', help='Name for the generated rule')
+    parser.add_argument('--file', help='Path to COBOL file (alternative to --stdin)')
+
+    args = parser.parse_args()
+
+    try:
+        # Read COBOL code
+        if args.stdin:
+            cobol_code = sys.stdin.read()
+        elif args.file:
+            with open(args.file, 'r') as f:
+                cobol_code = f.read()
+        else:
+            print(json.dumps({"error": "Either --stdin or --file must be specified"}))
+            sys.exit(1)
+
+        # Convert
+        with CobolConverter() as converter:
+            dsl_code, metadata = converter.convert(cobol_code, args.rule_name)
+
+            # Output JSON result
+            # Handle both object and dict mappings
+            mappings = []
+            for m in metadata.mappings:
+                if isinstance(m, dict):
+                    mappings.append(m)
+                else:
+                    mappings.append({
+                        "cobol": m.cobol_var,
+                        "target": m.target_var,
+                        "type": m.mapping_type,
+                        "confidence": m.confidence,
+                        "comment": m.comment
+                    })
+
+            result = {
+                "dsl": dsl_code,
+                "metadata": {
+                    "mappings": mappings,
+                    "warnings": metadata.warnings if hasattr(metadata, 'warnings') else [],
+                    "errors": []
+                }
+            }
+
+            print(json.dumps(result, indent=2))
+
+    except Exception as e:
+        error_result = {
+            "error": str(e),
+            "dsl": f"# Error during conversion: {str(e)}",
+            "metadata": {
+                "mappings": [],
+                "warnings": [],
+                "errors": [str(e)]
+            }
+        }
+        print(json.dumps(error_result, indent=2))
+        sys.exit(1)
