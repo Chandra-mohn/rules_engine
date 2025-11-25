@@ -1,0 +1,58 @@
+{
+  "name": "cobol-to-dsl-migration",
+  "displayName": "COBOL to Rules DSL Migration Workbench",
+  "description": "Interactive tool for converting COBOL code to Rules DSL with AST-based transpilation",
+  "version": "0.1.0",
+  "publisher": "rules-engine",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:cobol-migration.openWorkbench",
+    "onCommand:cobol-migration.convertToDSL"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cobol-migration.openWorkbench",
+        "title": "COBOL to Rules: Open Migration Workbench"
+      },
+      {
+        "command": "cobol-migration.convertToDSL",
+        "title": "Convert to Rules DSL"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cobol-migration.convertToDSL",
+          "when": "editorHasSelection",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "axios": "^1.5.0"
+  }
+}

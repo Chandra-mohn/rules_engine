@@ -1,0 +1,12 @@
+# COBOL-to-DSL Migration Workbench - Backend Dependencies
+# Python 3.9+
+
+# ANTLR4 Parser Runtime
+antlr4-python3-runtime==4.13.2
+
+# DuckDB - Embedded analytical database with CSV support
+duckdb==0.9.2
+
+# Future enhancements (deferred)
+# openai>=1.0.0              # NLP-based intent extraction (when LLM access available)
+# anthropic>=0.7.0           # Alternative NLP provider
